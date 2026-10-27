@@ -18,5 +18,6 @@
       "#build/ui/*": ["./node_modules/.nuxt-ui/ui/*"],
       "devlog-ui": ["./packages/devlog-ui/src"]
     }
-  }
+  },
+  "exclude": ["./packages/devlog-ui", "./node_modules", "./.output"]
 }
