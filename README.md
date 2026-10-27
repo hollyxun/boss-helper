@@ -3,34 +3,43 @@
 >
 > 使用该脚本有一定风险(如黑号,封号,权重降低等)，本项目不承担任何责任
 
+> [!IMPORTANT]
+> 本仓库是基于 [Ocyss/boss-helper](https://github.com/Ocyss/boss-helper) 的衍生改造版本，当前版本 **0.0.1**，版本号从 0.0.1 重新开始。
+>
+> 下方商店徽章与链接属于原项目；本项目暂未上架商店，安装请使用 GitHub Releases 或本地构建。
+
 | Chrome                                                                                                                                                                                             | Crx搜搜                                                                                                                                           | Edge                                                                                                                                                                                                                                                                                                                           | FireFox                                                                                                                                   | Github                                                                                                                                |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/ogkmgjbagackkdlcibcailacnncgonbn?label=Chrome插件商店)](https://chrome.google.com/webstore/detail/ogkmgjbagackkdlcibcailacnncgonbn) | [![Crx 搜搜](https://img.shields.io/badge/Crx搜索-v%3F.%3F.%3F-EF7C3D)](https://www.crxsoso.com/webstore/detail/ogkmgjbagackkdlcibcailacnncgonbn) | [![Edge Web Store](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2Faddons%2Fgetproductdetailsbycrxid%2Fjcllnbjfeamhihjpfjlclhdnjmggbgal&query=version&prefix=v&label=Edge插件商店&color=EF7C3D)](https://microsoftedge.microsoft.com/addons/detail/jcllnbjfeamhihjpfjlclhdnjmggbgal) | [![Firefox](https://img.shields.io/amo/v/boss-helper?label=Mozilla插件商店)](https://addons.mozilla.org/zh-TW/firefox/addon/boss-helper/) | [![GitHub Release](https://img.shields.io/github/v/release/Ocyss/boss-helper)](https://github.com/Ocyss/boss-helper/releases/latest/) |
+| [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/ogkmgjbagackkdlcibcailacnncgonbn?label=Chrome插件商店)](https://chrome.google.com/webstore/detail/ogkmgjbagackkdlcibcailacnncgonbn) | [![Crx 搜搜](https://img.shields.io/badge/Crx搜索-v%3F.%3F.%3F-EF7C3D)](https://www.crxsoso.com/webstore/detail/ogkmgjbagackkdlcibcailacnncgonbn) | [![Edge Web Store](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2Faddons%2Fgetproductdetailsbycrxid%2Fjcllnbjfeamhihjpfjlclhdnjmggbgal&query=version&prefix=v&label=Edge插件商店&color=EF7C3D)](https://microsoftedge.microsoft.com/addons/detail/jcllnbjfeamhihjpfjlclhdnjmggbgal) | [![Firefox](https://img.shields.io/amo/v/boss-helper?label=Mozilla插件商店)](https://addons.mozilla.org/zh-TW/firefox/addon/boss-helper/) | [![GitHub Release](https://img.shields.io/github/v/release/hollyxun/boss-helper)](https://github.com/hollyxun/boss-helper/releases/latest/) |
 
-> **国内**: 如果无法访问 `Chrome插件商店` , 请使用 `Crx搜搜` 或 `Edge插件商店` 安装
+> **原项目安装渠道**：如果无法访问 `Chrome插件商店` , 请使用 `Crx搜搜` 或 `Edge插件商店` 安装
+
 
 ## 项目介绍
 
-Boss直聘助手, 皆在减少投递简历的麻烦, 和提高投递简历的效率, 技术栈使用WXT + Vue3 + NuxtUI@4 + TailwindCSS@4, 开源在 Github 欢迎前来Pr
+基于 [Ocyss/boss-helper](https://github.com/Ocyss/boss-helper) 改造的 Boss 直聘助手，旨在减少投递简历的麻烦、提高投递简历的效率。技术栈使用 WXT + Vue3 + NuxtUI@4 + TailwindCSS@4，并已迁移到 Node.js + npm 构建。
 
-> 本项目处于积极维护状态, 一直很忙所以拖了比较久才开源，抱歉了~
+> 本仓库是衍生版本，版本号从 0.0.1 重新开始；原项目的功能、文档与设计仍然是本项目的基线。
 
 ## 相关链接
 
-唯一交流群:
+本项目 GitHub: <https://github.com/hollyxun/boss-helper>
+
+问题反馈: <https://github.com/hollyxun/boss-helper/issues>
+
+原项目交流群（Telegram）:
+
 微信麻烦, 飞书人数限制, 所以只开tg一个~
 
 <img alt="交流群" src="./docs/img/tg.png" height="200" />
 
-Github开源地址: <https://github.com/ocyss/boss-helper>
+原项目 GitHub: <https://github.com/ocyss/boss-helper>
 
-飞书反馈问卷(匿名): <https://gai06vrtbc0.feishu.cn/share/base/form/shrcnmEq2fxH9hM44hqEnoeaj8g>
+原项目反馈问卷(匿名): <https://gai06vrtbc0.feishu.cn/share/base/form/shrcnmEq2fxH9hM44hqEnoeaj8g>
 
-> 每个提交都会给我发通知，我看见就会评论的形式回复 一般 1-2天
+原项目问卷结果: <https://gai06vrtbc0.feishu.cn/share/base/view/shrcnrg8D0cbLQc89d7Jj7AZgMc>
 
-飞书问卷结果: <https://gai06vrtbc0.feishu.cn/share/base/view/shrcnrg8D0cbLQc89d7Jj7AZgMc>
-
-greasyfork地址(0.2旧版本): <https://greasyfork.org/zh-CN/scripts/491340>
+原项目 greasyfork 地址(0.2旧版本): <https://greasyfork.org/zh-CN/scripts/491340>
 
 ## 项目预览
 
@@ -75,6 +84,7 @@ greasyfork地址(0.2旧版本): <https://greasyfork.org/zh-CN/scripts/491340>
 
 ## 鸣谢
 
+- <https://github.com/Ocyss/boss-helper>（原项目）
 - <https://github.com/yangfeng20/boss_batch_push>
 - <https://github.com/lisonge/vite-plugin-monkey>
 - <https://github.com/chatanywhere/GPT_API_free>
@@ -91,7 +101,7 @@ greasyfork地址(0.2旧版本): <https://greasyfork.org/zh-CN/scripts/491340>
 
 嗯...
 
-## Star 趋势
+## 原项目 Star 趋势
 
 <a href="https://star-history.dera.page/#ocyss/boss-helper&Date">
  <picture>

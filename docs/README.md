@@ -1,8 +1,8 @@
 # BossHelper 源码分析文档
 
-本目录是一套**新写的源码分析文档**，与仓库根目录的 `README.md`、`CONTRIBUTING.md`、`PRIVACY.md` 相互独立，不修改、不替代原有文档。原有 `docs/img/` 截图资源保持原样。
+本目录是一套**独立编写的源码分析文档**，与仓库根目录的 `README.md`、`CONTRIBUTING.md`、`PRIVACY.md` 分开维护；`docs/img/` 截图资源保持原样。
 
-- 分析对象：当前工作区中的 `boss-helper` 源码（`package.json` 版本 `0.5.2.2`）
+- 分析对象：当前工作区中的 `boss-helper` 源码（衍生版本 `0.0.1`，代码基线来自上游 `0.5.2.2`）
 - 分析方式：静态阅读源码、配置、构建脚本与 GitHub Actions，不依赖联网资料
 - 分析范围：`src/`、`wxt.config.ts`、`package.json`、`public/`、`.github/`、`scripts/`、根目录配置文件
 - 说明：`packages/devlog-ui` 是 Git 子模块，未初始化时为空目录。涉及日志库内部实现的部分，本文只描述项目对它的调用方式，不对其内部代码做断言

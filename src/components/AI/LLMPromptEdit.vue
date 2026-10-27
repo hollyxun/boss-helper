@@ -310,7 +310,7 @@ const testModelRef = useTemplateRef('testModel')
       <div v-pre>
         使用 {{}} 来渲染变量。
         <ULink
-          to="https://github.com/Ocyss/boss-helper/blob/master/src/types/bossData.d.ts"
+          to="https://github.com/hollyxun/boss-helper/blob/main/src/entrypoints/boss/types.ts"
           target="_blank"
         >
           变量表

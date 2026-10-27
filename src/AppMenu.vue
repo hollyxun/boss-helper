@@ -93,10 +93,10 @@ const container = ref<HTMLDivElement>()
           <br />
           使用该脚本有一定风险(如黑号,封号,权重降低等)，本项目不承担任何责任
           <br />
-          Github开源地址:
+          本项目 Github 开源地址:
 
-          <ULink to="https://github.com/ocyss/boss-helper" target="_blank"
-            >https://github.com/ocyss/boss-helper
+          <ULink to="https://github.com/hollyxun/boss-helper" target="_blank"
+            >https://github.com/hollyxun/boss-helper
           </ULink>
         </template>
         <template #footer>
