@@ -87,8 +87,8 @@ export default defineConfig({
           },
           modal: {
             slots: {
-              overlay: 'z-200',
-              content: 'z-220',
+              overlay: 'z-[1200]',
+              content: 'z-[1220]',
               footer: 'justify-end',
             },
           },
@@ -103,7 +103,7 @@ export default defineConfig({
           },
           slideover: {
             slots: {
-              content: 'z-230',
+              content: 'z-[1230]',
             },
           },
         },

@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 
 import { defineUnlistedScript } from '#imports'
-import { appearanceConf, useConf } from '@/composables/conf'
+import { useConf } from '@/composables/conf'
 import type { WorkflowData } from '@/composables/useApplying/type'
 import { createLazyObject, isInitialized } from '@/composables/useApplying/type'
 import type { JobData } from '@/composables/useHelper'
@@ -266,17 +266,7 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     }
   }
 
-  async onMount(path?: string) {
-    if (!path) {
-      path = this.rootVue.$route.path
-    }
-
-    try {
-      if (await elmGetter.get('boss-helper-job', 3000)) {
-        return
-      }
-    } catch {}
-
+  async onMount() {
     if (BossHelperCtx.instance) {
       BossHelperCtx.instance.remove()
       BossHelperCtx.instance = null
@@ -286,13 +276,10 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     //   const menuElement = document.createElement('boss-helper-menu')
     //   document.body.appendChild(menuElement)
     // }
-    const elm = await elmGetter.get(
-      '.job-search-wrapper,.job-recommend-main,.page-jobs .page-jobs-main',
-    )
 
     const appElement = document.createElement('boss-helper-job')
     BossHelperCtx.instance = appElement
-    elm.insertBefore(appElement, elm.firstChild)
+    document.body.appendChild(appElement)
     removeAd()
 
     await this._initPage()
@@ -302,20 +289,7 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     await this._initJobList()
 
     this.initNetConf()
-    const contentElm = elm.querySelector<HTMLDivElement>('.recommend-result-inner')
     this.geek = new GeekChatClientManager()
-
-    watch(
-      appearanceConf.value,
-      (v) => {
-        if (!contentElm) return
-        contentElm.style.marginRight =
-          v.leftChat && v.contentOffset != 25 ? `${v.contentOffset}%` : 'auto'
-        contentElm.style.marginLeft =
-          !v.leftChat && v.contentOffset != 25 ? `${v.contentOffset}%` : 'auto'
-      },
-      { immediate: true },
-    )
     await this.geek.connect()
   }
   getConfigItems() {
@@ -704,28 +678,10 @@ export default defineUnlistedScript(async () => {
   initCounter()
   const bossHelpCtx = await BossHelperCtx.new()
 
-  bossHelpCtx.rootVue.$router.afterHooks.push(
-    (to: {
-      name: string
-      meta: {
-        notLogin: boolean
-        wrapClassName: string
-        scrollBehavior: string
-        hideFooter: boolean
-        headerV2: boolean
-      }
-      path: string
-      hash: string
-      query: {
-        ka: string
-      }
-      params: {}
-      fullPath: string
-    }) => {
-      // hookChatSocket()
-      void bossHelpCtx.onMount(to.path)
-    },
-  )
+  bossHelpCtx.rootVue.$router.afterHooks.push(() => {
+    // hookChatSocket()
+    void bossHelpCtx.onMount()
+  })
 
   await run(bossHelpCtx)
 })

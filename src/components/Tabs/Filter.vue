@@ -7,6 +7,10 @@ import elmGetter from '@/utils/elmGetter'
 const CONTAINER_ID = 'boss-helper-external-wrapper'
 const placeholder = ref<HTMLElement | null>(null)
 const externalWrapper = ref<HTMLElement | null>(null)
+const moved = ref<
+  Array<{ el: HTMLElement; parent: Node; next: Node | null; style: string | null }>
+>([])
+let disposed = false
 
 const { x, y, width, height } = useElementBounding(placeholder)
 const { width: windowWidth } = useWindowSize()
@@ -20,7 +24,7 @@ watch([x, y, width, windowWidth], () => {
   Object.assign(externalWrapper.value.style, {
     display: 'flex',
     position: 'fixed',
-    zIndex: '100',
+    zIndex: '950',
     left: `${x.value}px`,
     top: `${y.value}px`,
     width: `${width.value}px`,
@@ -76,10 +80,20 @@ async function collectTargets() {
 onMounted(async () => {
   const wrapper = await initExternalContainer()
   const targets = await collectTargets()
+  if (disposed) return
 
   if (targets.length) {
     wrapper.innerHTML = ''
+    moved.value = []
     targets.forEach((el) => {
+      const parent = el.parentNode
+      if (!parent) return
+      moved.value.push({
+        el,
+        parent,
+        next: el.nextSibling,
+        style: el.getAttribute('style'),
+      })
       el.style.setProperty('margin', '0', 'important')
       el.style.setProperty('width', '100%', 'important')
       wrapper.appendChild(el)
@@ -94,6 +108,17 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  disposed = true
+  for (const { el, parent, next, style } of [...moved.value].reverse()) {
+    if (!parent.isConnected) continue
+    parent.insertBefore(el, next && next.parentNode === parent ? next : null)
+    if (style === null) {
+      el.removeAttribute('style')
+    } else {
+      el.setAttribute('style', style)
+    }
+  }
+  moved.value = []
   if (externalWrapper.value) {
     externalWrapper.value.style.display = 'none'
   }

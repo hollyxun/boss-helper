@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import type { TabsItem } from '@nuxt/ui'
 import { useRafFn } from '@vueuse/core'
+import { Bot } from 'lucide-vue-next'
 import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 
 import ChatBox from '@/components/ChatBox.vue'
@@ -12,6 +12,13 @@ import Config from '@/components/Tabs/Config.vue'
 import Filter from '@/components/Tabs/Filter.vue'
 import Logs from '@/components/Tabs/Logs.vue'
 import Statistics from '@/components/Tabs/Statistics.vue'
+import Button from '@/components/ui/button/Button.vue'
+import Sheet from '@/components/ui/sheet/Sheet.vue'
+import SheetContent from '@/components/ui/sheet/SheetContent.vue'
+import Tabs from '@/components/ui/tabs/Tabs.vue'
+import TabsContent from '@/components/ui/tabs/TabsContent.vue'
+import TabsList from '@/components/ui/tabs/TabsList.vue'
+import TabsTrigger from '@/components/ui/tabs/TabsTrigger.vue'
 import { useConf, appearanceConf } from '@/composables/conf'
 import { useModel } from '@/composables/useModel'
 
@@ -22,19 +29,7 @@ const model = useModel()
 const helper = useHelper()
 const { todayData } = helper.statistics
 const conf = useConf()
-
-const items = computed<TabsItem[]>(() => {
-  const configs = [
-    { slot: 'statistics', label: '统计', help: '失败是成功她妈' },
-    { slot: 'filter', label: '筛选' },
-    { slot: 'config', label: '配置', help: '好好看，好好学' },
-    { slot: 'ai', label: 'AI', help: 'AI时代，脚本怎么能落伍!' },
-    { slot: 'logs', label: '日志', help: '反正你也不看' },
-    { slot: 'about', label: '关于&赞赏', help: '项目是写不完美的,但总要去追求完美' },
-  ] satisfies (TabsItem | boolean | null | undefined | '')[]
-
-  return configs.filter((item) => !!item) as TabsItem[]
-})
+const activeTab = ref('statistics')
 
 // const externalFilter = ref<HTMLElement>()
 const container = ref<HTMLElement>()
@@ -110,6 +105,13 @@ const updateOverlay = () => {
 const { pause, resume } = useRafFn(updateOverlay, { immediate: false })
 
 const chatOpen = ref(appearanceConf.value.defaultShowChatBox)
+const drawerOpen = ref(false)
+
+watch(drawerOpen, (open) => {
+  if (!open) {
+    chatOpen.value = false
+  }
+})
 
 onMounted(() => {
   root = (container.value?.getRootNode() as ShadowRoot) ?? document
@@ -147,20 +149,13 @@ function onPointerMove(ev: PointerEvent) {
 
 <template>
   <div
-    class="shadow-wrapper w-284 max-w-284 min-w-284 m-10 mx-auto mb-24"
-    :style="{
-      marginRight:
-        appearanceConf.leftChat && appearanceConf.contentOffset != 25
-          ? `${appearanceConf.contentOffset}%`
-          : undefined,
-      marginLeft:
-        !appearanceConf.leftChat && appearanceConf.contentOffset != 25
-          ? `${appearanceConf.contentOffset}%`
-          : undefined,
-    }"
     ref="container"
+    class="bh-root"
+    @pointermove.passive="onPointerMove"
+    @mouseenter="isHovering = true"
+    @mouseleave="isHovering = false"
   >
-    <UApp :portal="container" :toaster="{ position: 'top-right', ui: { viewport: 'z-100000' } }">
+    <UApp :portal="container" :toaster="{ position: 'top-right', ui: { viewport: 'z-[100000]' } }">
       <div class="overlay-box" :style="boxStyles" />
       <UTooltip
         :open="helpVisible"
@@ -177,90 +172,106 @@ function onPointerMove(ev: PointerEvent) {
           text: 'whitespace-normal',
         }"
       />
-      <div
-        @pointermove.passive="onPointerMove"
-        @mouseenter="isHovering = true"
-        @mouseleave="isHovering = false"
-      >
-        <div class="rounded-xl pt-3 pb-6 px-4 bg-default flex flex-col">
-          <div class="flex gap-2 items-center">
-            <span class="text-xl">{{ !appearanceConf.hideHeader ? 'Boss-Helper' : 'Helper' }}</span>
-            <UChip :show="isDot">
-              <UButton color="primary" variant="subtle" @click="openStore" size="xs">
-                v{{ VITE_VERSION }} {{ isDot ? ' 有更新' : '' }}
-              </UButton>
-            </UChip>
-            <span v-if="todayData.total > 0" style="margin-right: 15px">
-              今日投递: {{ todayData.success }}/{{ conf.formData.deliveryLimit.value }}
-            </span>
-            <span v-if="helper.workflow && helper.workflow.total.value > 0">
-              当前页面处理: {{ helper.workflow.current.value }}/{{ helper.workflow.total.value }}
-            </span>
-          </div>
 
-          <div v-if="helper.netConf.value && helper.netConf.value.notification" class="netAlerts">
-            <template
-              v-for="item in helper.netConf.value.notification.filter(
-                (item) => item.type === 'alert',
-              )"
-              :key="item.key ?? item.data.title"
-            >
-              <Alert :id="`netConf-${item.key}`" v-bind="item.data" />
-            </template>
+      <Button
+        v-if="!drawerOpen"
+        class="fixed top-1/2 right-0 z-[1100] h-14 w-11 -translate-y-1/2 rounded-r-none rounded-l-xl border border-r-0 border-border bg-background/95 px-0 shadow-lg backdrop-blur transition-colors hover:bg-accent"
+        variant="outline"
+        size="icon"
+        aria-label="打开 BossHelper"
+        @click="drawerOpen = true"
+      >
+        <Bot class="size-5" />
+        <span v-if="isDot" class="absolute top-2.5 right-2.5 size-2 rounded-full bg-primary" />
+      </Button>
+
+      <Sheet v-model:open="drawerOpen">
+        <SheetContent
+          side="right"
+          :to="container"
+          title="BossHelper"
+          description="BossHelper 求职助手"
+          class="w-[min(96vw,780px)] max-w-[780px] gap-0 p-0 sm:max-w-[780px]"
+        >
+          <div class="flex h-full min-h-0 flex-col bg-background">
+            <header class="flex flex-wrap items-center gap-2 border-b px-4 py-3 pr-10">
+              <span class="text-lg font-semibold tracking-tight">
+                {{ !appearanceConf.hideHeader ? 'Boss-Helper' : 'Helper' }}
+              </span>
+              <Button variant="secondary" size="sm" @click="openStore">
+                v{{ VITE_VERSION }}
+              </Button>
+              <span v-if="isDot" class="size-2 rounded-full bg-primary" title="有新版本" />
+              <span v-if="todayData.total > 0" class="text-xs text-muted-foreground">
+                今日投递: {{ todayData.success }}/{{ conf.formData.deliveryLimit.value }}
+              </span>
+              <span
+                v-if="helper.workflow && helper.workflow.total.value > 0"
+                class="text-xs text-muted-foreground"
+              >
+                当前页面处理: {{ helper.workflow.current.value }}/{{ helper.workflow.total.value }}
+              </span>
+              <div class="ml-auto flex items-center gap-2">
+                <Button variant="outline" size="sm" @click="chatOpen = !chatOpen">对话</Button>
+                <Button
+                  v-if="helper.netConf.value?.feedback"
+                  variant="outline"
+                  size="sm"
+                  @click="tagOpen(helper.netConf.value.feedback)"
+                >
+                  反馈
+                </Button>
+                <label
+                  class="flex cursor-pointer items-center gap-1.5 text-sm text-muted-foreground"
+                >
+                  <input v-model="isFeatureEnabled" type="checkbox" class="size-4 accent-primary" />
+                  帮助
+                </label>
+              </div>
+            </header>
+
+            <div v-if="drawerOpen" class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+              <div
+                v-if="helper.netConf.value && helper.netConf.value.notification"
+                class="netAlerts mb-3 flex flex-col gap-2"
+              >
+                <template
+                  v-for="item in helper.netConf.value.notification.filter(
+                    (item) => item.type === 'alert',
+                  )"
+                  :key="item.key ?? item.data.title"
+                >
+                  <Alert :id="`netConf-${item.key}`" v-bind="item.data" />
+                </template>
+              </div>
+              <Tabs v-model="activeTab" class="w-full">
+                <TabsList class="h-auto flex-wrap justify-start">
+                  <TabsTrigger value="statistics" title="失败是成功她妈">统计</TabsTrigger>
+                  <TabsTrigger value="filter">筛选</TabsTrigger>
+                  <TabsTrigger value="config" title="好好看，好好学">配置</TabsTrigger>
+                  <TabsTrigger value="ai" title="AI时代，脚本怎么能落伍!">AI</TabsTrigger>
+                  <TabsTrigger value="logs" title="反正你也不看">日志</TabsTrigger>
+                  <TabsTrigger value="about" title="项目是写不完美的,但总要去追求完美">
+                    关于&赞赏
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="statistics"><Statistics /></TabsContent>
+                <TabsContent value="filter"><Filter /></TabsContent>
+                <TabsContent value="config"><Config /></TabsContent>
+                <TabsContent value="ai"><Ai /></TabsContent>
+                <TabsContent value="logs"><Logs /></TabsContent>
+                <TabsContent value="about"><About /></TabsContent>
+              </Tabs>
+            </div>
+
+            <div v-if="drawerOpen" class="max-h-[38vh] shrink-0 overflow-y-auto border-t px-4 py-3">
+              <JobCards />
+            </div>
           </div>
-          <UTabs
-            data-help="no-help"
-            :items="items"
-            variant="link"
-            :ui="{ list: 'items-center' }"
-            :unmount-on-hide="false"
-          >
-            <template #statistics>
-              <Statistics />
-            </template>
-            <template #filter>
-              <Filter />
-            </template>
-            <template #config><Config /></template>
-            <template #ai><Ai /></template>
-            <template #logs><Logs /></template>
-            <template #about><About /></template>
-            <template #list-trailing>
-              <UButton
-                class="ml-2"
-                size="xs"
-                color="primary"
-                @click.stop="
-                  () => {
-                    chatOpen = !chatOpen
-                  }
-                "
-                data-help="显示对话框, 使用ai功能必备可以方便的查询ai的输出, 并且可以调整招呼语. 不过功能未完善, 对话框使用体验还不行"
-              >
-                对话
-              </UButton>
-              <UButton
-                v-if="helper.netConf.value?.feedback"
-                class="ml-2"
-                size="xs"
-                color="info"
-                @click.stop="tagOpen(helper.netConf.value.feedback)"
-                data-help="描述清楚, 并先检查有没有相同问题, 尽量不要重复提交问题"
-              >
-                反馈
-              </UButton>
-              <UCheckbox
-                class="ml-2"
-                size="md"
-                color="neutral"
-                v-model="isFeatureEnabled"
-                label="帮助"
-              />
-            </template>
-          </UTabs>
-        </div>
-      </div>
-      <JobCards />
+        </SheetContent>
+      </Sheet>
+
       <ChatBox v-model:open="chatOpen" />
     </UApp>
   </div>

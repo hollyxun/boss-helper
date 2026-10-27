@@ -17,9 +17,11 @@
 
 ## 项目介绍
 
-基于 [Ocyss/boss-helper](https://github.com/Ocyss/boss-helper) 改造的 Boss 直聘助手，旨在减少投递简历的麻烦、提高投递简历的效率。技术栈使用 WXT + Vue3 + NuxtUI@4 + TailwindCSS@4，并已迁移到 Node.js + npm 构建。
+基于 [Ocyss/boss-helper](https://github.com/Ocyss/boss-helper) 改造的 Boss 直聘助手，旨在减少投递简历的麻烦、提高投递简历的效率。技术栈使用 WXT + Vue3 + NuxtUI@4 + TailwindCSS@4，并已迁移到 Node.js + npm 构建；界面外壳使用 shadcn-vue（内部表单迁移中）。
 
 > 本仓库是衍生版本，版本号从 0.0.1 重新开始；原项目的功能、文档与设计仍然是本项目的基线。
+
+> 界面已改为右侧吸附图标，点击后抽出抽屉，不再在原页面插入大面板、占用 Boss 原有布局。
 
 ## 相关链接
 
