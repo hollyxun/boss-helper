@@ -1,8 +1,8 @@
-# 隐私政策 - boss-helper-直聘AI求职助手
+# 隐私政策 - boss-helper-plus
 
 最后更新：2026年10月
 
-> 本仓库基于 [Ocyss/boss-helper](https://github.com/Ocyss/boss-helper) 改造，隐私政策沿用原项目，并适配本仓库的版本检查地址。
+> 本项目名为 **boss-helper-plus**，基于 [Ocyss/boss-helper](https://github.com/Ocyss/boss-helper) 改造；隐私政策沿用原项目，并适配本仓库的版本检查地址。
 
 本扩展不自动收集任何个人信息。
 

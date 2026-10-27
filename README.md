@@ -4,7 +4,9 @@
 > 使用该脚本有一定风险(如黑号,封号,权重降低等)，本项目不承担任何责任
 
 > [!IMPORTANT]
-> 本仓库是基于 [Ocyss/boss-helper](https://github.com/Ocyss/boss-helper) 的衍生改造版本，当前版本 **0.0.1**，版本号从 0.0.1 重新开始。
+> 本项目名为 **boss-helper-plus**，是基于 [Ocyss/boss-helper](https://github.com/Ocyss/boss-helper) 的衍生改造版本，当前版本 **0.0.1**，版本号从 0.0.1 重新开始。
+>
+> 为避免与已安装的原版扩展冲突：包名/扩展名改为 `boss-helper-plus`，Chrome/Edge 不再复用上游 `key`，Firefox 使用新的 Gecko ID。
 >
 > 下方商店徽章与链接属于原项目；本项目暂未上架商店，安装请使用 GitHub Releases 或本地构建。
 
@@ -17,7 +19,9 @@
 
 ## 项目介绍
 
-基于 [Ocyss/boss-helper](https://github.com/Ocyss/boss-helper) 改造的 Boss 直聘助手，旨在减少投递简历的麻烦、提高投递简历的效率。技术栈使用 WXT + Vue3 + NuxtUI@4 + TailwindCSS@4，并已迁移到 Node.js + npm 构建；界面外壳使用 shadcn-vue（内部表单迁移中）。
+boss-helper-plus 是基于 [Ocyss/boss-helper](https://github.com/Ocyss/boss-helper) 改造的 Boss 直聘助手，旨在减少投递简历的麻烦、提高投递简历的效率。技术栈使用 WXT + Vue3 + NuxtUI@4 + TailwindCSS@4，并已迁移到 Node.js + npm 构建；界面外壳使用 shadcn-vue（内部表单迁移中）。
+
+> GitHub 仓库地址沿用 `hollyxun/boss-helper`，产品名与扩展名使用 `boss-helper-plus`，以便与原版并存。
 
 > 本仓库是衍生版本，版本号从 0.0.1 重新开始；原项目的功能、文档与设计仍然是本项目的基线。
 

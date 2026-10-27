@@ -25,8 +25,8 @@ const props = withDefaults(
   }>(),
   {
     side: 'right',
-    title: 'BossHelper',
-    description: 'BossHelper 面板',
+    title: 'boss-helper-plus',
+    description: 'boss-helper-plus 面板',
   },
 )
 

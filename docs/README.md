@@ -1,4 +1,4 @@
-# BossHelper 源码分析文档
+# boss-helper-plus 源码分析文档
 
 本目录是一套**独立编写的源码分析文档**，与仓库根目录的 `README.md`、`CONTRIBUTING.md`、`PRIVACY.md` 分开维护；`docs/img/` 截图资源保持原样。
 
@@ -53,6 +53,6 @@
 
 ## 项目一句话总结
 
-BossHelper 是一个基于 **WXT + Vue 3 + Nuxt UI + Tailwind CSS** 的浏览器扩展：它把一段脚本注入 Boss 直聘页面的主世界，通过页面自身的 Vue 实例读取职位列表和详情，用一套**可插拔的任务管线**完成筛选、AI 评估、投递和打招呼，并把 UI 放在 Shadow DOM 中以避免污染宿主页面。
+boss-helper-plus 是一个基于 **WXT + Vue 3 + Nuxt UI + shadcn-vue + Tailwind CSS** 的浏览器扩展：它把一段脚本注入 Boss 直聘页面的主世界，通过页面自身的 Vue 实例读取职位列表和详情，用一套**可插拔的任务管线**完成筛选、AI 评估、投递和打招呼，并把 UI 放在 Shadow DOM 的右侧抽屉中，避免占用宿主页面布局。
 
 > 本项目仅供学习交流，禁止用于商业用途。使用自动化投递存在账号风控风险，详见 [11-已知限制与风险.md](./11-已知限制与风险.md)。

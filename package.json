@@ -1,9 +1,9 @@
 {
-  "name": "boss-helper",
-  "displayName": "BossHelper",
+  "name": "boss-helper-plus",
+  "displayName": "BossHelper Plus",
   "version": "0.0.1",
   "private": true,
-  "description": "基于 Ocyss/boss-helper 改造的 Boss 直聘助手，减少投递简历的麻烦并提高投递效率",
+  "description": "boss-helper-plus：基于 Ocyss/boss-helper 改造的 Boss 直聘助手，减少投递简历的麻烦并提高投递效率",
   "workspaces": [
     "packages/*"
   ],

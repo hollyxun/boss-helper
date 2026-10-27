@@ -178,7 +178,7 @@ function onPointerMove(ev: PointerEvent) {
         class="fixed top-1/2 right-0 z-[1100] h-14 w-11 -translate-y-1/2 rounded-r-none rounded-l-xl border border-r-0 border-border bg-background/95 px-0 shadow-lg backdrop-blur transition-colors hover:bg-accent"
         variant="outline"
         size="icon"
-        aria-label="打开 BossHelper"
+        aria-label="打开 boss-helper-plus"
         @click="drawerOpen = true"
       >
         <Bot class="size-5" />
@@ -189,14 +189,14 @@ function onPointerMove(ev: PointerEvent) {
         <SheetContent
           side="right"
           :to="container"
-          title="BossHelper"
-          description="BossHelper 求职助手"
+          title="boss-helper-plus"
+          description="boss-helper-plus 求职助手"
           class="w-[min(96vw,780px)] max-w-[780px] gap-0 p-0 sm:max-w-[780px]"
         >
           <div class="flex h-full min-h-0 flex-col bg-background">
             <header class="flex flex-wrap items-center gap-2 border-b px-4 py-3 pr-10">
               <span class="text-lg font-semibold tracking-tight">
-                {{ !appearanceConf.hideHeader ? 'Boss-Helper' : 'Helper' }}
+                {{ !appearanceConf.hideHeader ? 'boss-helper-plus' : 'Helper' }}
               </span>
               <Button variant="secondary" size="sm" @click="openStore">
                 v{{ VITE_VERSION }}

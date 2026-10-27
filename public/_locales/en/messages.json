@@ -1,8 +1,8 @@
 {
   "extName": {
-    "message": "boss-helper"
+    "message": "boss-helper-plus"
   },
   "extDescription": {
-    "message": "BOSS Direct Assistant, Supports rich filtering rules and AI integration, enabling both screening and automatic greetings."
+    "message": "boss-helper-plus: a Boss Zhipin assistant derived from Ocyss/boss-helper, with rich filtering rules and AI integration."
   }
 }

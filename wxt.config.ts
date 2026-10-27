@@ -124,17 +124,13 @@ export default defineConfig({
       },
     ],
     host_permissions: ['http://*/*', 'https://*/*'],
-    key:
-      browser === 'edge'
-        ? undefined // 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq+hJAUmfZSTB6c7QOXiU6r1JUMLM3C/CDTVolB5pU/DAkO3Y3uVh/YWWaV8m2wIrLSjN7n1CZ+zmRlO+YpUq2vZRILq8WXFePCfHe8EqVY9mjj04BqqRuttHpJqMeXl1aVbKmICKj3cNEprGzJJvaAorz0NJxD82oLXf8CMIW0MHUjvwgmNc9HTD41glvX6CzW1r4qvwl4MSdZRPVf5dmhp+CWoaAcjqEpHbu+EZV5WpfQz9XCsmBXmMAFLyBtn62Xvy86c9PntIRw8xMikqmi8lVyOgT8oSM2U8EFyMsESoT2qCQXgUf0FMtKipoNs7xM7FtdOppNylHa6jJyYdRwIDAQAB'
-        : browser === 'chrome'
-          ? 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxCHedeutoVPRmAkHsKoev5NdPRNcre8U1Z7a1MbceU7BQRIkMhiIApkBpvoTW30dcUQ/V3UOB6v4Crvkr40Hjr8u1uygcWynl12/+gIcNriIKgZh+udWCkKCFHs5pFEdoXUaQqym+eEBkJCo5HwgxYkxXA94/a2Vtnd5u7Mk0nWyk40qx1wxATYEi10C5L82U32F6KgvIY7YqhtFaM9N2utW4rlbtMgeEOEANG6fo4IBhEM/+n5kbch5K2KAH70fMKUq9aOj43b3gTM4mT90tF1jfMRgLW26d6zfUhMQBG2SqQSc6AoN25r+Q5D79OcezUE1S8iBkzb1MM2GfkFxJQIDAQAB'
-          : undefined,
+    // 不复用上游 Chrome key：避免与已安装的原版扩展使用同一个扩展 ID。
+    // 本项目未上架商店，Chrome/Edge 由浏览器按加载路径生成独立 ID；上架时再注入新 key。
     browser_specific_settings:
       browser == 'firefox'
         ? {
             gecko: {
-              id: '{1b66669d-c871-43f3-8c0c-d8a1c0566071}',
+              id: '{c3fafbf4-bedb-4d12-8d60-e94ff1f953e1}',
               strict_min_version: '109.0',
             },
           }
