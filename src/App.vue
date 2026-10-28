@@ -165,34 +165,49 @@ function onPointerMove(ev: PointerEvent) {
         content-class="z-[901]"
         class="w-[min(96vw,780px)] max-w-[780px] gap-0 p-0 sm:max-w-[780px]"
       >
-        <SheetHeader class="flex flex-wrap items-center gap-2 border-b px-4 py-3 pr-10">
-          <SheetTitle class="text-lg font-semibold tracking-tight">boss-helper-plus</SheetTitle>
+        <SheetHeader
+          class="flex flex-nowrap items-center gap-2 overflow-hidden border-b px-4 py-2 pr-10"
+        >
+          <SheetTitle class="shrink-0 text-sm font-semibold tracking-tight">
+            boss-helper-plus
+          </SheetTitle>
           <SheetDescription class="sr-only">boss-helper-plus 求职助手面板</SheetDescription>
-          <Button variant="secondary" size="sm" @click="openStore">v{{ VITE_VERSION }}</Button>
+          <button
+            type="button"
+            class="shrink-0 cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground"
+            @click="openStore"
+          >
+            v{{ VITE_VERSION }}
+          </button>
           <Hint v-if="isDot" text="有新版本">
-            <span class="size-2 rounded-full bg-primary" />
+            <span class="size-2 shrink-0 rounded-full bg-primary" />
           </Hint>
-          <span v-if="todayData.total > 0" class="text-xs text-muted-foreground">
-            今日投递: {{ todayData.success }}/{{ conf.formData.deliveryLimit.value }}
+          <span
+            v-if="todayData.total > 0"
+            class="shrink-0 text-xs text-muted-foreground tabular-nums"
+          >
+            今日 {{ todayData.success }}/{{ conf.formData.deliveryLimit.value }}
           </span>
           <span
             v-if="helper.workflow && helper.workflow.total.value > 0"
-            class="text-xs text-muted-foreground"
+            class="shrink-0 text-xs text-muted-foreground tabular-nums"
           >
-            当前页面处理: {{ helper.workflow.current.value }}/{{ helper.workflow.total.value }}
+            处理 {{ helper.workflow.current.value }}/{{ helper.workflow.total.value }}
           </span>
-          <div class="ml-auto flex items-center gap-2">
-            <Button variant="outline" size="sm" @click="chatOpen = !chatOpen">对话</Button>
+          <div class="ml-auto flex shrink-0 items-center gap-1">
+            <Button variant="ghost" size="sm" @click="chatOpen = !chatOpen">对话</Button>
             <Button
               v-if="helper.netConf.value?.feedback"
-              variant="outline"
+              variant="ghost"
               size="sm"
               @click="tagOpen(helper.netConf.value.feedback)"
             >
               反馈
             </Button>
-            <label class="flex cursor-pointer items-center gap-1.5 text-sm text-muted-foreground">
-              <input v-model="isFeatureEnabled" type="checkbox" class="size-4 accent-primary" />
+            <label
+              class="flex shrink-0 cursor-pointer items-center gap-1 text-xs text-muted-foreground"
+            >
+              <input v-model="isFeatureEnabled" type="checkbox" class="size-3.5 accent-primary" />
               帮助
             </label>
           </div>
