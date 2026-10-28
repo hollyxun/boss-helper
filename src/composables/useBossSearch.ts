@@ -299,8 +299,9 @@ export function buildSearchUrl(conditions: SearchConditions): string {
 /**
  * 应用搜索。
  *
- * 优先走页面自身的 vue-router：SPA 内跳转不会刷新页面，扩展里的
- * 岗位列表 / 统计 / 对话记录都还在。只有拿不到 router 时才退化为整页跳转。
+ * 走页面自身的 vue-router（SPA，不刷新、扩展状态不丢）。
+ * 注意：同一个路由只改 query 不会重新挂载页面组件，页面也就不会重新搜索，
+ * 所以等于当前路由时先跳到推荐页再跳回来，强制页面按新 query 初始化。
  */
 export async function applySearch(conditions: SearchConditions): Promise<'spa' | 'reload'> {
   saveSearchConditions(conditions)
@@ -314,6 +315,12 @@ export async function applySearch(conditions: SearchConditions): Promise<'spa' |
       target.searchParams.forEach((value, key) => {
         query[key] = value
       })
+
+      if (router.currentRoute?.value?.path === target.pathname) {
+        await router.push('/web/geek/job-recommend')
+        await new Promise((resolve) => setTimeout(resolve, 300))
+      }
+
       await router.push({ path: target.pathname, query })
       return 'spa'
     }

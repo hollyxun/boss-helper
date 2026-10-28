@@ -136,10 +136,16 @@ async function apply() {
     if (mode === 'spa') {
       // 等待页面重新搜索并把新的 jobList 写回钩子，确保面板和页面同步
       const changed = await waitJobListChange(before)
-      toast.add({
-        color: changed ? 'success' : 'warning',
-        title: changed ? '搜索已应用，面板数据已同步' : '已提交搜索，页面列表暂未变化',
-      })
+      if (changed) {
+        toast.add({ color: 'success', title: '搜索已应用，页面与面板已同步' })
+      } else {
+        toast.add({
+          color: 'warning',
+          title: '页面列表暂未变化，点此强制刷新',
+          description: '强制刷新会重建扩展状态',
+          onClick: () => location.reload(),
+        })
+      }
     } else {
       toast.add({ color: 'success', title: '已按条件跳转，页面会刷新' })
     }

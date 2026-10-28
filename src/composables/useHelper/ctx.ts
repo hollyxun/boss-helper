@@ -83,6 +83,8 @@ export abstract class HelperContext<C extends HelperContext<C, T, S>, T, S> {
 
   abstract loadMoreJob(delay: Promise<any>): Promise<boolean>
   abstract onMount(): Promise<void>
+  /** 打开面板时重新同步一次宿主页面数据；默认无操作 */
+  async refreshPageData(): Promise<void> {}
   abstract getConfigItems(): ComputedRef<[AlertItem[], (ConfigAccordionItem | false)[]]>
 
   abstract start(): Promise<void>

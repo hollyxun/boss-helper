@@ -264,6 +264,11 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
       await this.geek.connect()
     }
   }
+
+  /** 打开面板时先对齐一次页面数据，避免看到上次页面残留的岗位 */
+  override async refreshPageData() {
+    await Promise.allSettled([this._initPage(), this._initJobList(), this._initJobDetail()])
+  }
   getConfigItems() {
     const conf = useConf()
     return computed<[AlertItem[], (ConfigAccordionItem | false)[]]>(() => {

@@ -100,6 +100,8 @@ useScrollLock(drawerOpen)
 
 watch(drawerOpen, (open) => {
   if (!open) chatOpen.value = false
+  // 打开抽屉时先把页面当前数据同步进来
+  else void helper.refreshPageData()
 })
 
 onMounted(() => {

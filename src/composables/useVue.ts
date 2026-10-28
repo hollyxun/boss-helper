@@ -59,6 +59,8 @@ export function useHookVueData<T = any>(
     const originalSet = jobVue.__lookupSetter__(key)
     // eslint-disable-next-line accessor-pairs
     Object.defineProperty(jobVue, key, {
+      // 允许重复挂载：打开抽屉 / 路由切换时会重新同步页面数据
+      configurable: true,
       set(val: T) {
         data.value = val
         update?.(val)
