@@ -1,6 +1,7 @@
 import { reactiveComputed, useStorageAsync, watchThrottled } from '@vueuse/core'
 import { reactive, ref, toRaw } from 'vue'
 
+import { useToast } from '@/composables/useToast'
 import { counter } from '@/message'
 import { ExtStorage } from '@/message'
 import type { ConfigLevel, FormData } from '@/types/formData'

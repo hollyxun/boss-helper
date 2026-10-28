@@ -1,26 +1,40 @@
 <script lang="ts" setup>
 import { store } from '@/components/StoreIcons'
+import Button from '@/components/ui/button/Button.vue'
+import Dialog from '@/components/ui/dialog/Dialog.vue'
+import DialogContent from '@/components/ui/dialog/DialogContent.vue'
+import DialogDescription from '@/components/ui/dialog/DialogDescription.vue'
+import DialogFooter from '@/components/ui/dialog/DialogFooter.vue'
+import DialogHeader from '@/components/ui/dialog/DialogHeader.vue'
+import DialogTitle from '@/components/ui/dialog/DialogTitle.vue'
 import { useHelper, VITE_VERSION } from '@/composables/useHelper'
 
 const helper = useHelper()
+const open = defineModel<boolean>('open', { default: false })
 
-const emits = defineEmits<{
-  close: [value: boolean]
-}>()
+function close() {
+  open.value = false
+}
+
+function onOpenChange(value: boolean) {
+  if (value) helper.initNetConf()
+}
 </script>
 
 <template>
-  <UModal title="boss-helper-plus 扩展商店" @open="helper.initNetConf">
-    <template #body>
-      <div>
-        <div style="text-align: center; font-size: 14px; color: #606266">
-          你的版本: {{ VITE_VERSION }}
-        </div>
-        <div style="text-align: center; font-size: 14px; color: #606266">
+  <Dialog v-model:open="open" @update:open="onOpenChange">
+    <DialogContent class="sm:max-w-2xl">
+      <DialogHeader>
+        <DialogTitle>boss-helper-plus 扩展商店</DialogTitle>
+        <DialogDescription>选择安装渠道，本项目暂未上架商店。</DialogDescription>
+      </DialogHeader>
+      <div class="flex flex-col gap-2">
+        <div class="text-center text-sm text-muted-foreground">你的版本: {{ VITE_VERSION }}</div>
+        <div class="text-center text-sm text-muted-foreground">
           最新版本: {{ helper.netConf.value?.version ?? '暂未获取到版本信息' }}
         </div>
-        <div style="text-align: center; font-size: 16px; color: #606266">更新内容：</div>
-        <div style="text-align: center; font-size: 14px; color: #606266; white-space: pre-line">
+        <div class="mt-2 text-center text-base">更新内容：</div>
+        <div class="text-center text-sm whitespace-pre-line text-muted-foreground">
           {{ helper.netConf.value?.version_description ?? '暂未获取到更新日志' }}
         </div>
       </div>
@@ -31,9 +45,10 @@ const emits = defineEmits<{
           class="group"
           :href="helper.netConf.value?.store?.[key]?.[1] ?? item[2]"
           target="_blank"
+          rel="noreferrer"
         >
           <div
-            class="flex h-45 w-35 flex-col items-center gap-2.5 rounded-[12px] border border-[#f6f6f7] bg-[#f6f6f7] p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] transition-[border-color,background-color] duration-250 group-hover:border-[#2fffd9] group-hover:bg-[#bbf8fa]"
+            class="flex h-45 w-35 flex-col items-center gap-2.5 rounded-[12px] border border-border bg-muted p-2.5 shadow-sm transition-colors group-hover:border-primary group-hover:bg-accent"
           >
             <component :is="item[0]" />
             <img
@@ -45,13 +60,9 @@ const emits = defineEmits<{
           </div>
         </a>
       </div>
-    </template>
-    <template #footer>
-      <div class="dialog-footer">
-        <UButton color="primary" @click="emits('close', false)"> 关闭 </UButton>
-      </div>
-    </template>
-  </UModal>
+      <DialogFooter>
+        <Button @click="close">关闭</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
-
-<style lang="scss" scoped></style>

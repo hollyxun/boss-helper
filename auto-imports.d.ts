@@ -8,19 +8,121 @@
 // biome-ignore lint: disable
 export {}
 declare global {
-  const defineLocale: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/defineLocale').defineLocale
-  const defineShortcuts: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/defineShortcuts').defineShortcuts
-  const extendLocale: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/defineLocale').extendLocale
-  const extractShortcuts: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/defineShortcuts').extractShortcuts
-  const useAppConfig: typeof import('./node_modules/@nuxt/ui/dist/runtime/vue/composables/useAppConfig.js').useAppConfig
-  const useContentSearch: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useContentSearch').useContentSearch
-  const useFileUpload: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useFileUpload').useFileUpload
-  const useFormField: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useFormField').useFormField
-  const useKbd: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useKbd').useKbd
-  const useOverlay: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useOverlay').useOverlay
-  const useResizable: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useResizable').useResizable
-  const useScrollShadow: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useScrollShadow').useScrollShadow
-  const useScrollspy: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useScrollspy').useScrollspy
-  const useToast: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useToast').useToast
-  const useTour: typeof import('./node_modules/@nuxt/ui/dist/runtime/composables/useTour').useTour
+  const EffectScope: typeof import('vue').EffectScope
+  const PipelineCacheManager: typeof import('./src/composables/usePipelineCache').PipelineCacheManager
+  const applySearch: typeof import('./src/composables/useBossSearch').applySearch
+  const buildSearchUrl: typeof import('./src/composables/useBossSearch').buildSearchUrl
+  const cityGroups: typeof import('./src/composables/useBossSearch').cityGroups
+  const cityNameOf: typeof import('./src/composables/useBossSearch').cityNameOf
+  const cityOptions: typeof import('./src/composables/useBossSearch').cityOptions
+  const computed: typeof import('vue').computed
+  const createApp: typeof import('vue').createApp
+  const customRef: typeof import('vue').customRef
+  const defineAsyncComponent: typeof import('vue').defineAsyncComponent
+  const defineComponent: typeof import('vue').defineComponent
+  const effectScope: typeof import('vue').effectScope
+  const emptyConditions: typeof import('./src/composables/useBossSearch').emptyConditions
+  const filterOptions: typeof import('./src/composables/useBossSearch').filterOptions
+  const getCurrentInstance: typeof import('vue').getCurrentInstance
+  const getCurrentScope: typeof import('vue').getCurrentScope
+  const getCurrentWatcher: typeof import('vue').getCurrentWatcher
+  const getRootVue: typeof import('./src/composables/useVue').getRootVue
+  const h: typeof import('vue').h
+  const hotCities: typeof import('./src/composables/useBossSearch').hotCities
+  const inject: typeof import('vue').inject
+  const isProxy: typeof import('vue').isProxy
+  const isReactive: typeof import('vue').isReactive
+  const isReadonly: typeof import('vue').isReadonly
+  const isRef: typeof import('vue').isRef
+  const isShallow: typeof import('vue').isShallow
+  const loadSearchOptions: typeof import('./src/composables/useBossSearch').loadSearchOptions
+  const markRaw: typeof import('vue').markRaw
+  const nextTick: typeof import('vue').nextTick
+  const onActivated: typeof import('vue').onActivated
+  const onBeforeMount: typeof import('vue').onBeforeMount
+  const onBeforeUnmount: typeof import('vue').onBeforeUnmount
+  const onBeforeUpdate: typeof import('vue').onBeforeUpdate
+  const onDeactivated: typeof import('vue').onDeactivated
+  const onErrorCaptured: typeof import('vue').onErrorCaptured
+  const onMounted: typeof import('vue').onMounted
+  const onRenderTracked: typeof import('vue').onRenderTracked
+  const onRenderTriggered: typeof import('vue').onRenderTriggered
+  const onScopeDispose: typeof import('vue').onScopeDispose
+  const onServerPrefetch: typeof import('vue').onServerPrefetch
+  const onUnmounted: typeof import('vue').onUnmounted
+  const onUpdated: typeof import('vue').onUpdated
+  const onWatcherCleanup: typeof import('vue').onWatcherCleanup
+  const optionsLoaded: typeof import('./src/composables/useBossSearch').optionsLoaded
+  const optionsLoading: typeof import('./src/composables/useBossSearch').optionsLoading
+  const provide: typeof import('vue').provide
+  const reactive: typeof import('vue').reactive
+  const readSearchConditions: typeof import('./src/composables/useBossSearch').readSearchConditions
+  const readonly: typeof import('vue').readonly
+  const ref: typeof import('vue').ref
+  const resolveCityCode: typeof import('./src/composables/useBossSearch').resolveCityCode
+  const resolveComponent: typeof import('vue').resolveComponent
+  const saveSearchConditions: typeof import('./src/composables/useBossSearch').saveSearchConditions
+  const shallowReactive: typeof import('vue').shallowReactive
+  const shallowReadonly: typeof import('vue').shallowReadonly
+  const shallowRef: typeof import('vue').shallowRef
+  const statisticsKey: typeof import('./src/composables/useStatistics').statisticsKey
+  const toRaw: typeof import('vue').toRaw
+  const toRef: typeof import('vue').toRef
+  const toRefs: typeof import('vue').toRefs
+  const toValue: typeof import('vue').toValue
+  const toast: typeof import('./src/composables/useToast').toast
+  const todayKey: typeof import('./src/composables/useStatistics').todayKey
+  const triggerRef: typeof import('vue').triggerRef
+  const unref: typeof import('vue').unref
+  const useAttrs: typeof import('vue').useAttrs
+  const useCssModule: typeof import('vue').useCssModule
+  const useCssVars: typeof import('vue').useCssVars
+  const useHookVueData: typeof import('./src/composables/useVue').useHookVueData
+  const useHookVueFn: typeof import('./src/composables/useVue').useHookVueFn
+  const useId: typeof import('vue').useId
+  const useModel: typeof import('vue').useModel
+  const useScrollLock: typeof import('./src/composables/useScrollLock').useScrollLock
+  const useSlots: typeof import('vue').useSlots
+  const useStatistics: typeof import('./src/composables/useStatistics').useStatistics
+  const useTemplateRef: typeof import('vue').useTemplateRef
+  const useToast: typeof import('./src/composables/useToast').useToast
+  const watch: typeof import('vue').watch
+  const watchEffect: typeof import('vue').watchEffect
+  const watchPostEffect: typeof import('vue').watchPostEffect
+  const watchSyncEffect: typeof import('vue').watchSyncEffect
+}
+// for type re-export
+declare global {
+  // @ts-ignore
+  export type {
+    Component,
+    Slot,
+    Slots,
+    ComponentPublicInstance,
+    ComputedRef,
+    DirectiveBinding,
+    ExtractDefaultPropTypes,
+    ExtractPropTypes,
+    ExtractPublicPropTypes,
+    InjectionKey,
+    PropType,
+    Ref,
+    ShallowRef,
+    MaybeRef,
+    MaybeRefOrGetter,
+    VNode,
+    WritableComputedRef,
+  } from 'vue'
+  import('vue')
+  // @ts-ignore
+  export type {
+    SearchOption,
+    SearchConditions,
+    FilterConditionOptions,
+    CityGroup,
+  } from './src/composables/useBossSearch'
+  import('./src/composables/useBossSearch')
+  // @ts-ignore
+  export type { PipelineCacheManager } from './src/composables/usePipelineCache'
+  import('./src/composables/usePipelineCache')
 }

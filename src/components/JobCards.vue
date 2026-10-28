@@ -1,10 +1,17 @@
 <script lang="ts" setup>
-import { DropdownMenuItem } from '@nuxt/ui'
+import { Accessibility, ListFilter } from '@lucide/vue'
 import type { ComponentPublicInstance } from 'vue'
 import { ref } from 'vue'
 
+import Hint from '@/components/Hint.vue'
 import JobCard from '@/components/JobCard.vue'
+import Button from '@/components/ui/button/Button.vue'
+import DropdownMenu from '@/components/ui/dropdown-menu/DropdownMenu.vue'
+import DropdownMenuCheckboxItem from '@/components/ui/dropdown-menu/DropdownMenuCheckboxItem.vue'
+import DropdownMenuContent from '@/components/ui/dropdown-menu/DropdownMenuContent.vue'
+import DropdownMenuTrigger from '@/components/ui/dropdown-menu/DropdownMenuTrigger.vue'
 import { useHelper } from '@/composables/useHelper'
+import type { DropdownMenuItem } from '@/types/ui'
 
 const jobSetRef = ref<Record<string, Element | ComponentPublicInstance | null>>({})
 const following = ref(true)
@@ -129,30 +136,40 @@ watch(
         hover
       />
     </div>
-    <div class="flex gap-2 absolute bottom-6 left-2">
-      <UButton
-        size="md"
-        :color="following ? 'primary' : 'neutral'"
-        variant="outline"
-        @click="following = !following"
-        icon="i-lucide-accessibility"
-        title="自动跟随"
-      />
-      <UDropdownMenu :items="filterItems" :content="{ side: 'top' }" :ui="{ content: 'w-48' }">
-        <UButton
-          size="md"
-          color="neutral"
-          variant="outline"
-          icon="lucide:list-filter"
-          title="过滤"
-        />
-        <template #content-top>
-          <div class="p-2 flex flex-wrap gap-1">
-            <UButton size="sm" variant="outline" @click="filterSelectAll" label="全选" />
-            <UButton size="sm" variant="outline" @click="filterToggle" label="反选" />
+    <div class="absolute bottom-6 left-2 flex gap-2">
+      <Hint text="自动跟随">
+        <Button
+          size="icon"
+          :variant="following ? 'default' : 'outline'"
+          @click="following = !following"
+        >
+          <Accessibility class="size-4" />
+        </Button>
+      </Hint>
+      <DropdownMenu>
+        <Hint text="过滤">
+          <DropdownMenuTrigger as-child>
+            <Button size="icon" variant="outline">
+              <ListFilter class="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+        </Hint>
+        <DropdownMenuContent side="top" align="start" class="w-48">
+          <div class="flex flex-wrap gap-1 p-1">
+            <Button size="sm" variant="outline" @click="filterSelectAll">全选</Button>
+            <Button size="sm" variant="outline" @click="filterToggle">反选</Button>
           </div>
-        </template>
-      </UDropdownMenu>
+          <DropdownMenuCheckboxItem
+            v-for="item in filterItems"
+            :key="item.value"
+            :model-value="item.checked"
+            @update:model-value="(checked) => (filterItemsChecked[item.value] = !!checked)"
+            @select.prevent
+          >
+            {{ item.label }}
+          </DropdownMenuCheckboxItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
 
     <div class="card-grid-overlay" />

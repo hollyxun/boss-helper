@@ -7,11 +7,11 @@ import { createLazyObject, isInitialized } from '@/composables/useApplying/type'
 import type { JobData } from '@/composables/useHelper'
 import { HelperContext } from '@/composables/useHelper'
 import type { AlertItem, ConfigAccordionItem } from '@/composables/useHelper/type'
+import { useToast } from '@/composables/useToast'
 import { getRootVue, useHookVueData, useHookVueFn } from '@/composables/useVue'
 import { run } from '@/index'
 import { counter, initCounter } from '@/message'
 import type { FormDataInput } from '@/types/formData'
-import elmGetter from '@/utils/elmGetter'
 import { logger } from '@/utils/logger'
 
 import { GeekChatClientManager } from './chat'
@@ -19,30 +19,6 @@ import type { BoosJobData } from './delivery'
 import { bossWorkflow } from './delivery'
 import { uploadImage } from './requests'
 import type { BossZpDetailData, BossZpJobItemData } from './types'
-
-function removeAd() {
-  // 新职位发布时通知我
-  void elmGetter.rm('.job-list-wrapper .subscribe-weixin-wrapper')
-  // 侧栏
-  void elmGetter.rm('.job-side-wrapper')
-  // 侧边悬浮框
-  void elmGetter.rm('.side-bar-box')
-  // 搜索栏登录框
-  void elmGetter.rm('.go-login-btn')
-  // 底部页脚
-  // elmGetter.rm("#footer-wrapper");
-
-  // 新版: 微信扫码
-  void elmGetter.rm('.c-subscribe-weixin')
-  // 新版: 求职工具
-  void elmGetter.rm('.c-job-tools.job-tools')
-  // 新版: 热门职位
-  void elmGetter.rm('.c-hot-link.hot-link')
-  // 新版: 面包屑
-  void elmGetter.rm('.c-breadcrumb')
-  // 新版: 职位详情页的引导(想要什么工作)
-  void elmGetter.rm('.job-detail-container .job-detail-guide-cont')
-}
 
 const initChange = useHookVueFn('#wrap .page-job-wrapper', 'pageChangeAction')
 const initSearch = useHookVueFn('#wrap .page-job-wrapper,.job-recommend-main,.page-jobs-main', [
@@ -280,7 +256,6 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     const appElement = document.createElement('boss-helper-job')
     BossHelperCtx.instance = appElement
     document.body.appendChild(appElement)
-    removeAd()
 
     await this._initPage()
     await this._initPageChange()
@@ -328,22 +303,32 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                   {
                     type: 'select',
                     key: 'company',
+                    label: '公司名',
+                    help: '公司名排除或包含在集合中，模糊匹配，可用于只投或不投某个公司/子公司。',
                   },
                   {
                     type: 'select',
                     key: 'jobTitle',
+                    label: '岗位名',
+                    help: '岗位名排除或包含在集合中，模糊匹配，可用于只投或不投某个岗位名。',
                   },
                   {
                     type: 'select',
                     key: 'jobContent',
+                    label: '工作内容',
+                    help: "会自动检测上文(不是,不,无需),下文(系统,工具),例子：[外包,上门,销售,驾照], 排除: '外包岗位', 不排除: '不是外包'|'销售系统'",
                   },
                   {
                     type: 'select',
                     key: 'hrPosition',
+                    label: 'Hr职位',
+                    help: 'Hr职位一定包含/排除在集合中，精确匹配, 不在内置中可手动输入,能实现只向经理等进行投递，毕竟人事干的不一定是人事',
                   },
                   conf.configLevel.intermediate && {
                     type: 'select',
                     key: 'jobAddress',
+                    label: '工作地址',
+                    help: '只能为包含模式, 即投递工作地址当中必须包含当前内容中的任意一项，否则排除',
                   },
                   {
                     type: 'div',
@@ -371,26 +356,38 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                   conf.configLevel.intermediate && {
                     type: 'checkbox',
                     key: 'activityFilter',
+                    label: '活跃度过滤',
+                    help: '打开后会自动过滤掉最近未活跃的Boss发布的工作。以免浪费每天的100次机会。',
                   },
                   {
                     type: 'checkbox',
                     key: 'goldHunterFilter',
+                    label: '猎头过滤',
+                    help: 'Boss中有一些猎头发布的工作，但是一般而言这种工作不太行，点击可以过滤猎头发布的职位',
                   },
                   {
                     type: 'checkbox',
                     key: 'friendStatus',
+                    label: '好友过滤(已聊)',
+                    help: '判断和hr是否建立过聊天，理论上能过滤的同hr，但是不同岗位的工作',
                   },
                   {
                     type: 'checkbox',
                     key: 'bossGoldMedalHr',
+                    label: '过滤金牌面试官',
+                    help: '通过头像框来判断是否是金牌面试官, 据小红书经验 金牌面试官多数是刷kpi,并不靠谱',
                   },
                   conf.configLevel.intermediate && {
                     type: 'checkbox-expire',
                     key: 'sameCompanyFilter',
+                    label: '相同公司过滤',
+                    help: '投递过的公司id存储到浏览器本地，避免多次向同公司投递，即使岗位不同hr不同',
                   },
                   conf.configLevel.intermediate && {
                     type: 'checkbox-expire',
                     key: 'sameHrFilter',
+                    label: '相同Hr过滤',
+                    help: '投递过的hr存储到浏览器本地，避免多次向同hr投递。',
                   },
                 ],
               },

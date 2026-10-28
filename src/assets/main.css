@@ -1,10 +1,12 @@
 @import 'tailwindcss';
-@import '@nuxt/ui';
 @import 'tw-animate-css';
+@import 'vue-sonner/style.css';
 @plugin "@tailwindcss/typography";
 
-:host {
-  display: contents;
+@layer base {
+  :host {
+    display: contents;
+  }
 }
 
 :host,
@@ -100,6 +102,45 @@
 
 @layer base {
   * {
+    border-color: var(--border);
+  }
+}
+
+@layer utilities {
+  .bg-default {
+    background-color: var(--card);
+  }
+  .bg-elevated {
+    background-color: var(--card);
+  }
+  .bg-accented {
+    background-color: var(--accent);
+  }
+  .text-default {
+    color: var(--foreground);
+  }
+  .text-muted {
+    color: var(--muted-foreground);
+  }
+  .text-highlighted {
+    color: var(--foreground);
+  }
+  .text-dimmed {
+    color: var(--muted-foreground);
+  }
+  .text-inverted {
+    color: var(--background);
+  }
+  .border-default {
+    border-color: var(--border);
+  }
+  .border-muted {
+    border-color: var(--border);
+  }
+  .ring-default {
+    --tw-ring-color: var(--border);
+  }
+  .divide-default > :not([hidden]) ~ :not([hidden]) {
     border-color: var(--border);
   }
 }

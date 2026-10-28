@@ -5,7 +5,7 @@ import type {
   SwitchProps,
   SliderProps,
   SelectMenuProps,
-} from '@nuxt/ui'
+} from '@/types/ui'
 
 export type LLMConf<M extends string, T> = { mode: M } & T
 

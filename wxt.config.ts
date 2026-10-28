@@ -1,7 +1,9 @@
 import { resolve } from 'path'
 
-import ui from '@nuxt/ui/vite'
+import tailwindcss from '@tailwindcss/vite'
 import vueJsx from '@vitejs/plugin-vue-jsx'
+import AutoImport from 'unplugin-auto-import/vite'
+import Components from 'unplugin-vue-components/vite'
 import tailwindShadowDOM from 'vite-plugin-tailwind-shadowdom'
 import { defineConfig } from 'wxt'
 
@@ -25,88 +27,20 @@ export default defineConfig({
       __APP_VERSION__: JSON.stringify(version),
     },
     ssr: {
-      noExternal: [
-        '@webext-core/storage',
-        '@webext-core/messaging',
-        '@webext-core/proxy-service',
-        '@nuxt/ui',
-        '@nuxt/icon',
-      ],
+      noExternal: ['@webext-core/storage', '@webext-core/messaging', '@webext-core/proxy-service'],
     },
     plugins: [
       vueJsx(),
-      ui({
-        // autoImport: false,
-        // components: false,
-        colorMode: false,
-        router: false,
-        prose: false,
-        ui: {
-          colors: {
-            primary: 'teal',
-            neutral: 'gray',
-            warning: 'orange',
-            success: 'emerald',
-            error: 'rose',
-          },
-          badge: {
-            defaultVariants: {
-              color: 'neutral',
-              variant: 'subtle',
-            },
-          },
-          alert: {
-            slots: {
-              root: 'px-4 py-2',
-            },
-            defaultVariants: {
-              orientation: 'horizontal',
-            },
-          },
-          button: {
-            slots: {
-              base: 'cursor-pointer',
-            },
-          },
-          tabs: {
-            slots: {
-              trigger: 'cursor-pointer',
-            },
-          },
-          link: {
-            base: 'no-underline hover:underline',
-          },
-          formField: {
-            slots: {
-              // container: 'flex flex-1',
-              // root: 'justify-start items-center',
-            },
-            defaultVariants: {
-              orientation: 'horizontal',
-            },
-          },
-          modal: {
-            slots: {
-              overlay: 'z-[1200]',
-              content: 'z-[1220]',
-              footer: 'justify-end',
-            },
-          },
-          chatMessage: {
-            variants: {
-              side: {
-                right: {
-                  container: 'flex-row-reverse justify-start',
-                },
-              },
-            },
-          },
-          slideover: {
-            slots: {
-              content: 'z-[1230]',
-            },
-          },
-        },
+      tailwindcss(),
+      AutoImport({
+        imports: ['vue'],
+        dirs: ['src/composables'],
+        dts: 'auto-imports.d.ts',
+      }),
+      Components({
+        dirs: ['src/components', 'src/components/ui'],
+        deep: true,
+        dts: 'components.d.ts',
       }),
       tailwindShadowDOM(),
     ],
@@ -116,6 +50,15 @@ export default defineConfig({
     default_locale: 'zh_CN',
     name: '__MSG_extName__',
     description: '__MSG_extDescription__',
+    action: {
+      default_title: 'boss-helper-plus',
+      default_icon: {
+        16: 'icons/16.png',
+        32: 'icons/32.png',
+        48: 'icons/48.png',
+        128: 'icons/128.png',
+      },
+    },
     permissions: ['storage', 'notifications'],
     web_accessible_resources: [
       {

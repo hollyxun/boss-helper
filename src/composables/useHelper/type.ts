@@ -1,7 +1,6 @@
-import type { AccordionItem, FormFieldProps, InputNumberProps } from '@nuxt/ui'
-
 import type { ExtendedAlertProps } from '@/components/Alert.vue'
 import type { BossZpBossData } from '@/entrypoints/boss/types'
+import type { AccordionItem, FormFieldProps, InputNumberProps } from '@/types/ui'
 import type { amapDistance, amapGeocode } from '@/utils/amap'
 
 export type JobBaseData = {
@@ -130,6 +129,8 @@ export type AlertItem = ExtendedAlertProps & {
 export type ConfigItem =
   | {
       key: string
+      label?: string
+      help?: string
       type:
         | 'select'
         | 'checkbox'

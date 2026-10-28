@@ -4,7 +4,8 @@ import { ref } from 'vue'
 import LLMModelManage from '@/components/AI/LLMModelManage.vue'
 import LLMPromptEdit from '@/components/AI/LLMPromptEdit.vue'
 import FormSwitch from '@/components/Tabs/ConfigItem/Form/FormSwitch.vue'
-import { formInfoData, useConf } from '@/composables/conf'
+import Button from '@/components/ui/button/Button.vue'
+import { useConf } from '@/composables/conf'
 import { useHelper } from '@/composables/useHelper'
 import type { FormDataAi } from '@/types/formData'
 
@@ -24,8 +25,8 @@ function change(v: Partial<FormDataAi>) {
   <div class="flex flex-col gap-3" data-help="AI 配置">
     <div class="flex flex-wrap gap-3">
       <FormSwitch
-        :label="formInfoData.aiGreeting.label"
-        :data-help="formInfoData.aiGreeting['data-help']"
+        label="AI招呼语"
+        data-help="即使前面招呼语开了也不会发送，只会发送AI生成的招呼语，让gpt来打招呼真是太棒了，毕竟开场白很重要。"
         :data="conf.formData.aiGreeting"
         :lock="helper.workflow?.status.value === 'running'"
         @show="
@@ -37,8 +38,8 @@ function change(v: Partial<FormDataAi>) {
         @change="change"
       />
       <FormSwitch
-        :label="formInfoData.aiFiltering.label"
-        :data-help="formInfoData.aiFiltering['data-help']"
+        label="AI过滤"
+        data-help="根据工作内容让gpt分析过滤，真是太稳健了，不放过任何一个垃圾"
         :data="conf.formData.aiFiltering"
         :lock="helper.workflow?.status.value === 'running'"
         @show="
@@ -50,8 +51,8 @@ function change(v: Partial<FormDataAi>) {
         @change="change"
       />
       <FormSwitch
-        :label="formInfoData.aiReply.label"
-        :data-help="formInfoData.aiReply['data-help']"
+        label="AI回复"
+        data-help="万一消息太多，回不过来了呢. 功能暂未实现"
         :data="conf.formData.aiReply"
         disabled
         @show="
@@ -62,20 +63,10 @@ function change(v: Partial<FormDataAi>) {
         "
         @change="change"
       />
-      <!-- <formSwitch
-      v-bind="formInfoData.record"
-      :data="formData.record"
-      @show="
-        aiBox = 'record';
-        aiBoxShow = true;
-      "
-      @change="change"
-    /> -->
     </div>
     <div>
       <LLMModelManage>
-        <UButton
-          color="primary"
+        <Button
           data-help="配置需要使用的LLM大模型"
           @click="
             () => {
@@ -84,14 +75,14 @@ function change(v: Partial<FormDataAi>) {
           "
         >
           模型配置
-        </UButton>
+        </Button>
       </LLMModelManage>
     </div>
 
     <LLMPromptEdit
       v-if="aiBoxShow && aiBox !== 'record'"
       v-model="aiBoxShow"
-      v-key="aiBox"
+      :key="aiBox"
       :data="aiBox"
     />
   </div>

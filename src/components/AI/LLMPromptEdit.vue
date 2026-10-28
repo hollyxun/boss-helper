@@ -1,22 +1,60 @@
 <script lang="ts" setup>
-import type { SelectMenuItem, TableColumn } from '@nuxt/ui'
-import UBadge from '@nuxt/ui/components/Badge.vue'
-import UButton from '@nuxt/ui/components/Button.vue'
-import UPopover from '@nuxt/ui/components/Popover.vue'
-import { h, reactive, ref } from 'vue'
+import { ChevronDown, Loader2 } from '@lucide/vue'
+import { reactive, ref } from 'vue'
 
+import Hint from '@/components/Hint.vue'
 import JobCard from '@/components/JobCard.vue'
-import { formInfoData, defaultFormData, useConf } from '@/composables/conf'
+import Avatar from '@/components/ui/avatar/Avatar.vue'
+import AvatarFallback from '@/components/ui/avatar/AvatarFallback.vue'
+import AvatarImage from '@/components/ui/avatar/AvatarImage.vue'
+import Badge from '@/components/ui/badge/Badge.vue'
+import Button from '@/components/ui/button/Button.vue'
+import Dialog from '@/components/ui/dialog/Dialog.vue'
+import DialogContent from '@/components/ui/dialog/DialogContent.vue'
+import DialogDescription from '@/components/ui/dialog/DialogDescription.vue'
+import DialogFooter from '@/components/ui/dialog/DialogFooter.vue'
+import DialogHeader from '@/components/ui/dialog/DialogHeader.vue'
+import DialogTitle from '@/components/ui/dialog/DialogTitle.vue'
+import Input from '@/components/ui/input/Input.vue'
+import Label from '@/components/ui/label/Label.vue'
+import Popover from '@/components/ui/popover/Popover.vue'
+import PopoverContent from '@/components/ui/popover/PopoverContent.vue'
+import PopoverTrigger from '@/components/ui/popover/PopoverTrigger.vue'
+import Select from '@/components/ui/select/Select.vue'
+import SelectContent from '@/components/ui/select/SelectContent.vue'
+import SelectItem from '@/components/ui/select/SelectItem.vue'
+import SelectTrigger from '@/components/ui/select/SelectTrigger.vue'
+import SelectValue from '@/components/ui/select/SelectValue.vue'
+import Sheet from '@/components/ui/sheet/Sheet.vue'
+import SheetContent from '@/components/ui/sheet/SheetContent.vue'
+import SheetDescription from '@/components/ui/sheet/SheetDescription.vue'
+import SheetFooter from '@/components/ui/sheet/SheetFooter.vue'
+import SheetHeader from '@/components/ui/sheet/SheetHeader.vue'
+import SheetTitle from '@/components/ui/sheet/SheetTitle.vue'
+import Table from '@/components/ui/table/Table.vue'
+import TableBody from '@/components/ui/table/TableBody.vue'
+import TableCell from '@/components/ui/table/TableCell.vue'
+import TableHead from '@/components/ui/table/TableHead.vue'
+import TableHeader from '@/components/ui/table/TableHeader.vue'
+import TableRow from '@/components/ui/table/TableRow.vue'
+import Textarea from '@/components/ui/textarea/Textarea.vue'
+import { defaultFormData, useConf } from '@/composables/conf'
 import { parseFiltering } from '@/composables/useApplying/utils'
 import { useHelper } from '@/composables/useHelper'
 import type { JobData } from '@/composables/useHelper'
 import { useModel } from '@/composables/useModel'
+import { useToast } from '@/composables/useToast'
 import type { Prompt } from '@/types/formData'
 import { logger } from '@/utils/logger'
 
 const props = defineProps<{
   data: 'aiGreeting' | 'aiFiltering' | 'aiReply'
 }>()
+const agentTitles: Record<typeof props.data, string> = {
+  aiGreeting: 'AI招呼语',
+  aiFiltering: 'AI过滤',
+  aiReply: 'AI回复',
+}
 const toast = useToast()
 const helper = useHelper()
 const conf = useConf()
@@ -26,15 +64,10 @@ const currentModel = ref(conf.formData[props.data].model)
 const currentModelData = computed(() =>
   model.modelData.value.find((v) => v.key === currentModel.value),
 )
-const modelItems = computed(() =>
-  model.modelData.value.map(
-    (v) => ({ ...v, avatar: { src: v.data?.avatar ?? '', loading: 'lazy' } }) as SelectMenuItem,
-  ),
-)
 
 const score = ref(props.data === 'aiFiltering' ? (conf.formData[props.data].score ?? 10) : 10)
 
-const role = ['system', 'user', 'assistant']
+const role = ['system', 'user', 'assistant'] as const
 
 const message = ref<Prompt>(jsonClone(conf.formData[props.data].prompt))
 
@@ -65,75 +98,27 @@ interface TestContent {
 }
 
 const testData = reactive<Array<TestData>>([])
-const testExpanded = ref<Record<string, boolean>>({})
+const expanded = reactive<Record<string, boolean>>({})
+const hoverOpen = reactive<Record<string, boolean>>({})
 const testDataContent = reactive<Record<string, TestContent[]>>({})
 
-const testTableColumns: TableColumn<TestData>[] = [
-  {
-    id: 'expand',
-    header: '',
-    cell: ({ row }) =>
-      h(UButton, {
-        color: 'neutral',
-        variant: 'ghost',
-        icon: 'i-lucide-chevron-down',
-        square: true,
-        size: 'xs',
-        'aria-label': 'Expand',
-        ui: {
-          leadingIcon: [
-            'transition-transform',
-            row.getIsExpanded() ? 'duration-200 rotate-180' : '',
-          ],
-        },
-        onClick: (event: MouseEvent) => {
-          event.stopPropagation()
-          row.toggleExpanded()
-        },
-      }),
-  },
-  {
-    id: 'jobName',
-    header: '岗位名',
-    accessorFn: (row) => row.job.jobName,
-    cell: ({ row }) =>
-      h(
-        UPopover,
-        {
-          mode: 'hover',
-          portal: testModelRef.value?.parentElement ?? false,
-        },
-        {
-          default: () =>
-            h('div', { class: 'flex items-center gap-1' }, [
-              row.original.loading
-                ? h(UBadge, {
-                    trailingIcon: 'i-line-md-loading-twotone-loop',
-                    variant: 'soft',
-                    color: 'neutral',
-                  })
-                : null,
-              h('span', row.original.job.jobName),
-            ]),
-          content: () => h(JobCard, { job: row.original.job, hover: false, style: 'width: 300px' }),
-        },
-      ),
-  },
-  {
-    id: 'jobDescription',
-    header: '内容',
-    accessorFn: (row) => row.job.jobDescription,
-    cell: ({ row }) =>
-      h(
-        'div',
-        {
-          class: 'truncate',
-          title: row.original.job.jobDescription,
-        },
-        row.original.job.jobDescription,
-      ),
-  },
-]
+let hoverTimer: ReturnType<typeof setTimeout> | undefined
+
+function toggleExpanded(key: string) {
+  expanded[key] = !expanded[key]
+}
+
+function showHover(key: string) {
+  if (hoverTimer) clearTimeout(hoverTimer)
+  hoverOpen[key] = true
+}
+
+function hideHover(key: string) {
+  if (hoverTimer) clearTimeout(hoverTimer)
+  hoverTimer = setTimeout(() => {
+    hoverOpen[key] = false
+  }, 150)
+}
 
 const testJobLoading = ref(false)
 const testJobStop = ref(true)
@@ -267,165 +252,261 @@ async function savePrompt() {
   await conf.confSaving()
   show.value = false
 }
-
-const promptModelRef = useTemplateRef('promptModel')
-const testModelRef = useTemplateRef('testModel')
 </script>
 
 <template>
-  <UModal
-    v-model:open="show"
-    :title="formInfoData[data].label"
-    :ui="{ content: 'sm:max-w-[70%]', body: 'flex flex-col gap-4' }"
-    :dismissible="false"
-  >
-    <template #body>
-      <div v-if="data === 'aiFiltering'">
-        <UFormField label="过滤分数">
-          <UInputNumber v-model="score" :min="-100" :max="100" size="sm" placeholder="请输入分数" />
-        </UFormField>
-      </div>
-      <div class="w-full flex items-center justify-between" ref="promptModel">
-        <div class="flex gap-2">
-          <UButton color="neutral"> 多对话模式 </UButton>
-          <UButton color="primary" @click="addMessage"> 添加消息 </UButton>
+  <Dialog v-model:open="show">
+    <DialogContent
+      class="sm:max-w-[70%]"
+      :show-close-button="false"
+      @interact-outside.prevent
+      @escape-key-down.prevent
+    >
+      <DialogHeader>
+        <DialogTitle>{{ agentTitles[data] }}</DialogTitle>
+        <DialogDescription>编辑提示词内容、角色与使用的模型</DialogDescription>
+      </DialogHeader>
+
+      <div class="flex flex-col gap-4">
+        <div v-if="data === 'aiFiltering'" class="flex items-center gap-2">
+          <Label for="prompt-score" class="w-20 shrink-0"> 过滤分数 </Label>
+          <Input
+            id="prompt-score"
+            type="number"
+            :min="-100"
+            :max="100"
+            :model-value="score"
+            placeholder="请输入分数"
+            @update:model-value="(value) => (score = value === '' ? 0 : Number(value))"
+          />
         </div>
-        <div class="flex gap-2">
-          <UButton color="info" @click="inputExample"> 填入示例值 </UButton>
-          <USelectMenu
-            v-model="currentModel"
-            :items="modelItems"
-            labelKey="name"
-            valueKey="key"
-            placeholder="选择模型"
-            :portal="promptModelRef?.parentElement ?? false"
-            :avatar="{
-              src: currentModelData?.data?.avatar,
-              loading: 'lazy',
-            }"
-          >
-          </USelectMenu>
-        </div>
-      </div>
-      <div v-pre>
-        使用 {{}} 来渲染变量。
-        <ULink
-          to="https://github.com/hollyxun/boss-helper/blob/main/src/entrypoints/boss/types.ts"
-          target="_blank"
-        >
-          变量表
-        </ULink>
-        <br />
-        推荐阅读
-        <ULink to="https://langgptai.feishu.cn/wiki/RXdbwRyASiShtDky381ciwFEnpe" target="_blank">
-          《LangGPT》
-        </ULink>
-        的提示词文档学习 ( 示例提示词写的并不好,欢迎AI大佬来提pr )
-      </div>
-      <div class="demo-dynamic space-y-3">
-        <div v-for="(item, index) in message" :key="index" class="flex items-start gap-2">
-          <div class="flex flex-col gap-3 w-27.5">
-            <USelectMenu
-              v-model="item.role"
-              :items="role"
-              :portal="promptModelRef?.parentElement ?? false"
-              :content="{ side: 'right' }"
-            />
-            <UButton
-              color="error"
-              variant="outline"
-              @click.prevent="removeMessage(item)"
-              class="w-full"
-            >
-              删除
-            </UButton>
+
+        <div class="flex w-full items-center justify-between gap-2">
+          <div class="flex gap-2">
+            <Button variant="secondary"> 多对话模式 </Button>
+            <Button @click="addMessage"> 添加消息 </Button>
           </div>
-          <UTextarea v-model="item.content" autoresize :rows="2" :maxrows="6" class="flex-1" />
+          <div class="flex items-center gap-2">
+            <Button variant="secondary" @click="inputExample"> 填入示例值 </Button>
+            <Select
+              :model-value="currentModel"
+              @update:model-value="(value) => (currentModel = value as string)"
+            >
+              <SelectTrigger class="w-[200px]">
+                <div class="flex items-center gap-2">
+                  <Avatar class="size-5">
+                    <AvatarImage
+                      v-if="currentModelData?.data?.avatar"
+                      :src="currentModelData.data.avatar"
+                      :alt="currentModelData.name"
+                    />
+                    <AvatarFallback>{{
+                      currentModelData?.name?.slice(0, 1) ?? 'A'
+                    }}</AvatarFallback>
+                  </Avatar>
+                  <SelectValue placeholder="选择模型" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="item in model.modelData.value" :key="item.key" :value="item.key">
+                  <div class="flex items-center gap-2">
+                    <Avatar class="size-5">
+                      <AvatarImage
+                        v-if="item.data?.avatar"
+                        :src="item.data.avatar"
+                        :alt="item.name"
+                      />
+                      <AvatarFallback>{{ item.name.slice(0, 1) }}</AvatarFallback>
+                    </Avatar>
+                    <span>{{ item.name }}</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div v-pre class="text-muted-foreground text-sm">
+          使用 {{}} 来渲染变量。
+          <a
+            class="text-primary underline underline-offset-4"
+            href="https://github.com/hollyxun/boss-helper/blob/main/src/entrypoints/boss/types.ts"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            变量表
+          </a>
+          <br />
+          推荐阅读
+          <a
+            class="text-primary underline underline-offset-4"
+            href="https://langgptai.feishu.cn/wiki/RXdbwRyASiShtDky381ciwFEnpe"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            《LangGPT》
+          </a>
+          的提示词文档学习 ( 示例提示词写的并不好,欢迎AI大佬来提pr )
+        </div>
+
+        <div class="demo-dynamic space-y-3">
+          <div v-for="(item, index) in message" :key="index" class="flex items-start gap-2">
+            <div class="flex w-27.5 flex-col gap-3">
+              <Select
+                :model-value="item.role"
+                @update:model-value="
+                  (value) => (item.role = value as 'system' | 'user' | 'assistant')
+                "
+              >
+                <SelectTrigger class="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="r in role" :key="r" :value="r"> {{ r }} </SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" class="w-full" @click.prevent="removeMessage(item)">
+                删除
+              </Button>
+            </div>
+            <Textarea
+              :model-value="item.content"
+              :rows="2"
+              class="flex-1"
+              @update:model-value="(value) => (item.content = String(value))"
+            />
+          </div>
         </div>
       </div>
-    </template>
 
-    <template #footer>
-      <UButton
-        color="neutral"
-        variant="outline"
-        @click="
-          () => {
-            show = false
-          }
-        "
-      >
-        关闭
-      </UButton>
-      <UButton
-        color="neutral"
-        variant="soft"
-        @click="
-          () => {
-            testDialog = true
-          }
-        "
-      >
-        测试
-      </UButton>
-      <UButton color="primary" @click="savePrompt"> 保存 </UButton>
-    </template>
-  </UModal>
-  <USlideover v-model:open="testDialog" title="Prompt 测试" :ui="{ content: 'max-w-lg' }">
-    <template #body>
-      <div class="flex gap-2 mb-4" ref="testModel">
-        <UButton :loading="testJobLoading" @click="addTestJob(1)" color="neutral">
-          从页面添加1个岗位
-        </UButton>
-        <UButton :loading="testJobLoading" @click="addTestJob(4)" color="neutral">
-          从页面添加4个岗位
-        </UButton>
-        <UButton :loading="testJobLoading" @click="addTestJob(10)" color="neutral">
-          从页面添加10个岗位
-        </UButton>
-      </div>
-      <div class="overflow-auto">
-        <UTable
-          v-model:expanded="testExpanded"
-          :data="testData"
-          :get-row-id="(row: TestData) => row.key"
-          :columns="testTableColumns"
-          :ui="{ tr: 'data-[expanded=true]:bg-elevated/40' }"
-        >
-          <template #expanded="{ row }">
-            <div class="test-content-wrapper">
-              <div class="test-content-list">
-                <div
-                  v-for="(item, index) in (testDataContent[row.original.key] ?? []).slice(-3)"
-                  :key="`${row.original.key}-${item.time}-${index}`"
-                  class="test-content-item"
-                >
-                  <div class="test-content-time">
-                    {{ item.time }}
-                  </div>
+      <DialogFooter>
+        <Button variant="outline" @click="show = false"> 关闭 </Button>
+        <Button variant="secondary" @click="testDialog = true"> 测试 </Button>
+        <Button @click="savePrompt"> 保存 </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 
-                  <div
-                    v-if="item.reasoning_content"
-                    class="test-content-reasoning-content"
-                    :title="item.reasoning_content"
-                  >
-                    {{ item.reasoning_content }}
-                  </div>
-                  <div class="test-content-content" :title="item.content">
-                    {{ item.content }}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </template>
-        </UTable>
+  <Sheet v-model:open="testDialog">
+    <SheetContent side="right" class="w-full sm:max-w-lg">
+      <SheetHeader>
+        <SheetTitle>Prompt 测试</SheetTitle>
+        <SheetDescription>从当前页面抽取岗位，验证提示词效果</SheetDescription>
+      </SheetHeader>
+
+      <div class="min-h-0 flex-1 overflow-y-auto px-4">
+        <div class="mb-4 flex flex-wrap gap-2">
+          <Button variant="secondary" :disabled="testJobLoading" @click="addTestJob(1)">
+            <Loader2 v-if="testJobLoading" class="animate-spin" />
+            从页面添加1个岗位
+          </Button>
+          <Button variant="secondary" :disabled="testJobLoading" @click="addTestJob(4)">
+            <Loader2 v-if="testJobLoading" class="animate-spin" />
+            从页面添加4个岗位
+          </Button>
+          <Button variant="secondary" :disabled="testJobLoading" @click="addTestJob(10)">
+            <Loader2 v-if="testJobLoading" class="animate-spin" />
+            从页面添加10个岗位
+          </Button>
+        </div>
+
+        <div class="overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead class="w-8" />
+                <TableHead>岗位名</TableHead>
+                <TableHead>内容</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <template v-for="row in testData" :key="row.key">
+                <TableRow :data-state="expanded[row.key] ? 'selected' : undefined">
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label="Expand"
+                      @click.stop="toggleExpanded(row.key)"
+                    >
+                      <ChevronDown
+                        class="size-3.5 transition-transform"
+                        :class="expanded[row.key] ? 'rotate-180' : ''"
+                      />
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <Popover v-model:open="hoverOpen[row.key]">
+                      <PopoverTrigger as-child>
+                        <span
+                          class="flex cursor-default items-center gap-1"
+                          @mouseenter="showHover(row.key)"
+                          @mouseleave="hideHover(row.key)"
+                        >
+                          <Badge v-if="row.loading" variant="secondary" class="size-4 p-0">
+                            <Loader2 class="size-3 animate-spin" />
+                          </Badge>
+                          <span>{{ row.job.jobName }}</span>
+                        </span>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        class="w-auto p-0"
+                        @mouseenter="showHover(row.key)"
+                        @mouseleave="hideHover(row.key)"
+                      >
+                        <JobCard :job="row.job" :hover="false" style="width: 300px" />
+                      </PopoverContent>
+                    </Popover>
+                  </TableCell>
+                  <Hint :text="row.job.jobDescription">
+                    <TableCell class="max-w-[240px] truncate">
+                      {{ row.job.jobDescription }}
+                    </TableCell>
+                  </Hint>
+                </TableRow>
+
+                <TableRow v-if="expanded[row.key]" class="bg-muted/40">
+                  <TableCell colspan="3">
+                    <div class="max-h-48 space-y-2 overflow-y-auto text-xs">
+                      <div
+                        v-for="(item, index) in (testDataContent[row.key] ?? []).slice(-3)"
+                        :key="`${row.key}-${item.time}-${index}`"
+                        class="rounded-md border p-2"
+                      >
+                        <div class="text-muted-foreground">
+                          {{ item.time }}
+                        </div>
+                        <Hint v-if="item.reasoning_content" :text="item.reasoning_content">
+                          <div class="text-muted-foreground mt-1 line-clamp-4">
+                            {{ item.reasoning_content }}
+                          </div>
+                        </Hint>
+                        <Hint :text="item.content">
+                          <div class="mt-1 whitespace-pre-wrap">
+                            {{ item.content }}
+                          </div>
+                        </Hint>
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              </template>
+              <TableRow v-if="testData.length === 0">
+                <TableCell colspan="3" class="text-muted-foreground py-6 text-center">
+                  还没有测试岗位，请先从页面添加
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
       </div>
-    </template>
-    <template #footer="{ close }">
-      <UButton color="neutral" variant="outline" @click="close"> 取消 </UButton>
-      <UButton color="primary" @click="testJob">
-        {{ testJobStop ? '开始测试' : '停止测试' }}
-      </UButton>
-    </template>
-  </USlideover>
+
+      <SheetFooter class="flex-row justify-end">
+        <Button variant="outline" @click="testDialog = false"> 取消 </Button>
+        <Button @click="testJob">
+          {{ testJobStop ? '开始测试' : '停止测试' }}
+        </Button>
+      </SheetFooter>
+    </SheetContent>
+  </Sheet>
 </template>

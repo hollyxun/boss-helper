@@ -1,13 +1,28 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
 
-import Alert from '@/components/Alert.vue'
+import CreateLLM from '@/components/AI/LLMModelEdit.vue'
+import Avatar from '@/components/ui/avatar/Avatar.vue'
+import AvatarFallback from '@/components/ui/avatar/AvatarFallback.vue'
+import AvatarImage from '@/components/ui/avatar/AvatarImage.vue'
+import Button from '@/components/ui/button/Button.vue'
+import Dialog from '@/components/ui/dialog/Dialog.vue'
+import DialogContent from '@/components/ui/dialog/DialogContent.vue'
+import DialogDescription from '@/components/ui/dialog/DialogDescription.vue'
+import DialogFooter from '@/components/ui/dialog/DialogFooter.vue'
+import DialogHeader from '@/components/ui/dialog/DialogHeader.vue'
+import DialogTitle from '@/components/ui/dialog/DialogTitle.vue'
+import Table from '@/components/ui/table/Table.vue'
+import TableBody from '@/components/ui/table/TableBody.vue'
+import TableCell from '@/components/ui/table/TableCell.vue'
+import TableHead from '@/components/ui/table/TableHead.vue'
+import TableHeader from '@/components/ui/table/TableHeader.vue'
+import TableRow from '@/components/ui/table/TableRow.vue'
 import type { ModelConf } from '@/composables/useModel'
 import { useModel } from '@/composables/useModel'
+import { useToast } from '@/composables/useToast'
 import deepmerge, { jsonClone } from '@/utils/deepmerge'
 import { exportJson, importJson } from '@/utils/jsonImportExport'
-
-import CreateLLM from './LLMModelEdit.vue'
 
 const modelStore = useModel()
 const createBoxShow = ref(false)
@@ -25,7 +40,7 @@ function copy(d: ModelConf) {
   modelStore.modelData.value.push(d)
 }
 
-const createModelData = ref()
+const createModelData = ref<ModelConf>()
 
 function edit(d: ModelConf) {
   createModelData.value = d
@@ -73,65 +88,80 @@ function importllm() {
 </script>
 
 <template>
-  <UModal
-    v-model:open="open"
-    title="Ai模型配置"
-    :ui="{ content: 'sm:max-w-[70%]' }"
-    ref="manageModelRef"
-    :dismissible="false"
-  >
-    <slot />
-    <template #body>
-      <UTable
-        :data="modelStore.modelData.value"
-        :columns="[
-          { id: 'model', header: '模型' },
-          { id: 'desc', header: '描述' },
-          { id: 'manage', header: '管理' },
-        ]"
-        style="width: 100%"
-      >
-        <template #model-cell="{ row }">
-          <div style="align-items: center; display: flex">
-            <UAvatar :src="row.original.data?.avatar" :alt="row.original.name" />
-            <span style="margin-left: 8px">{{ row.original.name }}</span>
-          </div>
-        </template>
-        <template #desc-cell="{ row }">
-          <p class="line-clamp-1">
-            {{ row.original.data && row.original.data.base_url }}
-          </p>
-        </template>
-        <template #manage-cell="{ row }">
-          <div style="width: 200px">
-            <UButton variant="link" color="primary" size="sm" @click="del(row.original)">
-              删除
-            </UButton>
-            <UButton variant="link" color="primary" size="sm" @click="copy(row.original)">
-              复制
-            </UButton>
-            <UButton variant="link" color="primary" size="sm" @click="edit(row.original)">
-              编辑
-            </UButton>
-          </div>
-        </template>
-      </UTable>
+  <Dialog v-model:open="open">
+    <div @click="open = true">
+      <slot />
+    </div>
+
+    <DialogContent
+      class="sm:max-w-[70%]"
+      :show-close-button="false"
+      @interact-outside.prevent
+      @escape-key-down.prevent
+    >
+      <DialogHeader>
+        <DialogTitle>Ai模型配置</DialogTitle>
+        <DialogDescription>管理已配置的大模型，可新建、复制、编辑或导入导出</DialogDescription>
+      </DialogHeader>
+
+      <div class="max-h-[60vh] overflow-y-auto">
+        <Table class="w-full">
+          <TableHeader>
+            <TableRow>
+              <TableHead>模型</TableHead>
+              <TableHead>描述</TableHead>
+              <TableHead class="w-[200px]">管理</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="item in modelStore.modelData.value" :key="item.key">
+              <TableCell>
+                <div class="flex items-center gap-2">
+                  <Avatar>
+                    <AvatarImage
+                      v-if="item.data?.avatar"
+                      :src="item.data.avatar"
+                      :alt="item.name"
+                    />
+                    <AvatarFallback>{{ item.name.slice(0, 2) }}</AvatarFallback>
+                  </Avatar>
+                  <span>{{ item.name }}</span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <p class="line-clamp-1">{{ item.data?.base_url }}</p>
+              </TableCell>
+              <TableCell>
+                <div class="flex w-[200px] items-center gap-1">
+                  <Button variant="link" size="sm" @click="del(item)"> 删除 </Button>
+                  <Button variant="link" size="sm" @click="copy(item)"> 复制 </Button>
+                  <Button variant="link" size="sm" @click="edit(item)"> 编辑 </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+            <TableRow v-if="modelStore.modelData.value.length === 0">
+              <TableCell colspan="3" class="text-muted-foreground py-6 text-center">
+                暂无模型配置
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
       <CreateLLM
         v-if="createBoxShow"
         v-model="createBoxShow"
         :model="createModelData"
         @create="create"
       />
-    </template>
 
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton color="neutral" variant="outline" @click="close"> 取消 </UButton>
-        <UButton color="success" @click="exportllm"> 导出 </UButton>
-        <UButton color="success" @click="importllm"> 导入 </UButton>
-        <UButton @click="newllm"> 新建 </UButton>
-        <UButton @click="modelStore.saveModel"> 保存 </UButton>
-      </div>
-    </template>
-  </UModal>
+      <DialogFooter>
+        <Button variant="outline" @click="close"> 取消 </Button>
+        <Button variant="secondary" @click="exportllm"> 导出 </Button>
+        <Button variant="secondary" @click="importllm"> 导入 </Button>
+        <Button variant="outline" @click="newllm"> 新建 </Button>
+        <Button @click="modelStore.saveModel"> 保存 </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>

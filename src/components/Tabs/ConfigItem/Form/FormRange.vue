@@ -1,53 +1,43 @@
 <script lang="ts" setup>
-import type { InputNumberProps } from '@nuxt/ui'
+import Badge from '@/components/ui/badge/Badge.vue'
+import Button from '@/components/ui/button/Button.vue'
+import Input from '@/components/ui/input/Input.vue'
 
-const props = withDefaults(
-  defineProps<{
-    value: [number, number, boolean]
-    unit: string
-    show: boolean
-    step?: number
-    controls?: boolean
-    ui?: InputNumberProps['ui']
-  }>(),
-  {
-    controls: true,
-    ui: {
-      // @ts-ignore
-      base: 'max-w-25',
-    },
-  },
-)
+const props = defineProps<{
+  value: [number, number, boolean]
+  unit: string
+  show: boolean
+  step?: number
+}>()
 
-const handleToggle = () => {
+function handleToggle() {
   props.value[2] = !props.value[2]
 }
 </script>
 
 <template>
-  <UFieldGroup>
-    <UInputNumber
-      v-model="props.value[0]"
+  <div class="flex flex-row flex-wrap items-center gap-2">
+    <Input
+      type="number"
+      class="w-24"
       :min="0"
       :step="props.step"
-      :increment="false"
-      :decrement="false"
-      :ui="props.ui"
+      :model-value="props.value[0]"
+      @update:model-value="(v) => (props.value[0] = Number(v))"
     />
-    <UBadge>-</UBadge>
-    <UInputNumber
-      v-model="props.value[1]"
+    <Badge variant="outline">-</Badge>
+    <Input
+      type="number"
+      class="w-24"
       :min="0"
       :step="props.step"
-      :increment="false"
-      :decrement="false"
-      :ui="props.ui"
+      :model-value="props.value[1]"
+      @update:model-value="(v) => (props.value[1] = Number(v))"
     />
-
-    <UBadge>{{ props.unit }}</UBadge>
-    <UButton v-if="props.show" @click="handleToggle">
+    <Badge variant="outline">{{ props.unit }}</Badge>
+    <Button v-if="props.show" variant="outline" size="sm" @click="handleToggle">
       {{ props.value[2] ? '严格' : '宽松' }}
-    </UButton>
+    </Button>
     <slot />
-  </UFieldGroup>
+  </div>
 </template>

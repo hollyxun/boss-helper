@@ -1,15 +1,24 @@
 <script lang="ts" setup>
-import { isPartStreaming, isToolStreaming } from '@nuxt/ui/utils/ai'
-import { getToolName, isReasoningUIPart, isTextUIPart, isToolUIPart, UIMessage } from 'ai'
+import { Accessibility, X } from '@lucide/vue'
+import { getToolName, isReasoningUIPart, isTextUIPart, isToolUIPart } from 'ai'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
+import Hint from '@/components/Hint.vue'
+import Button from '@/components/ui/button/Button.vue'
+import Sheet from '@/components/ui/sheet/Sheet.vue'
+import SheetContent from '@/components/ui/sheet/SheetContent.vue'
+import SheetDescription from '@/components/ui/sheet/SheetDescription.vue'
+import SheetFooter from '@/components/ui/sheet/SheetFooter.vue'
+import SheetHeader from '@/components/ui/sheet/SheetHeader.vue'
+import SheetTitle from '@/components/ui/sheet/SheetTitle.vue'
+import Textarea from '@/components/ui/textarea/Textarea.vue'
 import { appearanceConf } from '@/composables/conf'
 import { parseFiltering } from '@/composables/useApplying/utils'
 import { useHelper } from '@/composables/useHelper'
-import { VueChatState, Message } from '@/composables/useModel'
 
 const open = defineModel('open', { default: false })
 const following = ref(true)
-const chatMessages = useTemplateRef('chatMessages') // TODO: auto scroll
+const chatMessages = ref<HTMLElement>()
 
 const helper = useHelper()
 const selectJob = ref(
@@ -18,34 +27,41 @@ const selectJob = ref(
 
 const jobs = computed(() =>
   helper.chatModel.jobs.value.map((key) => ({
-    key: key,
+    key,
     job: helper.jobMaps.get(key),
-    // result: helper.jobResultMaps.get(key),
-    // messages: helper.chatModel.messages.get(key),
   })),
 )
 
 const messages = computed(() => {
-  if (!selectJob.value) return
+  if (!selectJob.value) return undefined
   return helper.chatModel.states.get(selectJob.value)
+})
+
+const isStreaming = computed(() => {
+  const status = messages.value?.statusRef.value
+  return status === 'streaming' || status === 'submitted'
 })
 
 watch(
   () => helper.currentJob.value,
-  (v) => {
-    if (following.value && v) {
-      selectJob.value = v
+  (value) => {
+    if (following.value && value) {
+      selectJob.value = value
     }
+  },
+)
+
+watch(
+  () => messages.value?.messagesRef.value.length,
+  async () => {
+    await nextTick()
+    chatMessages.value?.scrollTo({ top: chatMessages.value.scrollHeight })
   },
 )
 
 function onClient(jobKey: string) {
   selectJob.value = jobKey
   following.value = false
-}
-
-function isMessage(message: UIMessage): message is Message {
-  return true
 }
 
 const activeDots = ref<Set<number>>(new Set())
@@ -77,10 +93,8 @@ const patterns = [
 function nextStep() {
   const pattern = patterns[patternIndex]
   if (!pattern) return
-
   activeDots.value = new Set(pattern[stepIndex])
   stepIndex++
-
   if (stepIndex >= pattern.length) {
     stepIndex = 0
     patternIndex = (patternIndex + 1) % patterns.length
@@ -101,26 +115,15 @@ function scramble(from: string, to: string) {
     frame++
     let result = ''
     const progress = (frame / totalFrames) * maxLength
-
     for (let i = 0; i < maxLength; i++) {
-      if (i < progress - 2) {
-        result += to[i] || ''
-      } else if (i < progress) {
-        result += chars[Math.floor(Math.random() * chars.length)]
-      } else {
-        result += from[i] || ''
-      }
+      if (i < progress - 2) result += to[i] || ''
+      else if (i < progress) result += chars[Math.floor(Math.random() * chars.length)]
+      else result += from[i] || ''
     }
-
     displayedText.value = result
-
-    if (frame < totalFrames) {
-      requestAnimationFrame(step)
-    } else {
-      displayedText.value = to
-    }
+    if (frame < totalFrames) requestAnimationFrame(step)
+    else displayedText.value = to
   }
-
   requestAnimationFrame(step)
 }
 
@@ -144,142 +147,106 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <USlideover
-    v-model:open="open"
-    :side="appearanceConf.leftChat ? 'left' : 'right'"
-    inset
-    :dismissible="false"
-    :modal="false"
-    :ui="{ body: 'flex flex-col overscroll-contain p-2', content: 'top-14 z-[1230]' }"
-    :style="{
-      width: `${appearanceConf.chatBoxWidth}px`,
-    }"
-  >
-    <template #header>
-      <div class="flex flex-row overflow-x-auto gap-1 flex-1">
-        <UButton
-          v-for="job in jobs"
-          :avatar="{
-            src: job.job?.jobData.brand.logo ?? job.job?.jobData.boss.avatar,
-            loading: 'lazy',
-          }"
-          size="md"
-          :color="selectJob === job.key ? 'primary' : 'neutral'"
-          variant="outline"
-          @click="onClient(job.key)"
-          :title="job.job?.jobData?.jobName || job.job?.jobData?.positionName || job.key"
-        >
-          {{ job.job?.jobData.boss.name || job.job?.jobData.positionName || job.key }}
-        </UButton>
-      </div>
+  <Sheet v-model:open="open" :modal="false">
+    <SheetContent
+      :side="appearanceConf.leftChat ? 'left' : 'right'"
+      :show-close-button="false"
+      :show-overlay="false"
+      class="top-14 max-w-[100vw] gap-0 p-0"
+      :style="{ width: `${appearanceConf.chatBoxWidth}px` }"
+    >
+      <SheetHeader class="flex flex-row items-center gap-1 border-b px-4 py-3">
+        <SheetTitle class="sr-only">AI 对话</SheetTitle>
+        <SheetDescription class="sr-only">Boss 直聘 AI 对话与招呼语</SheetDescription>
+        <div class="flex flex-1 flex-row gap-1 overflow-x-auto">
+          <Hint
+            v-for="job in jobs"
+            :key="job.key"
+            :text="job.job?.jobData?.jobName || job.job?.jobData?.positionName || job.key"
+          >
+            <Button
+              size="sm"
+              :variant="selectJob === job.key ? 'default' : 'outline'"
+              @click="onClient(job.key)"
+            >
+              {{ job.job?.jobData.boss.name || job.job?.jobData.positionName || job.key }}
+            </Button>
+          </Hint>
+        </div>
 
-      <UFieldGroup>
-        <UButton
-          size="md"
-          :color="following ? 'primary' : 'neutral'"
-          variant="ghost"
-          @click="
-            () => {
-              following = !following
-            }
-          "
-          icon="i-lucide-accessibility"
-          title="自动跟随"
-        >
-        </UButton>
-        <UButton
-          size="md"
-          color="neutral"
-          variant="ghost"
-          @click="
-            () => {
-              open = false
-            }
-          "
-          icon="i-lucide-x"
-          title="关闭"
-        >
-        </UButton>
-      </UFieldGroup>
-    </template>
-    <template #body>
-      <UChatMessages
+        <div class="flex items-center gap-1">
+          <Hint text="自动跟随">
+            <Button
+              size="icon-sm"
+              :variant="following ? 'default' : 'ghost'"
+              @click="following = !following"
+            >
+              <Accessibility class="size-4" />
+            </Button>
+          </Hint>
+          <Hint text="关闭">
+            <Button size="icon-sm" variant="ghost" @click="open = false">
+              <X class="size-4" />
+            </Button>
+          </Hint>
+        </div>
+      </SheetHeader>
+
+      <div
         v-if="selectJob && messages"
-        :key="selectJob"
         ref="chatMessages"
-        :messages="messages.messagesRef.value"
-        :user="{ variant: 'subtle', ui: { container: 'max-w-[85%] gap-1.5' } }"
-        :assistant="{ variant: 'subtle', ui: { container: 'gap-1.5' } }"
-        should-auto-scroll
-        should-scroll-to-bottom
-        :status="messages.statusRef.value"
-        :ui="{
-          indicator: 'bg-red-300',
-        }"
+        class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2"
       >
-        <template #content="{ message }">
-          <template v-if="isMessage(message)">
+        <div
+          v-for="message in messages.messagesRef.value"
+          :key="message.id"
+          class="flex flex-col gap-1"
+          :class="
+            message.role === 'user' || message.uiRole === 'greetings' ? 'items-end' : 'items-start'
+          "
+        >
+          <div class="max-w-[85%] rounded-lg bg-muted px-3 py-2 text-sm">
             <template
               v-for="(part, index) in message.parts"
               :key="`${message.id}-${part.type}-${index}`"
             >
-              <UChatReasoning
-                v-if="isReasoningUIPart(part)"
-                :text="part.text"
-                :streaming="isPartStreaming(part)"
-              >
-                <p class="whitespace-pre-wrap">
-                  {{ part.text }}
-                </p>
-              </UChatReasoning>
-              <UChatTool
-                v-else-if="isToolUIPart(part)"
-                :text="getToolName(part)"
-                :streaming="isToolStreaming(part)"
-              />
-
+              <details v-if="isReasoningUIPart(part)" class="mb-1 text-xs text-muted-foreground">
+                <summary class="cursor-pointer">思考过程</summary>
+                <p class="mt-1 whitespace-pre-wrap">{{ part.text }}</p>
+              </details>
+              <div v-else-if="isToolUIPart(part)" class="mb-1 text-xs text-muted-foreground">
+                工具：{{ getToolName(part) }}
+              </div>
               <p v-else-if="isTextUIPart(part)" class="whitespace-pre-wrap">
                 {{ message.uiRole === 'filtering' ? parseFiltering(part.text).message : part.text }}
               </p>
             </template>
-          </template>
-        </template>
-        <template #indicator>
-          <div class="indicator flex items-center gap-2 text-muted overflow-hidden">
-            <div
-              class="shrink-0 grid size-4"
-              :style="{
-                gridTemplateColumns: `repeat(${size}, 1fr)`,
-                gap: `${gap}px`,
-              }"
-            >
-              <span
-                v-for="i in totalDots"
-                :key="i"
-                class="rounded-sm bg-current transition-opacity duration-100"
-                :class="activeDots.has(i - 1) ? 'opacity-100' : 'opacity-20'"
-              />
-            </div>
-
-            <UChatShimmer :text="displayedText" class="text-sm font-mono" />
           </div>
-        </template>
-      </UChatMessages>
-    </template>
-    <template #footer>
-      <UChatPrompt variant="soft" v-model="helper.pendingMessages.value">
-        <UChatPromptSubmit v-if="messages" :status="messages.statusRef.value" />
-      </UChatPrompt>
-    </template>
-  </USlideover>
+        </div>
+
+        <div
+          v-if="isStreaming"
+          class="indicator flex items-center gap-2 overflow-hidden text-muted-foreground"
+        >
+          <div
+            class="grid size-4 shrink-0"
+            :style="{ gridTemplateColumns: `repeat(${size}, 1fr)`, gap: `${gap}px` }"
+          >
+            <span
+              v-for="i in totalDots"
+              :key="i"
+              class="rounded-sm bg-current transition-opacity duration-100"
+              :class="activeDots.has(i - 1) ? 'opacity-100' : 'opacity-20'"
+            />
+          </div>
+          <span class="font-mono text-sm">{{ displayedText }}</span>
+        </div>
+      </div>
+      <div v-else class="p-4 text-sm text-muted-foreground">暂无可显示的对话</div>
+
+      <SheetFooter class="border-t px-4 py-3">
+        <Textarea v-model="helper.pendingMessages.value" :rows="2" placeholder="可编辑招呼语..." />
+      </SheetFooter>
+    </SheetContent>
+  </Sheet>
 </template>
-
-<style scoped>
-/* article.group\/message[data-role="assistant"] > indicator{
-.container{
-  [data-slot="container"]{
-
-  }
-}
-} */
-</style>

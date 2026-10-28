@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import { AlertTriangle, Loader2, Wifi } from '@lucide/vue'
 import { ref } from 'vue'
 
-import { JobStatus } from '@/composables/useApplying/type'
-import { JobData, useHelper } from '@/composables/useHelper'
+import Hint from '@/components/Hint.vue'
+import type { JobStatus } from '@/composables/useApplying/type'
+import type { JobData } from '@/composables/useHelper'
+import { useHelper } from '@/composables/useHelper'
 
 const helper = useHelper()
 
@@ -85,39 +88,35 @@ function getActiveTimeType(job: JobData): 'success' | 'warning' | 'error' {
     <h3 class="card-salary">
       {{ job.salary }}
     </h3>
-    <div
-      v-show="showDescription"
-      class="card-content"
-      :title="job.jobDescription"
-      @click="showDescription = false"
-    >
-      <template v-if="showDescriptionLoading">
-        加载中...
-        <USkeleton class="h-4 w-full" />
-        <USkeleton class="h-4 w-4/5" />
-      </template>
-      <template v-else-if="showDescriptionMessage">
-        {{ showDescriptionMessage }}
-      </template>
-      <template v-else>
-        {{ job.jobDescription }}
-      </template>
-    </div>
+    <Hint :text="job.jobDescription">
+      <div v-show="showDescription" class="card-content" @click="showDescription = false">
+        <template v-if="showDescriptionLoading">
+          加载中...
+          <Skeleton class="h-4 w-full" />
+          <Skeleton class="h-4 w-4/5" />
+        </template>
+        <template v-else-if="showDescriptionMessage">
+          {{ showDescriptionMessage }}
+        </template>
+        <template v-else>
+          {{ job.jobDescription }}
+        </template>
+      </div>
+    </Hint>
     <div v-show="!showDescription" class="card-content" @click="showDescriptionHandler">
       <div>
         <div class="flex flex-wrap gap-1">
-          <UBadge v-for="tag in job.skills" :key="tag" size="sm" variant="subtle" color="warning">
+          <Badge v-for="tag in job.skills" :key="tag" variant="secondary" class="text-amber-700">
             {{ tag }}
-          </UBadge>
-          <UBadge
+          </Badge>
+          <Badge
             v-for="tag in job.jobLabels"
             :key="tag"
-            size="sm"
-            variant="subtle"
-            color="success"
+            variant="secondary"
+            class="text-emerald-700"
           >
             {{ tag }}
-          </UBadge>
+          </Badge>
         </div>
       </div>
       <div class="card-footer" v-if="job.welfareList && job.welfareList.length > 0">
@@ -126,13 +125,13 @@ function getActiveTimeType(job: JobData): 'success' | 'warning' | 'error' {
     </div>
 
     <div v-if="job.activeTime || job.activeTimeStr" class="active-time-tag">
-      <UBadge :color="getActiveTimeType(job)" variant="subtle">
+      <Badge :variant="getActiveTimeType(job) === 'error' ? 'destructive' : 'secondary'">
         活跃时间：{{
           job.activeTime
             ? `${new Date(job.activeTime).toLocaleString('zh')}${job.activeTimeStr ? ` (${job.activeTimeStr})` : ''}`
             : job.activeTimeStr
         }}
-      </UBadge>
+      </Badge>
     </div>
 
     <div class="author-row">
@@ -143,15 +142,13 @@ function getActiveTimeType(job: JobData): 'success' | 'warning' | 'error' {
         <h4>{{ job.address }}</h4>
       </div>
     </div>
-    <div
-      class="card-status flex-row gap-2 justify-center items-center"
-      v-if="jobResult"
-      :title="jobResult?.reason || jobResult?.msg"
-    >
-      <UIcon v-if="jobStatus.status === 'running'" name="i-line-md-loading-twotone-loop" />
-      <UIcon v-else-if="jobStatus.status === 'request'" name="i-svg-spinners-wifi-fade" />
-      <UIcon v-else-if="jobStatus.status === 'ai'" name="i-line-md-hazard-lights-loop" />
-      {{ jobResult?.msg || jobResult?.reason || '无内容' }}
-    </div>
+    <Hint :text="jobResult?.reason || jobResult?.msg">
+      <div class="card-status flex-row gap-2 justify-center items-center" v-if="jobResult">
+        <Loader2 v-if="jobStatus.status === 'running'" class="size-4 animate-spin" />
+        <Wifi v-else-if="jobStatus.status === 'request'" class="size-4" />
+        <AlertTriangle v-else-if="jobStatus.status === 'ai'" class="size-4" />
+        {{ jobResult?.msg || jobResult?.reason || '无内容' }}
+      </div>
+    </Hint>
   </div>
 </template>

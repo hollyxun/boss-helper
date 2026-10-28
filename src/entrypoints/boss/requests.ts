@@ -7,6 +7,7 @@ import {
   PublishError,
   RateLimitError,
 } from '@/composables/useApplying/deliverError'
+import { useToast } from '@/composables/useToast'
 import { calculateFileMD5 } from '@/utils/file'
 import { logger } from '@/utils/logger'
 

@@ -1,5 +1,6 @@
 import { ref, toRaw } from 'vue'
 
+import { useToast } from '@/composables/useToast'
 import { counter } from '@/message'
 import { logger } from '@/utils/logger'
 

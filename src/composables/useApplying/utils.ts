@@ -17,8 +17,10 @@ export function rangeMatch(rangeStr: string, form: FormDataRange): boolean {
   const m = String(rangeStr).match(re)
   if (!m) return false
 
-  let inputStart = Number.parseFloat(m[1])
-  let inputEnd = Number.parseFloat(m[2] != null ? m[2] : m[1])
+  const first = m[1]
+  if (!first) return false
+  let inputStart = Number.parseFloat(first)
+  let inputEnd = Number.parseFloat(m[2] != null ? m[2] : first)
   if (!Number.isFinite(inputStart) || !Number.isFinite(inputEnd)) return false
 
   if (inputStart > inputEnd) {

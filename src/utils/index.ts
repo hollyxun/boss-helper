@@ -53,7 +53,6 @@ export function animate({
     }),
   )
 }
-let delayLoadId: number | undefined
 
 // 延迟
 export async function delay(s: number, isStopped?: () => boolean) {
@@ -63,57 +62,18 @@ export async function delay(s: number, isStopped?: () => boolean) {
   })
 }
 
-// 加载进度条
+// 加载进度：保留计时语义，但不修改宿主页面 DOM
 export function loader({
   ms = 10000,
-  color = '#54f98d',
   onDone = () => {},
-  isStopped = () => false,
 }: {
   ms?: number
   color?: string
   onDone?: () => void
   isStopped?: () => boolean
 }) {
-  let load = document.querySelector<HTMLDivElement>('#loader')
-  if (!load) {
-    const l = document.createElement('div')
-    l.id = 'loader'
-    document.querySelector('#header')?.appendChild(l)
-    load = l
-  }
-  load.style.background = color
-  if (delayLoadId != null) {
-    cancelAnimationFrame(delayLoadId)
-    delayLoadId = undefined
-  }
-  animate({
-    duration: ms,
-    callId(id) {
-      delayLoadId = id
-    },
-    timing(timeFraction) {
-      return timeFraction
-    },
-    draw(progress) {
-      load.style.width = `${progress * 100}%`
-    },
-    end() {
-      load.style.width = '0%'
-      delayLoadId && cancelAnimationFrame(delayLoadId)
-      onDone()
-    },
-    isStopped,
-  })
-
-  return () => {
-    if (delayLoadId != null) {
-      cancelAnimationFrame(delayLoadId)
-      delayLoadId = undefined
-    }
-    const load = document.querySelector<HTMLDivElement>('#loader')
-    if (load) load.style.width = '0%'
-  }
+  const timer = setTimeout(onDone, ms)
+  return () => clearTimeout(timer)
 }
 
 // 获取当前日期

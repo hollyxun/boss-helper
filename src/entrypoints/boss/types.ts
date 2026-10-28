@@ -1,4 +1,4 @@
-import type { DeepPartial } from '@nuxt/ui'
+import type { DeepPartial } from '@/types/ui'
 
 export interface BossZpBossData {
   data: {

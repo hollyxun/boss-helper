@@ -1,4 +1,3 @@
-import type { Toast } from '@nuxt/ui/runtime/composables/useToast.js'
 import { extendRef } from '@vueuse/core'
 import type { Reactive } from 'vue'
 import { ref } from 'vue'
@@ -10,7 +9,9 @@ import type { BossHelperError } from '@/composables/useApplying/deliverError'
 import type { TaskResult, WorkflowData } from '@/composables/useApplying/type'
 import { useModel } from '@/composables/useModel'
 import { ChatModel } from '@/composables/useModel'
+import { useToast } from '@/composables/useToast'
 import type { FormDataInput } from '@/types/formData'
+import type { ToastOptions } from '@/types/ui'
 
 import type { NetConf } from './netConf'
 import { initNetConf } from './netConf'
@@ -126,7 +127,7 @@ export abstract class HelperContext<C extends HelperContext<C, T, S>, T, S> {
       ) => Promise<any>
         ? O
         : never
-      toast: Partial<Toast>
+      toast: Partial<ToastOptions>
     },
   ) {
     const toast = useToast()

@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 
+import { useToast } from '@/composables/useToast'
 import { counter } from '@/message'
 import type {
   PipelineCache,
@@ -217,7 +218,8 @@ export class PipelineCacheManager {
     const items = Object.values(data).sort((a, b) => a.lastAccessed - b.lastAccessed)
 
     for (let i = 0; i < evictCount; i++) {
-      delete data[items[i].encryptJobId]
+      const item = items[i]
+      if (item) delete data[item.encryptJobId]
     }
 
     logger.info('LRU淘汰完成', { evicted: evictCount })

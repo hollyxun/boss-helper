@@ -1,14 +1,40 @@
 <script lang="ts" setup>
-import { formInfoData, useConf } from '@/composables/conf'
+import { LoaderCircle } from '@lucide/vue'
+import { computed, ref, watch } from 'vue'
+
+import Hint from '@/components/Hint.vue'
+import Button from '@/components/ui/button/Button.vue'
+import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
+import Dialog from '@/components/ui/dialog/Dialog.vue'
+import DialogContent from '@/components/ui/dialog/DialogContent.vue'
+import DialogDescription from '@/components/ui/dialog/DialogDescription.vue'
+import DialogFooter from '@/components/ui/dialog/DialogFooter.vue'
+import DialogHeader from '@/components/ui/dialog/DialogHeader.vue'
+import DialogTitle from '@/components/ui/dialog/DialogTitle.vue'
+import DialogTrigger from '@/components/ui/dialog/DialogTrigger.vue'
+import DropdownMenu from '@/components/ui/dropdown-menu/DropdownMenu.vue'
+import DropdownMenuContent from '@/components/ui/dropdown-menu/DropdownMenuContent.vue'
+import DropdownMenuItem from '@/components/ui/dropdown-menu/DropdownMenuItem.vue'
+import DropdownMenuTrigger from '@/components/ui/dropdown-menu/DropdownMenuTrigger.vue'
+import Label from '@/components/ui/label/Label.vue'
+import Textarea from '@/components/ui/textarea/Textarea.vue'
+import { useConf } from '@/composables/conf'
 import { useHelper } from '@/composables/useHelper'
 import { counter } from '@/message'
-import { CustomGreetingItem } from '@/types/formData'
+import type { CustomGreetingItem } from '@/types/formData'
 
 const conf = useConf()
 const helper = useHelper()
 const advancedGreetingValue = ref<CustomGreetingItem[]>([])
+const greetingDialogOpen = ref(false)
 
-const advancedGreetingModelRef = useTemplateRef('advancedGreetingModel')
+const greetingText = computed(() =>
+  typeof conf.formData.customGreeting.value === 'string' ? conf.formData.customGreeting.value : '',
+)
+
+function setGreetingText(value: string | number) {
+  conf.formData.customGreeting.value = String(value)
+}
 
 function removeMessage(item: CustomGreetingItem) {
   advancedGreetingValue.value = advancedGreetingValue.value.filter((v) => v !== item)
@@ -21,9 +47,6 @@ function addMessage(type: CustomGreetingItem['type'] = 'text', index?: number) {
   } else if (type === 'image') {
     item = {
       type,
-      // image: {
-      //   [helper.key]: { url: '' },
-      // },
       image: '',
     }
   }
@@ -44,10 +67,21 @@ function addMessage(type: CustomGreetingItem['type'] = 'text', index?: number) {
   }
 }
 
-function advancedGreetingEnter(open: boolean) {
-  if (!open) {
-    return
+function setGreetingContent(item: CustomGreetingItem, value: string | number) {
+  if (item.type !== 'text') return
+  item.content = String(value)
+}
+
+function setGreetingImage(item: CustomGreetingItem, event: Event) {
+  if (item.type !== 'image') return
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (file) {
+    item.model = file
   }
+}
+
+function advancedGreetingEnter() {
   if (!Array.isArray(conf.formData.customGreeting.value)) {
     advancedGreetingValue.value = [
       {
@@ -72,13 +106,20 @@ function advancedGreetingEnter(open: boolean) {
   })
 }
 
+watch(greetingDialogOpen, (open) => {
+  if (open) {
+    advancedGreetingEnter()
+  }
+})
+
 const advancedGreetinSaveLoading = ref(false)
 
-async function advancedGreetinSave(close: () => void) {
+async function advancedGreetinSave() {
   advancedGreetinSaveLoading.value = true
   try {
     for (const index in advancedGreetingValue.value) {
       const item = advancedGreetingValue.value[index]
+      if (!item) continue
       if (item.type === 'image') {
         if (item.model instanceof File) {
           const file = item.model as File
@@ -89,150 +130,141 @@ async function advancedGreetinSave(close: () => void) {
           })
           item.image = uploadedImage.key
         }
-        advancedGreetingValue.value[index] = { ...item, model: undefined }
+        advancedGreetingValue.value[index] = { ...item, model: undefined } as CustomGreetingItem
       }
     }
     conf.formData.customGreeting.value = JSON.parse(
       JSON.stringify(advancedGreetingValue.value),
     ) as CustomGreetingItem[]
-    close()
+    greetingDialogOpen.value = false
   } finally {
     advancedGreetinSaveLoading.value = false
   }
 }
-
-// function openImg(val: CustomGreetingItemImage['image'][string]) {
-//   window.open(val.url ?? val.base64, '_blank')
-// }
 </script>
 
 <template>
   <div data-help="自定义招呼语配置" class="flex flex-col gap-2">
-    <div class="flex flex-row gap-3">
-      <UCheckbox
-        v-bind="formInfoData.customGreeting"
-        v-model="conf.formData.customGreeting.enable"
-      />
-      <UCheckbox
+    <div class="flex flex-row flex-wrap gap-3">
+      <div
+        class="flex items-center gap-2"
+        data-help="因为boss不支持将自定义的招呼语设置为默认招呼语。开启表示发送boss默认的招呼语后还会发送自定义招呼语"
+      >
+        <Checkbox id="custom-greeting-enable" v-model="conf.formData.customGreeting.enable" />
+        <Label for="custom-greeting-enable" class="cursor-pointer">自定义招呼语</Label>
+      </div>
+      <div
         v-if="conf.configLevel.expert"
-        v-bind="formInfoData.greetingVariable"
-        v-model="conf.formData.greetingVariable.value"
-      />
+        class="flex items-center gap-2"
+        data-help="使用mitem模板引擎来对招呼语进行渲染;"
+      >
+        <Checkbox id="custom-greeting-variable" v-model="conf.formData.greetingVariable.value" />
+        <Label for="custom-greeting-variable" class="cursor-pointer">招呼语变量</Label>
+      </div>
     </div>
-    <UTextarea
+    <Textarea
       v-if="Array.isArray(conf.formData.customGreeting.value)"
-      :disabled="true"
+      :model-value="greetingText"
+      disabled
       placeholder="请使用高级进行配置"
-      :rows="3"
-      autoresize
-      :maxrows="7"
-      class="w-full"
+      class="min-h-20 w-full"
     />
-    <UTextarea
-      v-else
-      v-model="conf.formData.customGreeting.value"
-      :disabled="conf.formData.aiGreeting.enable"
-      :title="conf.formData.aiGreeting.enable && 'AI招呼语已启用, 自定义招呼语不可用'"
-      :rows="3"
-      autoresize
-      :maxrows="7"
-      class="w-full"
-    />
-    <UModal
-      title="高级招呼语配置"
-      description="为了支持图片,附件等格式, 发送的时候将按顺序进行发送. 已知bug: 多条消息可能只有第一条能发送成功, 具体原因正在排查/修复中"
-      :ui="{ footer: 'justify-end', content: 'sm:max-w-[70%]' }"
-      @update:open="advancedGreetingEnter"
-      :dismissible="false"
-      :close="false"
-      scrollable
-    >
-      <UButton label="高级招呼语配置(支持图片)" color="neutral" variant="subtle" />
-
-      <template #body>
-        <div class="flex flex-row gap-3 mb-3">
-          <UButton color="primary" @click="addMessage('text')"> 添加文字消息 </UButton>
-          <UButton color="primary" @click="addMessage('image')"> 添加图片消息 </UButton>
-        </div>
-        <div class="demo-dynamic space-y-3" ref="advancedGreetingModel">
-          <div
-            v-for="(item, index) in advancedGreetingValue"
-            :key="index"
-            class="flex items-start gap-2"
-          >
-            <div class="flex flex-col gap-1.5 w-20">
-              <UDropdownMenu
-                :items="[
-                  { label: '向上插入 文字', onClick: () => addMessage('text', index) },
-                  {
-                    label: '向下插入 文字',
-                    onClick: () => addMessage('text', index + 1),
-                  },
-                  {
-                    label: '向上插入 图片',
-                    onClick: () => addMessage('image', index),
-                  },
-                  {
-                    label: '向下插入 图片',
-                    onClick: () => addMessage('image', index + 1),
-                  },
-                ]"
-                :portal="advancedGreetingModelRef?.parentElement ?? false"
-                :content="{
-                  align: 'start',
-                  side: 'bottom',
-                  sideOffset: 8,
-                }"
-              >
-                <UButton label="插入" color="neutral" variant="outline" />
-              </UDropdownMenu>
-              <UButton
-                color="error"
-                variant="outline"
-                @click.prevent="removeMessage(item)"
-                class="w-full"
-              >
-                删除
-              </UButton>
+    <Hint v-else :text="conf.formData.aiGreeting.enable && 'AI招呼语已启用, 自定义招呼语不可用'">
+      <Textarea
+        :model-value="greetingText"
+        :disabled="conf.formData.aiGreeting.enable"
+        class="min-h-20 w-full"
+        @update:model-value="setGreetingText"
+      />
+    </Hint>
+    <div>
+      <Dialog v-model:open="greetingDialogOpen">
+        <DialogTrigger as-child>
+          <Button variant="secondary">高级招呼语配置(支持图片)</Button>
+        </DialogTrigger>
+        <DialogContent
+          class="flex max-h-[85vh] flex-col sm:max-w-[70%]"
+          :show-close-button="false"
+          @pointer-down-outside="(event) => event.preventDefault()"
+          @escape-key-down="(event) => event.preventDefault()"
+        >
+          <DialogHeader>
+            <DialogTitle>高级招呼语配置</DialogTitle>
+            <DialogDescription>
+              为了支持图片,附件等格式, 发送的时候将按顺序进行发送. 已知bug:
+              多条消息可能只有第一条能发送成功, 具体原因正在排查/修复中
+            </DialogDescription>
+          </DialogHeader>
+          <div class="min-h-0 flex-1 overflow-y-auto pr-1">
+            <div class="mb-3 flex flex-row gap-3">
+              <Button @click="addMessage('text')">添加文字消息</Button>
+              <Button @click="addMessage('image')">添加图片消息</Button>
             </div>
-            <UTextarea
-              v-if="item.type === 'text'"
-              v-model="item.content"
-              autoresize
-              :rows="2"
-              :maxrows="6"
-              class="flex-1"
-            />
-            <div v-else-if="item.type === 'image'">
-              <!-- <img
-                          :src="
-                            item.image?.[helper.key]?.url ?? item.image?.[helper.key]?.base64 ?? ''
-                          "
-                          class="size-10"
-                          @click="openImg(item.image[helper.key])"
-                        /> -->
-              <UFileUpload
-                class="flex-1"
-                size="xl"
-                variant="area"
-                :label="`上传图片(${helper.label})`"
-                accept="image/*"
-                v-model="item.model"
-              />
+            <div class="demo-dynamic space-y-3">
+              <div
+                v-for="(item, index) in advancedGreetingValue"
+                :key="index"
+                class="flex items-start gap-2"
+              >
+                <div class="flex w-20 flex-col gap-1.5">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                      <Button variant="outline" size="sm" class="w-full">插入</Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" class="w-40">
+                      <DropdownMenuItem @select="addMessage('text', index)">
+                        向上插入 文字
+                      </DropdownMenuItem>
+                      <DropdownMenuItem @select="addMessage('text', index + 1)">
+                        向下插入 文字
+                      </DropdownMenuItem>
+                      <DropdownMenuItem @select="addMessage('image', index)">
+                        向上插入 图片
+                      </DropdownMenuItem>
+                      <DropdownMenuItem @select="addMessage('image', index + 1)">
+                        向下插入 图片
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="w-full text-destructive"
+                    @click.prevent="removeMessage(item)"
+                  >
+                    删除
+                  </Button>
+                </div>
+                <Textarea
+                  v-if="item.type === 'text'"
+                  :model-value="item.content"
+                  class="min-h-16 flex-1"
+                  @update:model-value="(value) => setGreetingContent(item, value)"
+                />
+                <div v-else-if="item.type === 'image'" class="flex flex-1 flex-col gap-1">
+                  <Button as="label" variant="outline" class="w-full cursor-pointer">
+                    {{ item.model?.name ?? `上传图片(${helper.label})` }}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      class="hidden"
+                      @change="setGreetingImage(item, $event)"
+                    />
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </template>
 
-      <template #footer="{ close }">
-        <UButton label="取消" color="neutral" variant="outline" @click="close" />
-        <UButton
-          label="确定"
-          color="neutral"
-          @click="advancedGreetinSave(close)"
-          :loading="advancedGreetinSaveLoading"
-        />
-      </template>
-    </UModal>
+          <DialogFooter class="justify-end gap-2">
+            <Button variant="outline" @click="greetingDialogOpen = false">取消</Button>
+            <Button :disabled="advancedGreetinSaveLoading" @click="advancedGreetinSave">
+              <LoaderCircle v-if="advancedGreetinSaveLoading" class="size-4 animate-spin" />
+              确定
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   </div>
 </template>

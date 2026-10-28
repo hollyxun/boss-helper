@@ -2,13 +2,29 @@
 import { streamText } from 'ai'
 import { reactive, ref } from 'vue'
 
+import LLMForm from '@/components/AI/LLMForm.vue'
+import Button from '@/components/ui/button/Button.vue'
+import Dialog from '@/components/ui/dialog/Dialog.vue'
+import DialogContent from '@/components/ui/dialog/DialogContent.vue'
+import DialogDescription from '@/components/ui/dialog/DialogDescription.vue'
+import DialogFooter from '@/components/ui/dialog/DialogFooter.vue'
+import DialogHeader from '@/components/ui/dialog/DialogHeader.vue'
+import DialogTitle from '@/components/ui/dialog/DialogTitle.vue'
+import Input from '@/components/ui/input/Input.vue'
+import Label from '@/components/ui/label/Label.vue'
+import Sheet from '@/components/ui/sheet/Sheet.vue'
+import SheetContent from '@/components/ui/sheet/SheetContent.vue'
+import SheetDescription from '@/components/ui/sheet/SheetDescription.vue'
+import SheetFooter from '@/components/ui/sheet/SheetFooter.vue'
+import SheetHeader from '@/components/ui/sheet/SheetHeader.vue'
+import SheetTitle from '@/components/ui/sheet/SheetTitle.vue'
+import Textarea from '@/components/ui/textarea/Textarea.vue'
 import type { ModelConf } from '@/composables/useModel'
 import { openai } from '@/composables/useModel/openai'
 import type { OpenaiLLMConf } from '@/composables/useModel/openai'
+import { useToast } from '@/composables/useToast'
 import { jsonClone } from '@/utils/deepmerge'
 import { logger } from '@/utils/logger'
-
-import LLMForm from './LLMForm.vue'
 
 const props = defineProps<{
   model?: ModelConf
@@ -141,106 +157,87 @@ function create() {
 </script>
 
 <template>
-  <UModal
-    v-model:open="show"
-    :title="props.model ? '编辑AI模型' : '创建AI模型'"
-    :ui="{ content: 'sm:max-w-[70%]' }"
-    :dismissible="false"
-  >
-    <template #body>
-      <div class="overflow-y-auto" style="max-height: 60vh; padding: 20px">
-        <UFormField :ui="{ root: 'flex max-sm:flex-col justify-between gap-4 items-center' }">
-          <template #label>
-            <span :style="{ background: createColor }" class="size-2"></span>
-            <span>名称</span></template
-          >
-          <UInput v-model="createName" />
-        </UFormField>
-        <UTheme
-          :ui="{
-            formField: {
-              root: 'flex max-sm:flex-col justify-between gap-4 items-center',
-            },
-          }"
-        >
-          <div class="mt-4">
-            <LLMForm v-model="llmFormData" />
-          </div>
-        </UTheme>
-      </div>
-    </template>
+  <Dialog v-model:open="show">
+    <DialogContent
+      class="sm:max-w-[70%]"
+      :show-close-button="false"
+      @interact-outside.prevent
+      @escape-key-down.prevent
+    >
+      <DialogHeader>
+        <DialogTitle>{{ props.model ? '编辑AI模型' : '创建AI模型' }}</DialogTitle>
+        <DialogDescription>配置模型名称、接口地址与调用参数</DialogDescription>
+      </DialogHeader>
 
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton
-          color="neutral"
-          variant="outline"
-          @click="
-            () => {
-              show = false
-            }
-          "
-        >
-          取消
-        </UButton>
-        <UButton
-          color="neutral"
-          @click="
-            () => {
-              testShow = true
-            }
-          "
-        >
-          测试
-        </UButton>
-        <UButton @click="create"> 保存 </UButton>
+      <div class="max-h-[60vh] overflow-y-auto p-5">
+        <div class="flex items-center justify-between gap-4 max-sm:flex-col">
+          <Label for="llm-model-name" class="flex items-center gap-2">
+            <span class="size-2 rounded-full" :style="{ background: createColor }" />
+            <span>名称</span>
+          </Label>
+          <Input
+            id="llm-model-name"
+            :model-value="createName"
+            class="flex-1"
+            @update:model-value="(value) => (createName = String(value))"
+          />
+        </div>
+        <div class="mt-4">
+          <LLMForm v-model="llmFormData" />
+        </div>
       </div>
-    </template>
-  </UModal>
-  <USlideover
-    v-model:open="testShow"
-    title="模型测试"
-    :ui="{ content: 'max-w-lg' }"
-    :dismissible="false"
-  >
-    <template #body>
-      <UFieldGroup class="mb-4">
-        <template v-for="(example, key) in testExample" :key="key">
-          <UButton
-            v-for="(item, index) in example"
-            :key="key + index"
-            @click="
-              () => {
-                testIn = item
-              }
-            "
-          >
-            {{ key }}
-            {{ index + 1 }}
-          </UButton>
-        </template>
-      </UFieldGroup>
-      <div class="grid grid-cols-2 gap-3">
-        <UTextarea v-model="testIn" :rows="9" placeholder="输入提示词" />
-        <UTextarea :model-value="testOut" :rows="9" placeholder="GPT响应" />
-      </div>
-    </template>
 
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton
-          color="neutral"
-          variant="outline"
-          @click="
-            () => {
-              testShow = false
-            }
-          "
-        >
-          返回
-        </UButton>
-        <UButton @click="test"> 请求 </UButton>
+      <DialogFooter>
+        <Button variant="outline" @click="show = false"> 取消 </Button>
+        <Button variant="secondary" @click="testShow = true"> 测试 </Button>
+        <Button @click="create"> 保存 </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  <Sheet v-model:open="testShow">
+    <SheetContent
+      side="right"
+      class="w-full sm:max-w-lg"
+      :show-close-button="false"
+      @interact-outside.prevent
+      @escape-key-down.prevent
+    >
+      <SheetHeader>
+        <SheetTitle>模型测试</SheetTitle>
+        <SheetDescription>输入提示词，查看模型的返回结果</SheetDescription>
+      </SheetHeader>
+
+      <div class="min-h-0 flex-1 overflow-y-auto px-4">
+        <div class="mb-4 flex flex-wrap gap-2">
+          <template v-for="(example, key) in testExample" :key="key">
+            <Button
+              v-for="(item, index) in example"
+              :key="key + index"
+              variant="secondary"
+              size="sm"
+              @click="testIn = item"
+            >
+              {{ key }}
+              {{ index + 1 }}
+            </Button>
+          </template>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <Textarea
+            :model-value="testIn"
+            :rows="9"
+            placeholder="输入提示词"
+            @update:model-value="(value) => (testIn = String(value))"
+          />
+          <Textarea :model-value="testOut" :rows="9" placeholder="GPT响应" readonly />
+        </div>
       </div>
-    </template>
-  </USlideover>
+
+      <SheetFooter class="flex-row justify-end">
+        <Button variant="outline" @click="testShow = false"> 返回 </Button>
+        <Button @click="test"> 请求 </Button>
+      </SheetFooter>
+    </SheetContent>
+  </Sheet>
 </template>

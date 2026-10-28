@@ -1,6 +1,5 @@
 import type { OpenAIProvider } from '@ai-sdk/openai'
 import { createOpenAI } from '@ai-sdk/openai'
-import type { ChatMessageProps } from '@nuxt/ui'
 import type { ChatState, ChatStatus, ModelMessage, UIMessage } from 'ai'
 import {
   APICallError,
@@ -13,6 +12,7 @@ import {
 import type { ShallowReactive } from 'vue'
 
 import type { FormDataAi } from '@/types/formData'
+import type { ChatMessageProps } from '@/types/ui'
 import { renderTemplate } from '@/utils/ai'
 
 import type { ModelConf } from '.'

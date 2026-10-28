@@ -1,70 +1,81 @@
-<script lang="ts" setup>
-import { X } from 'lucide-vue-next'
-import {
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogOverlay,
-  DialogPortal,
-  DialogTitle,
-} from 'reka-ui'
+﻿<script setup lang="ts">
+import { X } from '@lucide/vue'
+import { reactiveOmit } from '@vueuse/core'
+import type { DialogContentEmits, DialogContentProps } from 'reka-ui'
+import { DialogClose, DialogContent, DialogPortal, useForwardPropsEmits } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
-import { computed } from 'vue'
+import { computed, inject, ref } from 'vue'
 
+import { PortalKey } from '@/components/ui/portal'
 import { cn } from '@/lib/utils'
 
-type SheetSide = 'top' | 'right' | 'bottom' | 'left'
+import SheetOverlay from './SheetOverlay.vue'
 
-const props = withDefaults(
-  defineProps<{
-    side?: SheetSide
-    to?: string | HTMLElement
-    title?: string
-    description?: string
-    class?: HTMLAttributes['class']
-  }>(),
-  {
-    side: 'right',
-    title: 'boss-helper-plus',
-    description: 'boss-helper-plus 面板',
-  },
-)
-
-const sideClasses: Record<SheetSide, string> = {
-  top: 'inset-x-0 top-0 h-auto border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top',
-  right:
-    'inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
-  bottom:
-    'inset-x-0 bottom-0 h-auto border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
-  left: 'inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left',
+interface SheetContentProps extends DialogContentProps {
+  class?: HTMLAttributes['class']
+  side?: 'top' | 'right' | 'bottom' | 'left'
+  to?: string | HTMLElement
+  showCloseButton?: boolean
+  showOverlay?: boolean
+  overlayClass?: string
+  contentClass?: string
 }
 
-const sideClass = computed(() => sideClasses[props.side])
+defineOptions({
+  inheritAttrs: false,
+})
+
+const props = withDefaults(defineProps<SheetContentProps>(), {
+  side: 'right',
+  showCloseButton: true,
+  showOverlay: true,
+})
+const emits = defineEmits<DialogContentEmits>()
+const portalTarget = inject(PortalKey, ref<HTMLElement | undefined>())
+const target = computed(() => props.to ?? portalTarget.value)
+const delegatedProps = reactiveOmit(
+  props,
+  'class',
+  'side',
+  'to',
+  'showCloseButton',
+  'showOverlay',
+  'overlayClass',
+  'contentClass',
+)
+const forwarded = useForwardPropsEmits(delegatedProps, emits)
 </script>
 
 <template>
-  <DialogPortal :to="props.to">
-    <DialogOverlay
-      class="fixed inset-0 z-[900] bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
-    />
+  <DialogPortal :to="target">
+    <SheetOverlay v-if="props.showOverlay !== false" :class="cn('z-[1229]', props.overlayClass)" />
     <DialogContent
-      v-bind="$attrs"
+      data-slot="sheet-content"
       :class="
         cn(
-          'fixed z-[901] flex flex-col gap-4 border-border bg-background p-6 shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500',
-          sideClass,
+          'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-[1230] flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500',
+          side === 'right' &&
+            'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm',
+          side === 'left' &&
+            'data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm',
+          side === 'top' &&
+            'data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top inset-x-0 top-0 h-auto border-b',
+          side === 'bottom' &&
+            'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t',
+          props.contentClass,
           props.class,
         )
       "
+      v-bind="{ ...$attrs, ...forwarded }"
     >
-      <DialogTitle class="sr-only">{{ props.title }}</DialogTitle>
-      <DialogDescription class="sr-only">{{ props.description }}</DialogDescription>
       <slot />
+
       <DialogClose
-        class="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
+        v-if="showCloseButton !== false"
+        class="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
       >
         <X class="size-4" />
-        <span class="sr-only">关闭</span>
+        <span class="sr-only">Close</span>
       </DialogClose>
     </DialogContent>
   </DialogPortal>

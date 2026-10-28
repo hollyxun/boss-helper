@@ -184,9 +184,9 @@ const createModel: (conf: OpenaiLLMConf) => LanguageModelV3 = (conf: OpenaiLLMCo
     // fetch: counter.fetch,
   })
   if (conf.responses) {
-    return openai.responses(conf.model)
+    return openai.responses(conf.model) as unknown as LanguageModelV3
   }
-  return openai.chat(conf.model)
+  return openai.chat(conf.model) as unknown as LanguageModelV3
 }
 
 export const openai = {

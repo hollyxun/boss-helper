@@ -1,7 +1,6 @@
-import type { AlertProps } from '@nuxt/ui'
-import type { Toast } from '@nuxt/ui/runtime/composables/useToast.js'
-
+import { useToast } from '@/composables/useToast'
 import { counter } from '@/message'
+import type { AlertProps, ToastOptions } from '@/types/ui'
 
 export interface NetConf {
   version: string
@@ -25,7 +24,7 @@ export interface NotificationAlert {
 export interface NotificationNotification {
   key: string
   type: 'notification'
-  data: Partial<Toast> & {
+  data: Partial<ToastOptions> & {
     url?: string
     duration?: number
     [key: string]: any
