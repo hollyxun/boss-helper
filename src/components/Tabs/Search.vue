@@ -30,9 +30,11 @@ import {
   optionsLoading,
   readSearchConditions,
 } from '@/composables/useBossSearch'
+import { useHelper } from '@/composables/useHelper'
 import { useToast } from '@/composables/useToast'
 
 const toast = useToast()
+const helper = useHelper()
 
 const conditions = ref<SearchConditions>(readSearchConditions())
 const cityDialogOpen = ref(false)
@@ -107,6 +109,20 @@ function pickCity(code: string) {
   cityQuery.value = ''
 }
 
+function jobSignature() {
+  const first = helper.jobList.value[0]
+  return `${helper.jobList.value.length}:${first?.key ?? ''}`
+}
+
+async function waitJobListChange(before: string, timeout = 2500) {
+  const deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    if (jobSignature() !== before) return true
+  }
+  return false
+}
+
 async function apply() {
   const typed = conditions.value.city
   if (typed && !/^\d{6,9}$/.test(typed) && !cityOptions.value.some((city) => city.code === typed)) {
@@ -115,11 +131,18 @@ async function apply() {
   }
   applyLoading.value = true
   try {
+    const before = jobSignature()
     const mode = await applySearch(conditions.value)
-    toast.add({
-      color: 'success',
-      title: mode === 'spa' ? '已提交搜索' : '已按条件跳转，页面会刷新',
-    })
+    if (mode === 'spa') {
+      // 等待页面重新搜索并把新的 jobList 写回钩子，确保面板和页面同步
+      const changed = await waitJobListChange(before)
+      toast.add({
+        color: changed ? 'success' : 'warning',
+        title: changed ? '搜索已应用，面板数据已同步' : '已提交搜索，页面列表暂未变化',
+      })
+    } else {
+      toast.add({ color: 'success', title: '已按条件跳转，页面会刷新' })
+    }
   } finally {
     applyLoading.value = false
   }

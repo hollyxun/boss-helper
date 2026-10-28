@@ -243,19 +243,14 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
   }
 
   async onMount() {
-    if (BossHelperCtx.instance) {
-      BossHelperCtx.instance.remove()
-      BossHelperCtx.instance = null
+    // 只在首次挂载时创建 UI 宿主。
+    // 页面内路由切换（应用搜索 / 翻页）会再次触发 onMount，此时复用现有元素，
+    // 避免把已经打开的抽屉整个卸载掉；只重新绑定页面数据钩子。
+    if (!BossHelperCtx.instance) {
+      const appElement = document.createElement('boss-helper-job')
+      BossHelperCtx.instance = appElement
+      document.body.appendChild(appElement)
     }
-    // TODO: 移除menu, 可能导致nuxtui实例冲突
-    // if (!document.querySelector('boss-helper-menu')) {
-    //   const menuElement = document.createElement('boss-helper-menu')
-    //   document.body.appendChild(menuElement)
-    // }
-
-    const appElement = document.createElement('boss-helper-job')
-    BossHelperCtx.instance = appElement
-    document.body.appendChild(appElement)
 
     await this._initPage()
     await this._initPageChange()
@@ -264,8 +259,10 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     await this._initJobList()
 
     this.initNetConf()
-    this.geek = new GeekChatClientManager()
-    await this.geek.connect()
+    if (!this.geek) {
+      this.geek = new GeekChatClientManager()
+      await this.geek.connect()
+    }
   }
   getConfigItems() {
     const conf = useConf()

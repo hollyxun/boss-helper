@@ -86,6 +86,9 @@ onMounted(() => {
         <span data-help="最近未活跃的岗位数">
           不活跃 <span class="font-semibold">{{ todayData.activityFilter }}</span>
         </span>
+        <span data-help="Boss 页面当前抓取到的岗位数，随筛选条件同步变化">
+          列表 <span class="font-semibold">{{ helper.jobList.value.length }}</span>
+        </span>
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button variant="ghost" size="sm">
