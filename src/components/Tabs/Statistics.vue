@@ -3,6 +3,7 @@ import { ChevronDown, LoaderCircle } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 
 import Alert from '@/components/Alert.vue'
+import JobTable from '@/components/JobTable.vue'
 import SearchTab from '@/components/Tabs/Search.vue'
 import Button from '@/components/ui/button/Button.vue'
 import DropdownMenu from '@/components/ui/dropdown-menu/DropdownMenu.vue'
@@ -168,6 +169,10 @@ onMounted(() => {
     <div class="flex flex-col gap-3 border-t border-border pt-3">
       <div class="text-sm font-medium">页面搜索条件</div>
       <SearchTab />
+    </div>
+
+    <div class="flex flex-col gap-3 border-t border-border pt-3">
+      <JobTable />
     </div>
   </div>
 </template>
