@@ -57,16 +57,21 @@ export function useHookVueData<T = any>(
     update?.(toValue(jobVue[key] as T))
     // eslint-disable-next-line no-restricted-properties
     const originalSet = jobVue.__lookupSetter__(key)
-    // eslint-disable-next-line accessor-pairs
-    Object.defineProperty(jobVue, key, {
-      // 允许重复挂载：打开抽屉 / 路由切换时会重新同步页面数据
-      configurable: true,
-      set(val: T) {
-        data.value = val
-        update?.(val)
-        originalSet.call(this, val)
-      },
-    })
+    // 没有原生 setter 就别劫持：劫持后页面自己的赋值写不回去，
+    // 会把页面状态写死（搜索后列表不更新就是这么来的）。
+    // 这种情况交给外部主动刷新（打开抽屉 / 应用搜索 / 岗位列表的刷新按钮）。
+    if (typeof originalSet === 'function') {
+      // eslint-disable-next-line accessor-pairs
+      Object.defineProperty(jobVue, key, {
+        // 允许重复挂载：打开抽屉 / 路由切换时会重新同步页面数据
+        configurable: true,
+        set(val: T) {
+          data.value = val
+          update?.(val)
+          originalSet.call(this, val)
+        },
+      })
+    }
   }
 }
 

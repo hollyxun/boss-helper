@@ -295,7 +295,8 @@ export function buildSearchUrl(conditions: SearchConditions): string {
  *
  * 走页面自身的 vue-router（SPA，不刷新、扩展状态不丢）。
  * 注意：同一个路由只改 query 不会重新挂载页面组件，页面也就不会重新搜索，
- * 所以等于当前路由时先跳到推荐页再跳回来，强制页面按新 query 初始化。
+ * 所以等于当前路由时先跳到推荐页再跳回来，强制页面按新 query 初始化；
+ * 跳完之后再核对一次路由，没落到目标 query 就退回整页跳转。
  */
 export async function applySearch(conditions: SearchConditions): Promise<'spa' | 'reload'> {
   saveSearchConditions(conditions)
@@ -316,7 +317,14 @@ export async function applySearch(conditions: SearchConditions): Promise<'spa' |
       }
 
       await router.push({ path: target.pathname, query })
-      return 'spa'
+      await new Promise((resolve) => setTimeout(resolve, 600))
+
+      const current = router.currentRoute?.value
+      const landed =
+        current?.path === target.pathname &&
+        Object.entries(query).every(([key, value]) => String(current?.query?.[key] ?? '') === value)
+
+      if (landed) return 'spa'
     }
   } catch {
     // 走下面的整页跳转

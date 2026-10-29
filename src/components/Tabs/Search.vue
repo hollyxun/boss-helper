@@ -20,6 +20,7 @@ import SelectValue from '@/components/ui/select/SelectValue.vue'
 import type { SearchOption } from '@/composables/useBossSearch'
 import {
   applySearch,
+  buildSearchUrl,
   cityGroups,
   cityOptions,
   filterOptions,
@@ -114,10 +115,20 @@ function jobSignature() {
   return `${helper.jobList.value.length}:${first?.key ?? ''}`
 }
 
-async function waitJobListChange(before: string, timeout = 2500) {
+/**
+ * 等页面把新列表写回来。
+ * 每次轮询都重新挂一次页面数据钩子——SPA 换页后岗位组件可能是新实例，
+ * 旧钩子已经读不到数据了。
+ */
+async function waitJobListChange(before: string, timeout = 4000) {
   const deadline = Date.now() + timeout
   while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 150))
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    // 页面可能正在路由切换，给刷新加个上限，别把轮询卡死
+    await Promise.race([
+      helper.refreshPageData(),
+      new Promise((resolve) => setTimeout(resolve, 700)),
+    ])
     if (jobSignature() !== before) return true
   }
   return false
@@ -133,22 +144,25 @@ async function apply() {
   try {
     const before = jobSignature()
     const mode = await applySearch(conditions.value)
-    if (mode === 'spa') {
-      // 页面按新条件重新搜索，等 jobList 写回后再提示
-      const changed = await waitJobListChange(before)
-      if (changed) {
-        toast.add({ color: 'success', title: '搜索已应用' })
-      } else {
-        toast.add({
-          color: 'warning',
-          title: '页面列表暂未变化，点此强制刷新',
-          description: '强制刷新会重建扩展状态',
-          onClick: () => location.reload(),
-        })
-      }
-    } else {
+    if (mode === 'reload') {
       toast.add({ color: 'success', title: '已按条件跳转，页面会刷新' })
+      return
     }
+
+    const changed = await waitJobListChange(before)
+    if (changed) {
+      toast.add({ color: 'success', title: '搜索已应用' })
+      return
+    }
+
+    // SPA 跳转后列表没变（页面没重新搜索 / 钩子没挂上），直接整页跳转兜底
+    toast.add({
+      color: 'warning',
+      title: '页面没有重新搜索，正在整页跳转…',
+      description: '整页跳转会关闭面板，重新打开即可看到新列表',
+    })
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    location.assign(buildSearchUrl(conditions.value))
   } finally {
     applyLoading.value = false
   }
