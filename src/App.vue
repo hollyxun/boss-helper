@@ -119,6 +119,19 @@ const versionOpen = ref(false)
 
 useScrollLock(drawerOpen)
 
+/**
+ * 对话面板是另一个非模态 Sheet，reka 判断「层叠顺序」时用的是
+ * document.querySelectorAll，看不到 shadow root 里的层，于是会把点击对话面板
+ * 当成点到了抽屉外面，把整个抽屉关掉。这里按事件来源手动放行。
+ */
+function onDrawerInteractOutside(event: Event) {
+  const original = (event as CustomEvent<{ originalEvent?: Event }>).detail?.originalEvent
+  const path = original?.composedPath?.() ?? []
+  if (path.some((node) => node instanceof HTMLElement && node.hasAttribute('data-chat-panel'))) {
+    event.preventDefault()
+  }
+}
+
 watch(drawerOpen, (open) => {
   if (!open) chatOpen.value = false
   // 打开抽屉时先把页面当前数据同步进来
@@ -185,6 +198,7 @@ function onPointerMove(ev: PointerEvent) {
         overlay-class="z-[900]"
         content-class="z-[901]"
         class="w-[min(96vw,880px)] max-w-[880px] gap-0 p-0 sm:max-w-[880px]"
+        @interact-outside="onDrawerInteractOutside"
       >
         <SheetHeader
           class="flex flex-row flex-nowrap items-center gap-2 overflow-hidden border-b px-4 py-2 pr-10"

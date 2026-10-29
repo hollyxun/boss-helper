@@ -149,6 +149,7 @@ onUnmounted(() => {
 <template>
   <Sheet v-model:open="open" :modal="false">
     <SheetContent
+      data-chat-panel
       :side="appearanceConf.leftChat ? 'left' : 'right'"
       :show-close-button="false"
       :show-overlay="false"
