@@ -1,7 +1,8 @@
 <script lang="ts" setup>
+import { CircleHelp } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 
-import Tips from '@/components/Tips.vue'
+import Hint from '@/components/Hint.vue'
 import Accordion from '@/components/ui/accordion/Accordion.vue'
 import AccordionContent from '@/components/ui/accordion/AccordionContent.vue'
 import AccordionItem from '@/components/ui/accordion/AccordionItem.vue'
@@ -10,11 +11,8 @@ import Button from '@/components/ui/button/Button.vue'
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
 import Input from '@/components/ui/input/Input.vue'
 import Label from '@/components/ui/label/Label.vue'
-import Select from '@/components/ui/select/Select.vue'
-import SelectContent from '@/components/ui/select/SelectContent.vue'
-import SelectItem from '@/components/ui/select/SelectItem.vue'
-import SelectTrigger from '@/components/ui/select/SelectTrigger.vue'
-import SelectValue from '@/components/ui/select/SelectValue.vue'
+import RadioGroup from '@/components/ui/radio-group/RadioGroup.vue'
+import RadioGroupItem from '@/components/ui/radio-group/RadioGroupItem.vue'
 import { useConf } from '@/composables/conf'
 import { getCacheManager } from '@/composables/useApplying'
 import { useHelper } from '@/composables/useHelper'
@@ -27,16 +25,24 @@ const helper = useHelper()
 const conf = useConf()
 const configItems = helper.getConfigItems()
 
-const configLevelOptions = [
-  { value: 'beginner', label: '新手' },
-  { value: 'intermediate', label: '初学者' },
-  { value: 'advanced', label: '中级' },
-  { value: 'expert', label: '高级' },
-] as const
+const configLevelOptions: { value: ConfigLevel; label: string; hint: string }[] = [
+  { value: 'beginner', label: '新手', hint: '只显示最基础的配置' },
+  { value: 'intermediate', label: '初学者', hint: '显示常用配置' },
+  { value: 'advanced', label: '中级', hint: '显示进阶配置' },
+  { value: 'expert', label: '高级', hint: '显示全部配置' },
+]
 
 const accordionItems = computed(() =>
   configItems.value[1].filter((item): item is ConfigAccordionItem => !!item),
 )
+
+const currentLevel = computed(
+  () =>
+    configLevelOptions.find((item) => item.value === conf.formData.configLevel) ??
+    configLevelOptions[0]!,
+)
+
+const disabled = computed(() => helper.workflowRunning.value || conf.isLoading.value)
 
 function setConfigLevel(value: unknown) {
   conf.formData.configLevel = value as ConfigLevel
@@ -82,12 +88,93 @@ async function onPresetChange() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
+  <div class="flex flex-col gap-3">
+    <div class="flex flex-col gap-2 rounded-md border border-border p-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="text-sm font-medium">配置级别</div>
+        <Hint text="为不同人群展示不同的配置项，减少上手难度和配置过多带来的压力">
+          <CircleHelp class="size-3.5 text-muted-foreground" />
+        </Hint>
+        <span class="text-xs text-muted-foreground">{{ currentLevel.hint }}</span>
+        <span class="ml-auto text-xs text-muted-foreground tabular-nums">
+          当前：{{ currentLevel.label }}
+        </span>
+      </div>
+
+      <RadioGroup
+        class="flex flex-row flex-wrap items-center gap-4"
+        :model-value="conf.formData.configLevel"
+        :disabled="disabled"
+        @update:model-value="setConfigLevel"
+      >
+        <div
+          v-for="option in configLevelOptions"
+          :key="option.value"
+          class="flex items-center gap-1.5"
+        >
+          <RadioGroupItem :id="`config-level-${option.value}`" :value="option.value" />
+          <Label :for="`config-level-${option.value}`" class="cursor-pointer text-sm">
+            {{ option.label }}
+          </Label>
+        </div>
+      </RadioGroup>
+
+      <hr class="mt-1 border-t border-border" />
+
+      <div class="flex flex-row flex-wrap items-center gap-4">
+        <div
+          class="flex items-center gap-2"
+          data-help="可以在网站管理中打开通知权限,当停止时会自动发送桌面端通知提醒。"
+        >
+          <Checkbox
+            id="config-notification"
+            v-model="conf.formData.notification.value"
+            :disabled="disabled"
+          />
+          <Label for="config-notification" class="cursor-pointer">发送通知</Label>
+        </div>
+        <div
+          v-if="conf.configLevel.expert || conf.formData.useCache.value"
+          class="flex items-center gap-2"
+          data-help="开启后会缓存投递记录，避免重复投递，提高效率。但是缓存功能并不积极维护。可能会有bug，或者意外情况，如遇到可尝试清空缓存或者禁用"
+        >
+          <Checkbox
+            id="config-use-cache"
+            v-model="conf.formData.useCache.value"
+            :disabled="disabled"
+          />
+          <Label for="config-use-cache" class="cursor-pointer">启用缓存</Label>
+        </div>
+        <Button
+          v-if="conf.formData.useCache.value"
+          variant="outline"
+          size="sm"
+          :disabled="disabled"
+          @click="() => getCacheManager().clearCache()"
+        >
+          清空缓存
+        </Button>
+        <div v-if="conf.configLevel.intermediate" class="flex items-center gap-2">
+          <Label for="config-delivery-limit" class="cursor-pointer">投递数量</Label>
+          <Input
+            id="config-delivery-limit"
+            type="number"
+            class="w-24"
+            data-help="达到上限后会自动暂停，默认100次, 当前boss上限为150"
+            min="1"
+            max="155"
+            step="10"
+            :model-value="conf.formData.deliveryLimit.value"
+            :disabled="disabled"
+            @update:model-value="setDeliveryLimit"
+          />
+        </div>
+      </div>
+    </div>
+
     <ConfigItem v-for="(item, index) in configItems[0]" :key="item.id ?? index" :item="item" />
-    <fieldset
-      class="m-0 flex min-w-0 flex-col gap-2 border-0 p-0"
-      :disabled="helper.workflowRunning.value || conf.isLoading.value"
-    >
+
+    <fieldset class="m-0 flex min-w-0 flex-col gap-2 border-0 p-0" :disabled="disabled">
       <Accordion type="single" collapsible default-value="filter" class="w-full">
         <AccordionItem
           v-for="(item, index) in accordionItems"
@@ -105,69 +192,12 @@ async function onPresetChange() {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-      <hr class="border-t border-border" />
-      <div class="mt-3 flex flex-row flex-wrap items-center gap-5">
-        <Tips
-          label="配置级别"
-          help="为不同人群展示不同的配置项, 减少上手难度跟配置过多而产生的恐惧"
-        >
-          <Select :model-value="conf.formData.configLevel" @update:model-value="setConfigLevel">
-            <SelectTrigger class="w-40">
-              <SelectValue placeholder="选择配置级别" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem
-                v-for="option in configLevelOptions"
-                :key="option.value"
-                :value="option.value"
-              >
-                {{ option.label }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </Tips>
-        <div
-          class="flex items-center gap-2"
-          data-help="可以在网站管理中打开通知权限,当停止时会自动发送桌面端通知提醒。"
-        >
-          <Checkbox id="config-notification" v-model="conf.formData.notification.value" />
-          <Label for="config-notification" class="cursor-pointer">发送通知</Label>
-        </div>
-        <div
-          v-if="conf.configLevel.expert || conf.formData.useCache.value"
-          class="flex items-center gap-2"
-          data-help="开启后会缓存投递记录，避免重复投递，提高效率。但是缓存功能并不积极维护。可能会有bug，或者意外情况，如遇到可尝试清空缓存或者禁用"
-        >
-          <Checkbox id="config-use-cache" v-model="conf.formData.useCache.value" />
-          <Label for="config-use-cache" class="cursor-pointer">启用缓存</Label>
-        </div>
-        <Button
-          v-if="conf.formData.useCache.value"
-          variant="outline"
-          @click="() => getCacheManager().clearCache()"
-        >
-          清空缓存
-        </Button>
-        <div v-if="conf.configLevel.intermediate" class="flex flex-col gap-1.5">
-          <Label for="config-delivery-limit">投递数量</Label>
-          <Input
-            id="config-delivery-limit"
-            type="number"
-            class="w-28"
-            data-help="达到上限后会自动暂停，默认100次, 当前boss上限为150"
-            min="1"
-            max="155"
-            step="10"
-            :model-value="conf.formData.deliveryLimit.value"
-            @update:model-value="setDeliveryLimit"
-          />
-        </div>
-      </div>
     </fieldset>
+
     <div
-      class="mt-3 flex flex-row flex-wrap items-end justify-between gap-3 *:flex *:flex-row *:gap-3"
+      class="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-end sm:justify-between"
     >
-      <div>
+      <div class="flex flex-wrap items-center gap-2">
         <Button data-help="保存配置" @click="conf.confSaving">保存配置</Button>
         <Button variant="outline" data-help="重新加载本地配置" @click="conf.confReload">
           重载配置
@@ -179,12 +209,13 @@ async function onPresetChange() {
           使用推荐配置
         </Button>
       </div>
-      <div>
+
+      <div class="flex flex-wrap items-end gap-2">
         <div
-          class="flex flex-col gap-1.5"
+          class="flex flex-col gap-1"
           data-help="虽然不维护多账号了, 但是预设还是要有的, 这样使用隐身/第三方扩展依旧能多账号使用. 多账号是一件多助人为乐的事呀"
         >
-          <Label for="config-preset">预设: </Label>
+          <Label for="config-preset" class="text-xs text-muted-foreground">预设</Label>
           <datalist id="config-preset-options">
             <option
               v-for="preset in conf.formDataPresets.value"
@@ -197,7 +228,7 @@ async function onPresetChange() {
           <Input
             id="config-preset"
             list="config-preset-options"
-            class="w-40"
+            class="w-36"
             placeholder="选择或新建预设"
             :model-value="presetText"
             @update:model-value="(value) => (presetText = String(value))"
