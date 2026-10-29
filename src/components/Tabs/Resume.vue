@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { LoaderCircle, RefreshCw, Sparkles } from '@lucide/vue'
+import { ChevronDown, LoaderCircle, RefreshCw, Sparkles } from '@lucide/vue'
 import { generateText } from 'ai'
 import { computed, onMounted, ref } from 'vue'
 
@@ -11,7 +11,7 @@ import Badge from '@/components/ui/badge/Badge.vue'
 import Button from '@/components/ui/button/Button.vue'
 import Textarea from '@/components/ui/textarea/Textarea.vue'
 import { useConf } from '@/composables/conf'
-import { fetchBossResume } from '@/composables/useBossResume'
+import { fetchBossResume, lastBossResume } from '@/composables/useBossResume'
 import { applyPanelConditions, emptyConditions, panelConditions } from '@/composables/useBossSearch'
 import { enabledModelData, useModel } from '@/composables/useModel'
 import { resolveModelAvatar } from '@/composables/useModel/icons'
@@ -29,6 +29,48 @@ const toast = useToast()
 const fileInput = ref<HTMLInputElement>()
 const loading = ref(false)
 const syncing = ref(false)
+
+const rawOpen = ref(false)
+const rawTab = ref<'merged' | 'preview' | 'sections'>('merged')
+const rawTabs = [
+  { value: 'merged', label: '合并后' },
+  { value: 'preview', label: '预览接口' },
+  { value: 'sections', label: '分段接口' },
+] as const
+
+const rawResult = computed(() => lastBossResume.value)
+const rawJson = computed(() => {
+  const result = rawResult.value
+  if (!result) return ''
+  const data =
+    rawTab.value === 'preview'
+      ? result.raw.preview
+      : rawTab.value === 'sections'
+        ? result.raw.sections
+        : result.data
+  try {
+    return JSON.stringify(data, null, 2)
+  } catch {
+    return String(data)
+  }
+})
+const rawSize = computed(() => {
+  try {
+    return JSON.stringify(rawResult.value?.data ?? {}).length
+  } catch {
+    return 0
+  }
+})
+
+async function copyRaw() {
+  try {
+    await navigator.clipboard.writeText(rawJson.value)
+    toast.add({ title: '原始 JSON 已复制', color: 'success' })
+  } catch (error) {
+    logger.warn('ResumeCopyError', error)
+    toast.add({ title: '复制失败，请手动选中复制', color: 'error' })
+  }
+}
 
 const advice = computed<ResumeAdvice | null>(() => conf.formData.resume.advice ?? null)
 const currentModel = computed(
@@ -207,6 +249,67 @@ function searchKeyword(keyword: string) {
         <code class="rounded bg-muted px-1">&#123;&#123; resume &#125;&#125;</code>
         引用这份简历；留空时 AI 只按岗位本身打分。
       </p>
+    </div>
+
+    <div v-if="rawResult" class="flex flex-col gap-2 rounded-md border border-border p-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          class="flex cursor-pointer items-center gap-1 text-sm font-medium"
+          :aria-expanded="rawOpen"
+          @click="rawOpen = !rawOpen"
+        >
+          <ChevronDown class="size-3.5 transition-transform" :class="rawOpen ? 'rotate-180' : ''" />
+          原始 JSON
+        </button>
+        <span class="text-xs text-muted-foreground tabular-nums">
+          {{ rawResult.sources.filter((item) => item.ok).length }}/{{
+            rawResult.sources.length
+          }}
+          个接口有数据 · 合并后 {{ rawSize }} 字符
+        </span>
+        <div class="ml-auto flex items-center gap-1">
+          <Button variant="ghost" size="xs" @click="copyRaw">复制</Button>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-1">
+        <Hint
+          v-for="source in rawResult.sources"
+          :key="source.key"
+          :text="source.ok ? `${source.label}：${source.size} 字符` : source.message || '无数据'"
+        >
+          <Badge
+            variant="secondary"
+            class="text-[10px]"
+            :class="source.ok ? 'text-emerald-600' : 'text-muted-foreground line-through'"
+          >
+            {{ source.label }}
+          </Badge>
+        </Hint>
+      </div>
+
+      <div v-if="rawOpen" class="flex flex-col gap-2">
+        <div class="flex flex-wrap items-center gap-1">
+          <button
+            v-for="tab in rawTabs"
+            :key="tab.value"
+            type="button"
+            class="cursor-pointer rounded-md border px-2 py-0.5 text-xs transition-colors"
+            :class="
+              rawTab === tab.value
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'hover:bg-accent'
+            "
+            @click="rawTab = tab.value"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+        <pre
+          class="max-h-64 overflow-auto rounded-md bg-muted/40 p-2 text-[11px] leading-relaxed whitespace-pre-wrap break-all"
+          >{{ rawJson }}</pre>
+      </div>
     </div>
 
     <div class="flex flex-col gap-2 rounded-md border border-border p-3">

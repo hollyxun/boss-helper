@@ -2,11 +2,13 @@
  * 从 Boss 读取求职者自己的在线简历。
  *
  * 用的是 Boss 简历页自己调的接口（同源、带 cookie）：
- * - /wapi/zpgeek/resume/geek/preview/data.json  一次性拿整份预览数据
- * - 各个 section 的 query 接口作为兜底
+ * - /wapi/zpgeek/resume/geek/preview/data.json  预览数据
+ * - 各个 section 的 query 接口补齐预览里没有的部分
  *
- * 返回的是结构化 JSON，这里再拍平成纯文本，直接喂给 AI 用。
+ * 返回的是结构化 JSON，这里再拍平成纯文本，直接喂给 AI 用；
+ * 原始 JSON 会一起返回，面板里可以展开查看。
  */
+import { ref } from 'vue'
 
 const PREVIEW_API = '/wapi/zpgeek/resume/geek/preview/data.json'
 
@@ -242,30 +244,48 @@ function unwrap(zpData: unknown, key: string) {
   return zpData
 }
 
-async function fetchSections() {
-  const entries = await Promise.all(
-    Object.entries(SECTION_APIS).map(async ([key, url]) => {
-      try {
-        const json = await getJson(url)
-        if (json?.code !== 0 || json.zpData == null) return null
-        return [key, unwrap(json.zpData, key)] as const
-      } catch {
-        return null
-      }
-    }),
-  )
-  const data = Object.fromEntries(entries.filter((item) => item !== null))
-  return Object.keys(data).length > 0 ? data : null
+const SECTION_LABELS: Record<keyof typeof SECTION_APIS, string> = {
+  baseInfo: '基本信息',
+  expectList: '求职意向',
+  workExpList: '工作经历',
+  projectExpList: '项目经历',
+  eduExpList: '教育经历',
+  userDesc: '自我介绍',
+  trainingList: '培训经历',
+  clubExpList: '社团经历',
+  volunteerList: '志愿经历',
+  restrictList: '求职限制',
 }
 
-async function fetchPreview() {
+/** 每个接口拉到了什么，用来在面板里展示原始数据 */
+export interface BossResumeSource {
+  key: string
+  label: string
+  ok: boolean
+  message?: string
+  /** 原始数据的字符数 */
+  size: number
+}
+
+async function loadSource(
+  sources: BossResumeSource[],
+  key: string,
+  label: string,
+  url: string,
+): Promise<unknown> {
   try {
-    const json = await getJson(PREVIEW_API)
-    if (json?.code !== 0) return null
-    const data = json?.zpData
-    if (!data || typeof data !== 'object' || Object.keys(data).length === 0) return null
-    return data as Record<string, unknown>
-  } catch {
+    const json = await getJson(url)
+    const ok = json?.code === 0 && json.zpData != null
+    sources.push({
+      key,
+      label,
+      ok,
+      message: ok ? undefined : String(json?.message ?? `code ${json?.code}`),
+      size: ok ? JSON.stringify(json.zpData).length : 0,
+    })
+    return ok ? json.zpData : null
+  } catch (error) {
+    sources.push({ key, label, ok: false, message: String(error), size: 0 })
     return null
   }
 }
@@ -299,8 +319,18 @@ function mergeResume(a: unknown, b: unknown): unknown {
 
 export interface BossResumeResult {
   text: string
+  /** 预览 + 分段合并后的数据，也是拍平用的那份 */
   data: Record<string, unknown>
+  /** 合并前的原始返回，方便对照 */
+  raw: {
+    preview: unknown
+    sections: Record<string, unknown>
+  }
+  sources: BossResumeSource[]
 }
+
+/** 最近一次读取结果，面板里用来展示原始 JSON */
+export const lastBossResume = ref<BossResumeResult | null>(null)
 
 /**
  * 读取 Boss 在线简历。
@@ -309,15 +339,48 @@ export interface BossResumeResult {
  * 所以预览数据和分段接口都会拉，再合并成一份完整的。
  */
 export async function fetchBossResume(): Promise<BossResumeResult> {
-  const [preview, sections] = await Promise.all([fetchPreview(), fetchSections()])
+  const sources: BossResumeSource[] = []
 
-  if (!preview && !sections) {
-    throw new Error('读不到 Boss 在线简历，请确认已登录并完善过简历')
+  const [previewData, ...sectionResults] = await Promise.all([
+    loadSource(sources, 'preview', '预览数据', PREVIEW_API),
+    ...Object.entries(SECTION_APIS).map(([key, url]) =>
+      loadSource(sources, key, SECTION_LABELS[key as keyof typeof SECTION_APIS], url),
+    ),
+  ])
+
+  const sections: Record<string, unknown> = {}
+  Object.keys(SECTION_APIS).forEach((key, index) => {
+    const value = sectionResults[index]
+    if (value == null) return
+    sections[key] = unwrap(value, key)
+  })
+
+  const preview =
+    previewData && typeof previewData === 'object' && Object.keys(previewData).length > 0
+      ? (previewData as Record<string, unknown>)
+      : null
+
+  if (!preview && Object.keys(sections).length === 0) {
+    lastBossResume.value = { text: '', data: {}, raw: { preview, sections }, sources }
+    const failed = sources
+      .filter((item) => !item.ok)
+      .map((item) => `${item.label}(${item.message ?? '失败'})`)
+      .slice(0, 3)
+      .join('、')
+    throw new Error(`读不到 Boss 在线简历${failed ? `：${failed}` : ''}`)
   }
 
-  const data = mergeResume(preview ?? {}, sections ?? {}) as Record<string, unknown>
+  const data = mergeResume(preview ?? {}, sections) as Record<string, unknown>
   const text = resumeToText(data)
-  if (!text.trim()) throw new Error('Boss 在线简历内容为空，请先完善简历或手动填写')
 
-  return { text, data }
+  const result: BossResumeResult = {
+    text,
+    data,
+    raw: { preview, sections },
+    sources,
+  }
+  lastBossResume.value = result
+
+  if (!text.trim()) throw new Error('Boss 在线简历内容为空，请先完善简历或手动填写')
+  return result
 }

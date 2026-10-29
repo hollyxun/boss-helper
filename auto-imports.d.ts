@@ -40,6 +40,7 @@ declare global {
   const isReadonly: typeof import('vue').isReadonly
   const isRef: typeof import('vue').isRef
   const isShallow: typeof import('vue').isShallow
+  const lastBossResume: typeof import('./src/composables/useBossResume').lastBossResume
   const loadSearchOptions: typeof import('./src/composables/useBossSearch').loadSearchOptions
   const markRaw: typeof import('vue').markRaw
   const matchJobConditions: typeof import('./src/composables/useJobFilter').matchJobConditions
@@ -126,7 +127,7 @@ declare global {
   } from 'vue'
   import('vue')
   // @ts-ignore
-  export type { BossResumeResult } from './src/composables/useBossResume'
+  export type { BossResumeSource, BossResumeResult } from './src/composables/useBossResume'
   import('./src/composables/useBossResume')
   // @ts-ignore
   export type {
