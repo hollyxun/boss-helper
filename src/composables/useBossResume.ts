@@ -140,7 +140,49 @@ const LABELS: Record<string, string> = {
   selfEvaluation: '自我评价',
   selfDesc: '自我评价',
   advantageList: '个人优势',
-}
+  nickName: '昵称',
+  degreeCategory: '学历',
+  workYears: '工作年限',
+  hometownName: '籍贯',
+  birthdayDesc: '出生日期',
+  startWorkDateDesc: '参加工作',
+  currentStatus: '求职状态',
+} as const
+
+/** 这些字段对 AI 没用（编号 / 开关 / 头像 / 隐私），直接跳过 */
+const IGNORE_KEYS = new Set([
+  'degree',
+  'birthday',
+  'startworkdate',
+  'resumestatus',
+  'applystatus',
+  'restrictstatus',
+  'freshgraduate',
+  'nameshowtype',
+  'bosscert',
+  'usercert',
+  'studyabroadcertpass',
+  'showf3optimize',
+  'certgender',
+  'certbirth',
+  'certphone',
+  'certweixin',
+  'resumecount',
+  'garbagefield',
+  'garbagefieldlist',
+  'tiny',
+  'account',
+  'email',
+  'emailblur',
+  'weixin',
+  'weixinblur',
+  'phone',
+  'weixinsecurityuid',
+  'hometown',
+  'highesteduexp',
+  'workyears',
+  'nickname',
+])
 
 const SKIP_KEY =
   /(^id$|Id$|Ids$|uuid$|Url$|Icon$|Img$|Avatar$|Code$|Flag$|sort$|order$|index$|version$|show$|visible$)/
@@ -153,9 +195,15 @@ function labelOf(key: string) {
   return LABELS[key] ?? LABELS[normalized] ?? LABELS[short] ?? key
 }
 
+const GENDER_TEXT: Record<string, string> = { '1': '男', '0': '女' }
+
 function formatScalar(key: string, value: string | number) {
   const text = String(value).trim()
   if (!text) return ''
+  if (IGNORE_KEYS.has(key.toLowerCase())) return ''
+  // 图片 / 链接对简历内容没意义
+  if (/^https?:\/\//i.test(text)) return ''
+  if (key === 'gender') return `性别：${GENDER_TEXT[text] ?? text}`
   return `${labelOf(key)}：${text}`
 }
 
@@ -261,31 +309,53 @@ const SECTION_LABELS: Record<keyof typeof SECTION_APIS, string> = {
 export interface BossResumeSource {
   key: string
   label: string
+  /** 接口是否返回了内容（空对象也算没内容） */
   ok: boolean
+  /** 接口返回码 */
+  code?: number
+  /** 有内容 / 空数据 / 失败原因 */
+  status: 'ok' | 'empty' | 'fail'
   message?: string
   /** 原始数据的字符数 */
   size: number
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 async function loadSource(
   sources: BossResumeSource[],
+  responses: Record<string, unknown>,
   key: string,
   label: string,
   url: string,
 ): Promise<unknown> {
   try {
     const json = await getJson(url)
-    const ok = json?.code === 0 && json.zpData != null
+    const code = Number(json?.code)
+    const data = json?.zpData
+    const empty = isEmptyValue(data)
+    let status: BossResumeSource['status'] = 'ok'
+    if (code !== 0) status = 'fail'
+    else if (empty) status = 'empty'
+
+    responses[key] = json
     sources.push({
       key,
       label,
-      ok,
-      message: ok ? undefined : String(json?.message ?? `code ${json?.code}`),
-      size: ok ? JSON.stringify(json.zpData).length : 0,
+      ok: status === 'ok',
+      status,
+      code,
+      message:
+        status === 'ok'
+          ? undefined
+          : status === 'empty'
+            ? '接口返回空数据'
+            : String(json?.message ?? `code ${json?.code}`),
+      size: status === 'ok' ? JSON.stringify(data).length : 0,
     })
-    return ok ? json.zpData : null
+    return status === 'ok' ? data : null
   } catch (error) {
-    sources.push({ key, label, ok: false, message: String(error), size: 0 })
+    sources.push({ key, label, ok: false, status: 'fail', message: String(error), size: 0 })
     return null
   }
 }
@@ -325,6 +395,8 @@ export interface BossResumeResult {
   raw: {
     preview: unknown
     sections: Record<string, unknown>
+    /** 每个接口的完整响应，排查用 */
+    responses: Record<string, unknown>
   }
   sources: BossResumeSource[]
 }
@@ -335,25 +407,28 @@ export const lastBossResume = ref<BossResumeResult | null>(null)
 /**
  * 读取 Boss 在线简历。
  *
- * 预览接口经常只给一部分（预览页用不到的 section 会缺），
- * 所以预览数据和分段接口都会拉，再合并成一份完整的。
+ * 预览接口只给预览页用得到的那几段（常见只有 baseInfo / userDesc / restrictList），
+ * 其余模块要逐个分段接口拉。这里顺序请求、每条之间留一点间隔，
+ * 避免并发太多被 Boss 的风控挡掉。
  */
 export async function fetchBossResume(): Promise<BossResumeResult> {
   const sources: BossResumeSource[] = []
+  const responses: Record<string, unknown> = {}
 
-  const [previewData, ...sectionResults] = await Promise.all([
-    loadSource(sources, 'preview', '预览数据', PREVIEW_API),
-    ...Object.entries(SECTION_APIS).map(([key, url]) =>
-      loadSource(sources, key, SECTION_LABELS[key as keyof typeof SECTION_APIS], url),
-    ),
-  ])
+  const previewData = await loadSource(sources, responses, 'preview', '预览数据', PREVIEW_API)
 
   const sections: Record<string, unknown> = {}
-  Object.keys(SECTION_APIS).forEach((key, index) => {
-    const value = sectionResults[index]
-    if (value == null) return
-    sections[key] = unwrap(value, key)
-  })
+  for (const [key, url] of Object.entries(SECTION_APIS)) {
+    const value = await loadSource(
+      sources,
+      responses,
+      key,
+      SECTION_LABELS[key as keyof typeof SECTION_APIS],
+      url,
+    )
+    if (value != null) sections[key] = unwrap(value, key)
+    await sleep(80)
+  }
 
   const preview =
     previewData && typeof previewData === 'object' && Object.keys(previewData).length > 0
@@ -361,9 +436,14 @@ export async function fetchBossResume(): Promise<BossResumeResult> {
       : null
 
   if (!preview && Object.keys(sections).length === 0) {
-    lastBossResume.value = { text: '', data: {}, raw: { preview, sections }, sources }
+    lastBossResume.value = {
+      text: '',
+      data: {},
+      raw: { preview, sections, responses },
+      sources,
+    }
     const failed = sources
-      .filter((item) => !item.ok)
+      .filter((item) => item.status !== 'ok')
       .map((item) => `${item.label}(${item.message ?? '失败'})`)
       .slice(0, 3)
       .join('、')
@@ -376,7 +456,7 @@ export async function fetchBossResume(): Promise<BossResumeResult> {
   const result: BossResumeResult = {
     text,
     data,
-    raw: { preview, sections },
+    raw: { preview, sections, responses },
     sources,
   }
   lastBossResume.value = result

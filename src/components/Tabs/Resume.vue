@@ -31,11 +31,12 @@ const loading = ref(false)
 const syncing = ref(false)
 
 const rawOpen = ref(false)
-const rawTab = ref<'merged' | 'preview' | 'sections'>('merged')
+const rawTab = ref<'merged' | 'preview' | 'sections' | 'responses'>('merged')
 const rawTabs = [
   { value: 'merged', label: '合并后' },
   { value: 'preview', label: '预览接口' },
   { value: 'sections', label: '分段接口' },
+  { value: 'responses', label: '接口返回' },
 ] as const
 
 const rawResult = computed(() => lastBossResume.value)
@@ -47,7 +48,9 @@ const rawJson = computed(() => {
       ? result.raw.preview
       : rawTab.value === 'sections'
         ? result.raw.sections
-        : result.data
+        : rawTab.value === 'responses'
+          ? result.raw.responses
+          : result.data
   try {
     return JSON.stringify(data, null, 2)
   } catch {
@@ -277,12 +280,22 @@ function searchKeyword(keyword: string) {
         <Hint
           v-for="source in rawResult.sources"
           :key="source.key"
-          :text="source.ok ? `${source.label}：${source.size} 字符` : source.message || '无数据'"
+          :text="
+            source.status === 'ok'
+              ? `${source.label}：${source.size} 字符`
+              : `${source.label}：${source.message || '无数据'}`
+          "
         >
           <Badge
             variant="secondary"
             class="text-[10px]"
-            :class="source.ok ? 'text-emerald-600' : 'text-muted-foreground line-through'"
+            :class="
+              source.status === 'ok'
+                ? 'text-emerald-600'
+                : source.status === 'empty'
+                  ? 'text-amber-600'
+                  : 'text-muted-foreground line-through'
+            "
           >
             {{ source.label }}
           </Badge>
