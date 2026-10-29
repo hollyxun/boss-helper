@@ -129,7 +129,7 @@ function setNumber(key: string, value: string | number) {
 
   <div
     v-else-if="item.type === 'inputNumber'"
-    class="flex flex-col gap-1.5"
+    class="flex flex-col gap-1.5 rounded-md border border-border p-3"
     :data-help="item.fieldProps?.['data-help']"
   >
     <Label v-if="item.fieldProps?.label">{{ item.fieldProps.label }}</Label>
@@ -154,7 +154,7 @@ function setNumber(key: string, value: string | number) {
   </FormItem>
   <div
     v-else-if="item.type === 'checkbox'"
-    class="flex flex-row items-center gap-2"
+    class="flex flex-row items-center gap-2 rounded-md border border-border px-2.5 py-1.5"
     :data-help="item.help"
   >
     <Checkbox :id="checkboxId" v-model="conf.formData[item.key].value" />
@@ -167,7 +167,7 @@ function setNumber(key: string, value: string | number) {
   </div>
   <div
     v-else-if="item.type === 'checkbox-expire'"
-    class="flex flex-row items-center justify-center gap-1.5"
+    class="flex flex-row items-center justify-center gap-1.5 rounded-md border border-border px-2.5 py-1.5"
     :data-help="item.help"
   >
     <Checkbox :id="checkboxId" v-model="conf.formData[item.key].value" />
