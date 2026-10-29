@@ -1,5 +1,13 @@
 <script lang="ts" setup>
-import { CircleCheck, CircleHelp, CircleX, ClockFading, Info, TriangleAlert } from '@lucide/vue'
+import {
+  Check,
+  CircleCheck,
+  CircleHelp,
+  CircleX,
+  ClockFading,
+  Info,
+  TriangleAlert,
+} from '@lucide/vue'
 import type { Component } from 'vue'
 import { useId } from 'vue'
 
@@ -10,15 +18,14 @@ import AlertTitle from '@/components/ui/alert/AlertTitle.vue'
 import Button from '@/components/ui/button/Button.vue'
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
 import DropdownMenu from '@/components/ui/dropdown-menu/DropdownMenu.vue'
-import DropdownMenuCheckboxItem from '@/components/ui/dropdown-menu/DropdownMenuCheckboxItem.vue'
 import DropdownMenuContent from '@/components/ui/dropdown-menu/DropdownMenuContent.vue'
+import DropdownMenuItem from '@/components/ui/dropdown-menu/DropdownMenuItem.vue'
 import DropdownMenuTrigger from '@/components/ui/dropdown-menu/DropdownMenuTrigger.vue'
 import Input from '@/components/ui/input/Input.vue'
 import Label from '@/components/ui/label/Label.vue'
 import { useConf } from '@/composables/conf'
 import { useHelper } from '@/composables/useHelper/index.js'
 import type { ConfigItem } from '@/composables/useHelper/type'
-import type { DropdownMenuItem } from '@/types/ui'
 
 import Address from './Address.vue'
 import CustomGreeting from './CustomGreeting.vue'
@@ -35,37 +42,33 @@ const helper = useHelper()
 const conf = useConf()
 const checkboxId = useId()
 
-const exp = computed(() => {
-  if (
-    !props.item ||
-    props.item.type !== 'checkbox-expire' ||
-    !('key' in props.item) ||
-    !conf.formData[props.item.key]
-  ) {
-    return []
-  }
-  return [
-    { label: '不限', value: 0 },
-    { label: '7天', value: 7 * 24 * 60 * 60 * 1000 },
-    { label: '30天', value: 30 * 24 * 60 * 60 * 1000 },
-    { label: '90天', value: 90 * 24 * 60 * 60 * 1000 },
-    { label: '180天', value: 180 * 24 * 60 * 60 * 1000 },
-    { label: '360天', value: 360 * 24 * 60 * 60 * 1000 },
-  ].map(
-    (menu) =>
-      ({
-        ...menu,
-        value: menu.value,
-        type: 'checkbox',
-        checked: conf.formData[(props.item as { key: string }).key].expire === menu.value,
-        onUpdateChecked: (checked: boolean) => {
-          if (checked) {
-            conf.formData[(props.item as { key: string }).key].expire = menu.value
-          }
-        },
-      }) satisfies DropdownMenuItem,
-  )
+const EXPIRE_OPTIONS = [
+  { label: '不限', value: 0 },
+  { label: '7 天', value: 7 * 24 * 60 * 60 * 1000 },
+  { label: '30 天', value: 30 * 24 * 60 * 60 * 1000 },
+  { label: '90 天', value: 90 * 24 * 60 * 60 * 1000 },
+  { label: '180 天', value: 180 * 24 * 60 * 60 * 1000 },
+  { label: '360 天', value: 360 * 24 * 60 * 60 * 1000 },
+]
+
+const expireKey = computed(() => {
+  if (!props.item || props.item.type !== 'checkbox-expire' || !('key' in props.item)) return ''
+  return props.item.key
 })
+
+const expireValue = computed(() => {
+  if (!expireKey.value) return 0
+  return Number(conf.formData[expireKey.value]?.expire ?? 0)
+})
+
+const expireLabel = computed(
+  () => EXPIRE_OPTIONS.find((option) => option.value === expireValue.value)?.label ?? '不限',
+)
+
+function setExpire(value: number) {
+  if (!expireKey.value) return
+  conf.formData[expireKey.value].expire = value
+}
 
 type AlertLike = {
   color?: string
@@ -179,21 +182,20 @@ function setNumber(key: string, value: string | number) {
     </Hint>
     <DropdownMenu>
       <DropdownMenuTrigger as-child>
-        <Hint text="过期时间">
-          <Button variant="outline" size="icon-xs">
-            <ClockFading class="size-3" />
-          </Button>
-        </Hint>
+        <Button variant="outline" size="xs">
+          <ClockFading class="size-3" />
+          过期 {{ expireLabel }}
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" class="w-32">
-        <DropdownMenuCheckboxItem
-          v-for="option in exp"
-          :key="option.label"
-          :model-value="option.checked"
-          @update:model-value="(checked) => option.onUpdateChecked?.(Boolean(checked))"
+        <DropdownMenuItem
+          v-for="option in EXPIRE_OPTIONS"
+          :key="option.value"
+          @select="setExpire(option.value)"
         >
-          {{ option.label }}
-        </DropdownMenuCheckboxItem>
+          <Check v-if="option.value === expireValue" class="size-3.5" />
+          <span :class="option.value === expireValue ? 'font-medium' : ''">{{ option.label }}</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   </div>
