@@ -216,12 +216,21 @@ async function recommend() {
 
   loading.value = true
   try {
-    const messages = conf.formData.aiResume.prompt.map((item) => ({
-      role: item.role,
-      content: renderTemplate(item.content, {}, { resume }),
-    }))
+    // AI SDK v7 不允许 system 消息出现在 messages 里，要拆到 instructions
+    const instructions: string[] = []
+    const messages: { role: 'user' | 'assistant'; content: string }[] = []
+    for (const item of conf.formData.aiResume.prompt) {
+      const content = renderTemplate(item.content, {}, { resume })
+      if (item.role === 'system') instructions.push(content)
+      else messages.push({ role: item.role, content })
+    }
+    if (messages.length === 0) {
+      messages.push({ role: 'user', content: '请分析上面的简历并输出结果。' })
+    }
+
     const { text } = await generateText({
       model: openai.createModel({ ...modelConf.data, advanced: modelConf.data.advanced ?? {} }),
+      instructions: instructions.join('\n\n') || undefined,
       messages,
     })
     const result = parseGptJson<ResumeAdvice>(text)
