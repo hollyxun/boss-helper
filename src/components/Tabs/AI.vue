@@ -37,7 +37,7 @@ const features: Feature[] = [
   {
     key: 'aiFiltering',
     label: 'AI 过滤',
-    help: '根据简历 + 岗位内容让 AI 打分，低于「过滤分数」的岗位直接跳过。',
+    help: '根据简历 + 岗位内容让 AI 打分，低于「过滤分数」的岗位直接跳过。有候选人摘要时自动用摘要，省 token。',
   },
   {
     key: 'aiReply',

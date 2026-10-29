@@ -189,10 +189,18 @@ export class ChatModel {
     } else {
       messages = jsonClone(model.prompt)
     }
+    // 有 AI 摘要就用摘要，省 token；没有就退回完整简历
+    const resumeData = this.ctx.conf.formData.resume
+    const fullResume = resumeData?.text ?? ''
+    const summary = resumeData?.summary?.trim() ?? ''
+    const resumeForPrompt = summary || fullResume
+
     for (const msg of messages) {
       if (typeof msg.content === 'string') {
         msg.content = renderTemplate(msg.content, data, {
-          resume: this.ctx.conf.formData.resume?.text ?? '',
+          resume: resumeForPrompt,
+          resumeFull: fullResume,
+          resumeSummary: summary,
           ...extra,
         })
       }

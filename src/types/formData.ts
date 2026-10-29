@@ -17,6 +17,8 @@ export interface ResumeAdvice {
   directions: { title: string; match: number; reason: string }[]
   keywords: string[]
   gaps: string[]
+  /** 候选人摘要，AI 过滤时替代整份简历 */
+  summary?: string
   /** 生成时间，用来显示「上次分析」并判断是否过期 */
   at?: number
 }
@@ -25,6 +27,10 @@ export interface FormDataResume {
   text: string
   updatedAt: number
   advice?: ResumeAdvice | null
+  /** AI 提炼的候选人摘要，AI 过滤 / 回复优先用它，避免每次都塞整份简历 */
+  summary?: string
+  /** 摘要生成时间，和 updatedAt 比较可判断是否过期 */
+  summaryAt?: number
 }
 
 export interface FormData {

@@ -364,6 +364,12 @@ async function savePrompt() {
             <code class="text-foreground">{{ '{{ messages }}' }}</code>
             （最近对话）。<br />
           </template>
+          <template v-if="data === 'aiFiltering'">
+            <code class="text-foreground">{{ '{{ resume }}' }}</code>
+            有候选人摘要时是摘要，否则是完整简历；也可以用
+            <code class="text-foreground">{{ '{{ resumeFull }}' }}</code>
+            强制拿全文。<br />
+          </template>
           推荐阅读
           <a
             class="text-primary underline underline-offset-4"

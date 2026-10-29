@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ChevronDown, LoaderCircle, RefreshCw, Sparkles } from '@lucide/vue'
+import { ChevronDown, FileText, LoaderCircle, RefreshCw, Sparkles } from '@lucide/vue'
 import { generateText } from 'ai'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
@@ -118,6 +118,21 @@ async function copyRaw() {
 }
 
 const advice = computed<ResumeAdvice | null>(() => conf.formData.resume.advice ?? null)
+
+const summaryText = computed(() => (conf.formData.resume.summary ?? '').trim())
+const summaryOpen = ref(false)
+
+async function copySummary() {
+  await navigator.clipboard.writeText(summaryText.value)
+  toast.add({ title: '摘要已复制', color: 'success' })
+}
+
+async function clearSummary() {
+  conf.formData.resume.summary = ''
+  conf.formData.resume.summaryAt = 0
+  await conf.confSaving(true)
+  toast.add({ title: '已清空摘要，AI 过滤将使用完整简历', color: 'success' })
+}
 const currentModel = computed(
   () =>
     conf.formData.aiResume.model ??
@@ -289,6 +304,7 @@ async function recommend() {
       reason: String(item?.reason ?? ''),
     }))
     const keywords = (result?.keywords ?? []).map((item) => String(item))
+    const summary = String(result?.summary ?? '').trim()
     if (!directions.length && !keywords.length) {
       throw new Error('AI 返回内容无法解析，请换个模型重试')
     }
@@ -298,11 +314,19 @@ async function recommend() {
       gaps: (result?.gaps ?? []).map((item) => String(item)),
       at: Date.now(),
     }
+    if (summary) {
+      conf.formData.resume.summary = summary
+      conf.formData.resume.summaryAt = Date.now()
+    }
     conf.formData.resume.updatedAt = Date.now()
     conf.formData.aiResume.model = modelConf.key
     // 分析结果是大模型产出的，立刻落盘，别等防抖
     await conf.confSaving(true)
-    toast.add({ title: '推荐完成，已保存到本地', color: 'success' })
+    toast.add({
+      title: summary ? '推荐完成，摘要已生成并保存' : '推荐完成，已保存到本地',
+      color: summary ? 'success' : 'warning',
+      ...(summary ? {} : { description: '模型没有返回 summary 字段，AI 过滤仍会用完整简历' }),
+    })
     addAiLog({
       agent: 'AI 简历推荐',
       ok: true,
@@ -585,6 +609,57 @@ async function searchKeyword(keyword: string) {
           </ul>
         </div>
       </div>
+    </div>
+
+    <div class="flex flex-col gap-2 rounded-md border border-border p-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex items-center gap-1 text-sm font-medium">
+          <FileText class="size-3.5" />
+          候选人摘要
+        </div>
+        <Badge v-if="summaryText" variant="secondary" class="text-[10px] text-emerald-600">
+          AI 过滤 / 回复优先使用
+        </Badge>
+        <span v-if="summaryText" class="text-xs text-muted-foreground tabular-nums">
+          {{ summaryText.length }} 字
+          <template v-if="conf.formData.resume.summaryAt">
+            · {{ formatTime(conf.formData.resume.summaryAt) }}
+          </template>
+        </span>
+        <div class="ml-auto flex items-center gap-1">
+          <Button v-if="summaryText" variant="ghost" size="xs" @click="summaryOpen = !summaryOpen">
+            {{ summaryOpen ? '收起' : '查看 / 编辑' }}
+          </Button>
+          <Button v-if="summaryText" variant="ghost" size="xs" @click="copySummary"> 复制 </Button>
+          <Button v-if="summaryText" variant="ghost" size="xs" @click="clearSummary"> 清空 </Button>
+        </div>
+      </div>
+
+      <p v-if="!summaryText" class="text-xs leading-snug text-muted-foreground">
+        点「根据简历推荐岗位」会顺带生成 200 字左右的候选人摘要。摘要会替代整份简历参与 AI
+        过滤和自动回复，省 token 也更快；没有摘要时自动用完整简历。
+      </p>
+
+      <div v-else-if="summaryOpen" class="flex flex-col gap-1">
+        <Textarea
+          v-model="conf.formData.resume.summary"
+          class="min-h-24 text-xs leading-relaxed"
+          placeholder="候选人摘要"
+        />
+        <span class="text-[11px] text-muted-foreground">
+          可以直接改，会自动保存；清空后回退到用完整简历。
+        </span>
+      </div>
+      <p v-else class="text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
+        {{ summaryText }}
+      </p>
+
+      <p
+        v-if="summaryText && conf.formData.resume.updatedAt > (conf.formData.resume.summaryAt ?? 0)"
+        class="text-xs text-amber-600"
+      >
+        简历改过了，摘要可能过期，重新推荐一次即可更新。
+      </p>
     </div>
   </div>
 </template>
