@@ -195,7 +195,7 @@ async function advancedGreetinSave() {
               多条消息可能只有第一条能发送成功, 具体原因正在排查/修复中
             </DialogDescription>
           </DialogHeader>
-          <div class="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div class="scroll-stable min-h-0 flex-1 overflow-y-auto pr-1">
             <div class="mb-3 flex flex-row gap-3">
               <Button @click="addMessage('text')">添加文字消息</Button>
               <Button @click="addMessage('image')">添加图片消息</Button>

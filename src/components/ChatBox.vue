@@ -196,7 +196,7 @@ onUnmounted(() => {
       <div
         v-if="selectJob && messages"
         ref="chatMessages"
-        class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2"
+        class="scroll-stable flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2"
       >
         <div
           v-for="message in messages.messagesRef.value"

@@ -60,7 +60,7 @@ initializeEnabledFields()
               @update:model-value="(value) => (formData.avatar = String(value))"
             />
           </div>
-          <div class="max-h-32 overflow-y-auto rounded-md border border-border p-2">
+          <div class="scroll-stable max-h-32 overflow-y-auto rounded-md border border-border p-2">
             <div class="flex flex-wrap gap-1">
               <Hint v-for="icon in modelIcons" :key="icon.key" :text="icon.label">
                 <button

@@ -269,7 +269,7 @@ async function savePrompt() {
         <DialogDescription>编辑提示词内容、角色与使用的模型</DialogDescription>
       </DialogHeader>
 
-      <div class="flex max-h-[62vh] flex-col gap-4 overflow-y-auto pr-1">
+      <div class="scroll-stable flex max-h-[62vh] flex-col gap-4 overflow-y-auto pr-1">
         <div v-if="data === 'aiFiltering'" class="flex items-center gap-2">
           <Label for="prompt-score" class="w-20 shrink-0"> 过滤分数 </Label>
           <Input

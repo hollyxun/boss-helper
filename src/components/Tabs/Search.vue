@@ -228,7 +228,7 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
             <Input v-model="cityQuery" placeholder="搜索城市" class="pl-8" />
           </div>
 
-          <div class="max-h-[50vh] overflow-y-auto overscroll-contain pr-1">
+          <div class="scroll-stable max-h-[50vh] overflow-y-auto overscroll-contain pr-1">
             <template v-if="searching">
               <div class="mb-1.5 text-xs font-semibold text-muted-foreground">
                 搜索结果（{{ matchedCities.length }}）

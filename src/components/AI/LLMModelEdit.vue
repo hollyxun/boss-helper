@@ -169,7 +169,7 @@ function create() {
         <DialogDescription>配置模型名称、接口地址与调用参数</DialogDescription>
       </DialogHeader>
 
-      <div class="max-h-[60vh] overflow-y-auto p-5">
+      <div class="scroll-stable max-h-[60vh] overflow-y-auto p-5">
         <div class="flex items-center justify-between gap-4 max-sm:flex-col">
           <Label for="llm-model-name" class="flex items-center gap-2">
             <span class="size-2 rounded-full" :style="{ background: createColor }" />

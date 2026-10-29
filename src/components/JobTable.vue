@@ -122,7 +122,7 @@ function openLink() {
       </div>
     </div>
 
-    <div class="max-h-[320px] overflow-y-auto rounded-md border border-border">
+    <div class="scroll-stable max-h-[320px] overflow-y-auto rounded-md border border-border">
       <Table>
         <TableHeader>
           <TableRow>
@@ -181,7 +181,10 @@ function openLink() {
           <DialogDescription>{{ detailJob?.brand?.name }}</DialogDescription>
         </DialogHeader>
 
-        <div v-if="detailJob" class="flex max-h-[62vh] flex-col gap-3 overflow-y-auto pr-1">
+        <div
+          v-if="detailJob"
+          class="scroll-stable flex max-h-[62vh] flex-col gap-3 overflow-y-auto pr-1"
+        >
           <div class="flex items-center gap-2">
             <Avatar class="size-8 shrink-0 rounded-md">
               <AvatarImage v-if="detailJob.brand?.logo" :src="detailJob.brand.logo" alt="" />

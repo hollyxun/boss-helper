@@ -3,6 +3,14 @@
 @import 'vue-sonner/style.css';
 @plugin "@tailwindcss/typography";
 
+/*
+ * 滚动容器预留滚动条槽位。
+ * 否则内容一超过高度就冒出滚动条，把内容宽度挤窄、文字重新折行。
+ */
+@utility scroll-stable {
+  scrollbar-gutter: stable;
+}
+
 @layer base {
   :host {
     display: contents;
