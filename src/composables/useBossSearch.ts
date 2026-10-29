@@ -228,7 +228,7 @@ function isConditions(value: unknown): value is SearchConditions {
 
 export function saveSearchConditions(conditions: SearchConditions) {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(conditions))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(conditions))
   } catch {
     // 忽略隐私模式等存储异常
   }
@@ -236,7 +236,7 @@ export function saveSearchConditions(conditions: SearchConditions) {
 
 function loadSavedConditions(): SearchConditions | null {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed: unknown = JSON.parse(raw)
     return isConditions(parsed) ? parsed : null
@@ -257,23 +257,17 @@ export function emptyConditions(): SearchConditions {
   }
 }
 
-export function readSearchConditions(): SearchConditions {
-  const params = new URLSearchParams(location.search)
-  const conditions = emptyConditions()
-  let hasUrlConditions = false
-  for (const key of SEARCH_KEYS) {
-    const value = params.get(key)
-    if (value) {
-      conditions[key] = value
-      hasUrlConditions = true
-    }
-  }
-  // 页面在 SPA 内跳转时可能不带这些参数，回退到上次应用的条件
-  if (!hasUrlConditions) {
-    const saved = loadSavedConditions()
-    if (saved) return saved
-  }
-  return conditions
+/**
+ * 面板自己的搜索条件。
+ *
+ * 刻意不读页面 URL：面板里的条件和 Boss 页面上的筛选是两套，
+ * 外面改了筛选不会影响这里，这里改了也不会被页面覆盖回来。
+ * 放在模块级 ref 里，切换面板页签不会丢，只有点「应用搜索」时才落盘。
+ */
+export const panelConditions = ref<SearchConditions>(loadSavedConditions() ?? emptyConditions())
+
+export function resetPanelConditions() {
+  panelConditions.value = emptyConditions()
 }
 
 export function buildSearchUrl(conditions: SearchConditions): string {

@@ -54,11 +54,13 @@ declare global {
   const onWatcherCleanup: typeof import('vue').onWatcherCleanup
   const optionsLoaded: typeof import('./src/composables/useBossSearch').optionsLoaded
   const optionsLoading: typeof import('./src/composables/useBossSearch').optionsLoading
+  const panelConditions: typeof import('./src/composables/useBossSearch').panelConditions
   const provide: typeof import('vue').provide
   const reactive: typeof import('vue').reactive
   const readSearchConditions: typeof import('./src/composables/useBossSearch').readSearchConditions
   const readonly: typeof import('vue').readonly
   const ref: typeof import('vue').ref
+  const resetPanelConditions: typeof import('./src/composables/useBossSearch').resetPanelConditions
   const resolveCityCode: typeof import('./src/composables/useBossSearch').resolveCityCode
   const resolveComponent: typeof import('vue').resolveComponent
   const saveSearchConditions: typeof import('./src/composables/useBossSearch').saveSearchConditions

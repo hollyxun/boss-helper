@@ -17,18 +17,18 @@ import SelectContent from '@/components/ui/select/SelectContent.vue'
 import SelectItem from '@/components/ui/select/SelectItem.vue'
 import SelectTrigger from '@/components/ui/select/SelectTrigger.vue'
 import SelectValue from '@/components/ui/select/SelectValue.vue'
-import type { SearchConditions, SearchOption } from '@/composables/useBossSearch'
+import type { SearchOption } from '@/composables/useBossSearch'
 import {
   applySearch,
   cityGroups,
   cityOptions,
-  emptyConditions,
   filterOptions,
   hotCities,
   loadSearchOptions,
   optionsLoaded,
   optionsLoading,
-  readSearchConditions,
+  panelConditions,
+  resetPanelConditions,
 } from '@/composables/useBossSearch'
 import { useHelper } from '@/composables/useHelper'
 import { useToast } from '@/composables/useToast'
@@ -36,7 +36,7 @@ import { useToast } from '@/composables/useToast'
 const toast = useToast()
 const helper = useHelper()
 
-const conditions = ref<SearchConditions>(readSearchConditions())
+const conditions = panelConditions
 const cityDialogOpen = ref(false)
 const cityQuery = ref('')
 const applyLoading = ref(false)
@@ -134,10 +134,10 @@ async function apply() {
     const before = jobSignature()
     const mode = await applySearch(conditions.value)
     if (mode === 'spa') {
-      // 等待页面重新搜索并把新的 jobList 写回钩子，确保面板和页面同步
+      // 页面按新条件重新搜索，等 jobList 写回后再提示
       const changed = await waitJobListChange(before)
       if (changed) {
-        toast.add({ color: 'success', title: '搜索已应用，页面与面板已同步' })
+        toast.add({ color: 'success', title: '搜索已应用' })
       } else {
         toast.add({
           color: 'warning',
@@ -154,12 +154,8 @@ async function apply() {
   }
 }
 
-function syncFromUrl() {
-  conditions.value = readSearchConditions()
-}
-
 function reset() {
-  conditions.value = emptyConditions()
+  resetPanelConditions()
 }
 
 function setSelect(key: (typeof selectFields.value)[number]['key'], value: unknown) {
@@ -172,7 +168,7 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
     <Alert class="items-center">
       <Info class="size-4" />
       <AlertDescription>
-        这里只拼 Boss 原生搜索参数并跳转，不修改页面 DOM，也不注入页面样式。
+        这里是面板自己的一套搜索条件，不会读取页面上的筛选；应用时只拼 Boss 原生搜索参数并跳转。
       </AlertDescription>
     </Alert>
 
@@ -219,9 +215,10 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
 
     <div class="flex flex-wrap items-center gap-2">
       <Button :disabled="optionsLoading || applyLoading" @click="apply">应用搜索</Button>
-      <Button variant="outline" @click="syncFromUrl">同步当前条件</Button>
       <Button variant="ghost" @click="reset">清空</Button>
-      <span class="text-xs text-muted-foreground">应用后会按 Boss 原生参数搜索，页面不刷新</span>
+      <span class="text-xs text-muted-foreground">
+        面板里的条件和页面上的筛选互不影响，应用后按 Boss 原生参数搜索
+      </span>
     </div>
 
     <Dialog v-model:open="cityDialogOpen">
