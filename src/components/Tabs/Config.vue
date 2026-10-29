@@ -194,9 +194,7 @@ async function onPresetChange() {
       </Accordion>
     </fieldset>
 
-    <div
-      class="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-end sm:justify-between"
-    >
+    <div class="flex flex-col gap-3 border-t border-border pt-3">
       <div class="flex flex-wrap items-center gap-2">
         <Button data-help="保存配置" @click="conf.confSaving">保存配置</Button>
         <Button variant="outline" data-help="重新加载本地配置" @click="conf.confReload">
@@ -208,59 +206,59 @@ async function onPresetChange() {
         >
           使用推荐配置
         </Button>
+        <div class="ml-auto flex flex-wrap items-center gap-2">
+          <Button
+            v-if="conf.configLevel.intermediate"
+            variant="outline"
+            data-help="互联网就是要分享"
+            @click="conf.confExport"
+          >
+            导出配置
+          </Button>
+          <Button
+            v-if="conf.configLevel.intermediate"
+            variant="outline"
+            data-help="互联网就是要分享"
+            @click="conf.confImport"
+          >
+            导入配置
+          </Button>
+          <Button
+            v-if="conf.configLevel.advanced"
+            variant="destructive"
+            data-help="清空配置,不会帮你保存,可以重载恢复"
+            @click="conf.confDelete"
+          >
+            清空配置
+          </Button>
+        </div>
       </div>
 
-      <div class="flex flex-wrap items-end gap-2">
-        <div
-          class="flex flex-col gap-1"
-          data-help="虽然不维护多账号了, 但是预设还是要有的, 这样使用隐身/第三方扩展依旧能多账号使用. 多账号是一件多助人为乐的事呀"
-        >
-          <Label for="config-preset" class="text-xs text-muted-foreground">预设</Label>
-          <datalist id="config-preset-options">
-            <option
-              v-for="preset in conf.formDataPresets.value"
-              :key="preset.value"
-              :value="preset.label"
-            >
-              {{ preset.label }}
-            </option>
-          </datalist>
-          <Input
-            id="config-preset"
-            list="config-preset-options"
-            class="w-36"
-            placeholder="选择或新建预设"
-            :model-value="presetText"
-            @update:model-value="(value) => (presetText = String(value))"
-            @change="onPresetChange"
-            @keydown.enter="onPresetChange"
-            @blur="onPresetChange"
-          />
-        </div>
-        <Button
-          v-if="conf.configLevel.intermediate"
-          variant="outline"
-          data-help="互联网就是要分享"
-          @click="conf.confExport"
-        >
-          导出配置
-        </Button>
-        <Button
-          v-if="conf.configLevel.intermediate"
-          variant="outline"
-          data-help="互联网就是要分享"
-          @click="conf.confImport"
-        >
-          导入配置
-        </Button>
-        <Button
-          v-if="conf.configLevel.advanced"
-          variant="destructive"
-          data-help="清空配置,不会帮你保存,可以重载恢复"
-          @click="conf.confDelete"
-        >
-          清空配置
-        </Button>
+      <div
+        class="flex flex-col gap-1"
+        data-help="虽然不维护多账号了, 但是预设还是要有的, 这样使用隐身/第三方扩展依旧能多账号使用. 多账号是一件多助人为乐的事呀"
+      >
+        <Label for="config-preset" class="text-xs text-muted-foreground">预设</Label>
+        <datalist id="config-preset-options">
+          <option
+            v-for="preset in conf.formDataPresets.value"
+            :key="preset.value"
+            :value="preset.label"
+          >
+            {{ preset.label }}
+          </option>
+        </datalist>
+        <Input
+          id="config-preset"
+          list="config-preset-options"
+          class="w-full"
+          placeholder="选择或新建预设"
+          :model-value="presetText"
+          @update:model-value="(value) => (presetText = String(value))"
+          @change="onPresetChange"
+          @keydown.enter="onPresetChange"
+          @blur="onPresetChange"
+        />
       </div>
     </div>
   </div>

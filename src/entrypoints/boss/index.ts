@@ -299,7 +299,7 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
               },
               {
                 type: 'div',
-                class: 'grid grid-cols-2 gap-2 mt-2 w-full',
+                class: 'flex w-full flex-col gap-2 mt-2',
 
                 items: [
                   {
