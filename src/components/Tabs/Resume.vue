@@ -213,8 +213,32 @@ watch(
 )
 
 onBeforeUnmount(() => {
-  if (saveTimer) clearTimeout(saveTimer)
+  // 还有没落盘的改动就立刻保存，别让防抖定时器白等
+  if (saveTimer) {
+    clearTimeout(saveTimer)
+    saveTimer = null
+    void conf.confSaving(true)
+  }
 })
+
+function formatTime(timestamp?: number) {
+  if (!timestamp) return ''
+  const date = new Date(timestamp)
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getMonth() + 1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+/** 手动编辑也更新时间，用来判断推荐结果是否过期 */
+function onResumeInput(value: string | number) {
+  conf.formData.resume.text = String(value)
+  conf.formData.resume.updatedAt = Date.now()
+}
+
+async function clearAdvice() {
+  conf.formData.resume.advice = null
+  await conf.confSaving(true)
+  toast.add({ title: '已清空分析结果', color: 'success' })
+}
 
 async function saveResume() {
   await conf.confSaving()
@@ -266,10 +290,13 @@ async function recommend() {
       directions,
       keywords,
       gaps: (result?.gaps ?? []).map((item) => String(item)),
+      at: Date.now(),
     }
     conf.formData.resume.updatedAt = Date.now()
     conf.formData.aiResume.model = modelConf.key
-    toast.add({ title: '推荐完成，已自动保存', color: 'success' })
+    // 分析结果是大模型产出的，立刻落盘，别等防抖
+    await conf.confSaving(true)
+    toast.add({ title: '推荐完成，已保存到本地', color: 'success' })
   } catch (error) {
     logger.error('ResumeRecommendError', error)
     toast.add({ title: `推荐失败: ${errorHandle(error)}`, color: 'error' })
@@ -326,7 +353,7 @@ async function searchKeyword(keyword: string) {
         :model-value="conf.formData.resume.text"
         class="h-56 field-sizing-fixed text-xs leading-relaxed"
         placeholder="把简历正文粘贴到这里：个人信息、求职意向、工作经历、项目经历、技能栈...&#10;&#10;AI 筛选会拿它和岗位要求做匹配打分；简历越完整，过滤越准。"
-        @update:model-value="(value) => (conf.formData.resume.text = String(value))"
+        @update:model-value="onResumeInput"
       />
       <p class="text-xs leading-snug text-muted-foreground">
         在 AI 过滤的提示词里可以用
@@ -462,7 +489,19 @@ async function searchKeyword(keyword: string) {
           <Sparkles class="size-3.5" />
           AI 简历分析
         </div>
+        <span v-if="advice?.at" class="text-xs text-muted-foreground tabular-nums">
+          上次分析 {{ formatTime(advice.at) }} · 已存本地
+        </span>
+        <span
+          v-if="advice?.at && conf.formData.resume.updatedAt > advice.at"
+          class="text-xs text-amber-600"
+        >
+          简历已改动，结果可能过期
+        </span>
         <div class="ml-auto flex items-center gap-2">
+          <Button v-if="advice" variant="ghost" size="xs" :disabled="loading" @click="clearAdvice">
+            清空结果
+          </Button>
           <Hint text="在 AI 页的「简历推荐」里切换渠道">
             <span class="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Avatar class="size-5">

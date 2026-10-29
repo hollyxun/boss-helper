@@ -17,6 +17,8 @@ export interface ResumeAdvice {
   directions: { title: string; match: number; reason: string }[]
   keywords: string[]
   gaps: string[]
+  /** 生成时间，用来显示「上次分析」并判断是否过期 */
+  at?: number
 }
 
 export interface FormDataResume {
