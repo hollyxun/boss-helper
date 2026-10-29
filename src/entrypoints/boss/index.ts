@@ -422,11 +422,6 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
               { type: 'customGreeting', key: 'customGreeting' },
             ],
           },
-          {
-            label: '外观配置',
-            value: 'appearance',
-            items: [{ type: 'appearance', key: 'appearance' }],
-          },
           conf.configLevel.advanced && {
             label: '地址配置',
             value: 'address',

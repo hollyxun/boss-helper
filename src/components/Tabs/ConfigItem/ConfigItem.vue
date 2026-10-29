@@ -21,7 +21,6 @@ import type { ConfigItem } from '@/composables/useHelper/type'
 import type { DropdownMenuItem } from '@/types/ui'
 
 import Address from './Address.vue'
-import Appearance from './Appearance.vue'
 import CustomGreeting from './CustomGreeting.vue'
 import FormItem from './Form/FormItem.vue'
 import FormRange from './Form/FormRange.vue'
@@ -117,7 +116,6 @@ function setNumber(key: string, value: string | number) {
   </Alert>
   <CustomGreeting v-else-if="item.type === 'customGreeting'" />
   <Address v-else-if="item.type === 'address'" />
-  <Appearance v-else-if="item.type === 'appearance'" />
   <FormItem
     v-else-if="item.type === 'companySizeRange'"
     label="公司规模范围"
