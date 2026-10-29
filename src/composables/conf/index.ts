@@ -200,16 +200,18 @@ export const useConf = () => {
     }
   }
 
-  async function confSaving() {
+  async function confSaving(silent = false) {
     try {
       await counter.storageSet(formDataKey(), jsonClone(formData))
       await counter.storageSet(formDataPresetKey, jsonClone(formDataPreset.value))
       await counter.storageSet(formDataPresetsKey, jsonClone(formDataPresets.value))
 
-      toast.add({
-        title: '保存成功',
-        color: 'success',
-      })
+      if (!silent) {
+        toast.add({
+          title: '保存成功',
+          color: 'success',
+        })
+      }
       logger.debug('formData保存')
     } catch (error: any) {
       toast.add({
@@ -241,8 +243,9 @@ export const useConf = () => {
     let jsonData = await importJson<Partial<FormData>>()
     jsonData = (await formDataHandler(jsonData)) ?? jsonData
     deepmerge(formData, jsonData, { clone: false })
+    await confSaving(true)
     toast.add({
-      title: '导入成功, 切记要手动保存哦',
+      title: '导入成功，已自动保存',
       color: 'success',
     })
   }
@@ -269,8 +272,9 @@ export const useConf = () => {
       ),
     )
     logger.debug('formData推荐配置已应用')
+    void confSaving(true)
     toast.add({
-      title: '推荐配置已应用, 不会自动保存, 请手动保存或重载恢复',
+      title: '推荐配置已应用，已自动保存',
       color: 'success',
     })
   }
@@ -278,8 +282,9 @@ export const useConf = () => {
   function confDelete() {
     deepmerge(formData, defaultFormData)
     logger.debug('formData已清空')
+    void confSaving(true)
     toast.add({
-      title: '配置清空成功, 不会自动保存, 请手动保存或重载恢复',
+      title: '配置已清空，已自动保存',
       color: 'success',
     })
   }

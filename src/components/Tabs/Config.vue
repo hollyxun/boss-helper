@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { CircleHelp } from '@lucide/vue'
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import Hint from '@/components/Hint.vue'
 import Accordion from '@/components/ui/accordion/Accordion.vue'
@@ -43,6 +43,37 @@ const currentLevel = computed(
 )
 
 const disabled = computed(() => helper.workflowRunning.value || conf.isLoading.value)
+
+/**
+ * 改配置自动保存（防抖 800ms，静默不弹 toast）。
+ * 之前每个开关都要手动点「保存配置」，容易改完忘保存。
+ */
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+let autoSaveArmed = false
+
+watch(
+  () => conf.formData,
+  () => {
+    // 配置初始化完成之前不触发，避免把默认值写回去
+    if (!autoSaveArmed) return
+    if (conf.isLoading.value) return
+    if (autoSaveTimer) clearTimeout(autoSaveTimer)
+    autoSaveTimer = setTimeout(() => {
+      autoSaveTimer = null
+      void conf.confSaving(true)
+    }, 800)
+  },
+  { deep: true },
+)
+
+// 首帧之后才开始监听，避免组件挂载瞬间的赋值触发保存
+setTimeout(() => {
+  autoSaveArmed = true
+}, 1000)
+
+onBeforeUnmount(() => {
+  if (autoSaveTimer) clearTimeout(autoSaveTimer)
+})
 
 function setConfigLevel(value: unknown) {
   conf.formData.configLevel = value as ConfigLevel
@@ -196,7 +227,9 @@ async function onPresetChange() {
 
     <div class="flex flex-col gap-3 border-t border-border pt-3">
       <div class="flex flex-wrap items-center gap-2">
-        <Button data-help="保存配置" @click="conf.confSaving">保存配置</Button>
+        <Button data-help="改动会自动保存，这里可以立刻保存一次" @click="() => conf.confSaving()">
+          保存配置
+        </Button>
         <Button variant="outline" data-help="重新加载本地配置" @click="conf.confReload">
           重载配置
         </Button>

@@ -292,8 +292,8 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
               {
                 type: 'alert',
                 id: 'filter-config-alert-enable',
-                title: '复选框打钩才会启用，别忘记打钩启用哦。保存也别忘了',
-                description: '排除和包含可点击切换，混合模式适用性过低难以配置不会考虑开发',
+                title: '复选框打钩才会启用，改动会自动保存',
+                description: '排除和包含用单选框切换，混合模式适用性过低难以配置不会考虑开发',
                 color: 'success',
                 showIcon: true,
               },

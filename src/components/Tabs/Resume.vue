@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ChevronDown, LoaderCircle, RefreshCw, Sparkles } from '@lucide/vue'
 import { generateText } from 'ai'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
 import Hint from '@/components/Hint.vue'
 import Avatar from '@/components/ui/avatar/Avatar.vue'
@@ -144,7 +144,7 @@ function onFileChange(event: Event) {
   const reader = new FileReader()
   reader.onload = () => {
     setResume(String(reader.result ?? ''))
-    toast.add({ title: `已导入 ${file.name}，记得保存`, color: 'success' })
+    toast.add({ title: `已导入 ${file.name}`, color: 'success' })
   }
   reader.onerror = () => {
     toast.add({ title: '文件读取失败', color: 'error' })
@@ -176,11 +176,11 @@ async function syncFromBoss(silent = false) {
     } else if (fromPage) {
       toast.add({
         title: '接口缺模块，已合并简历页内容',
-        description: '接口数据和简历页渲染结果已按段落合并，建议检查后保存',
+        description: '接口数据和简历页渲染结果已按段落合并，已自动保存',
         color: 'warning',
       })
     } else if (!silent) {
-      toast.add({ title: '已从 Boss 读取在线简历，记得保存', color: 'success' })
+      toast.add({ title: '已从 Boss 读取在线简历，已自动保存', color: 'success' })
     }
   } catch (error) {
     logger.warn('BossResumeSyncError', error)
@@ -195,6 +195,24 @@ async function syncFromBoss(silent = false) {
 onMounted(() => {
   // 默认用 Boss 上的在线简历，只有用户自己没填过时才自动拉
   if (!conf.formData.resume.text.trim()) void syncFromBoss(true)
+})
+
+/** 简历改动自动保存（防抖 800ms，静默） */
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+watch(
+  () => conf.formData.resume,
+  () => {
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => {
+      saveTimer = null
+      void conf.confSaving(true)
+    }, 800)
+  },
+  { deep: true },
+)
+
+onBeforeUnmount(() => {
+  if (saveTimer) clearTimeout(saveTimer)
 })
 
 async function saveResume() {
@@ -250,7 +268,7 @@ async function recommend() {
     }
     conf.formData.resume.updatedAt = Date.now()
     conf.formData.aiResume.model = modelConf.key
-    toast.add({ title: '推荐完成，记得保存', color: 'success' })
+    toast.add({ title: '推荐完成，已自动保存', color: 'success' })
   } catch (error) {
     logger.error('ResumeRecommendError', error)
     toast.add({ title: `推荐失败: ${errorHandle(error)}`, color: 'error' })
@@ -293,7 +311,9 @@ function searchKeyword(keyword: string) {
           </Hint>
           <Button variant="ghost" size="sm" @click="pickFile">导入文件</Button>
           <Button variant="ghost" size="sm" @click="clearResume">清空</Button>
-          <Button size="sm" @click="saveResume">保存</Button>
+          <Button size="sm" data-help="改动会自动保存，这里可以立刻保存一次" @click="saveResume">
+            保存
+          </Button>
         </div>
       </div>
 
