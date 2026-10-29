@@ -120,15 +120,20 @@ const versionOpen = ref(false)
 useScrollLock(drawerOpen)
 
 /**
- * 对话面板是另一个非模态 Sheet，reka 判断「层叠顺序」时用的是
- * document.querySelectorAll，看不到 shadow root 里的层，于是会把点击对话面板
- * 当成点到了抽屉外面，把整个抽屉关掉。这里按事件来源手动放行。
+ * 抽屉不再因为「点到了外面」而关闭——包括对话面板（它是另一个非模态 Sheet，
+ * reka 在 shadow root 里认不出层级，本来也会误关）和蒙层。
+ * 关闭方式只有三种：右上角 X、Esc、在蒙层上双击（见 onRootDblClick）。
  */
 function onDrawerInteractOutside(event: Event) {
-  const original = (event as CustomEvent<{ originalEvent?: Event }>).detail?.originalEvent
-  const path = original?.composedPath?.() ?? []
-  if (path.some((node) => node instanceof HTMLElement && node.hasAttribute('data-chat-panel'))) {
-    event.preventDefault()
+  event.preventDefault()
+}
+
+/** 双击蒙层才关抽屉，避免单击误触 */
+function onRootDblClick(event: MouseEvent) {
+  if (!drawerOpen.value) return
+  const target = event.target as HTMLElement | null
+  if (target?.closest('[data-slot="sheet-overlay"]')) {
+    drawerOpen.value = false
   }
 }
 
@@ -167,6 +172,7 @@ function onPointerMove(ev: PointerEvent) {
     ref="container"
     class="bh-root"
     @pointermove.passive="onPointerMove"
+    @dblclick="onRootDblClick"
     @mouseenter="isHovering = true"
     @mouseleave="isHovering = false"
   >
