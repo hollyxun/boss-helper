@@ -409,9 +409,10 @@ export const lastBossResume = ref<BossResumeResult | null>(null)
 
 /** 简历页里可能承载内容的容器，按优先级找一遍 */
 const RESUME_PAGE_SELECTORS = [
-  '.resume-box',
   '.resume-detail',
   '.resume-content',
+  '.resume-main',
+  '.resume-box',
   '.geek-resume',
   '.resume-preview',
   '[class*="resume"]',
@@ -420,7 +421,107 @@ const RESUME_PAGE_SELECTORS = [
 
 const CORE_SECTION = /工作经历|项目经历|教育经历|实习经历|专业技能/
 
+/** 页面上的导航 / 侧栏 / 推荐 / 页脚文案，全部丢掉 */
+const PAGE_NOISE_LINE =
+  /^(首页|职位|公司|校园|海归|APP|有了|海外|无障碍专区|消息|简历|预览|导入已有简历|导出为附件简历|推荐|自定义添加|查看更多|兑换|简历诊断|附件管理|隐私设置|设置|道具|VIP兑换|企业服务|职位搜索|BOSS直聘APP|投资者关系 Investor Relations|直品公益基金会|求职技巧|使用与帮助|协议与规则|隐私政策|防骗指南|使用帮助|联系BOSS直聘|北京华品博睿网络技术有限公司)$/
+
+const PAGE_NOISE_PATTERNS = [
+  /^\d+$/,
+  /^\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}$/,
+  /%的.*已上传/,
+  /你的同行中|建议优化你的|项待优化|项建议完善|完善简历内容/,
+  /^文件（\d+\/\d+）/,
+  /^\d+(\.\d+)?KB/,
+  /^(工作日|休息日)\s*\d/,
+  /^\d{3} \d{3} \d{4}$/,
+  /企业服务热线|老年人直连热线/,
+  /公司地址|违法和不良信息|京ICP|人力资源服务许可证|网警|Copyright/,
+  /简历设置|对猎头|中介等经纪人隐藏|屏蔽公司|已屏蔽|简历目录|我的在线简历/,
+  /\*{4,}|@[\w-]+\.[\w.]+/,
+  /^展示你的志愿者精神$/,
+  /含金量的证书/,
+  /^简历诊断$/,
+]
+
+function isNoiseLine(line: string) {
+  return PAGE_NOISE_LINE.test(line) || PAGE_NOISE_PATTERNS.some((pattern) => pattern.test(line))
+}
+
+/** 优先挑「包含核心模块、且不含侧栏目录」的最小容器，避免把整页都抓进来 */
+function pickResumeRoot(doc: Document): HTMLElement | null {
+  const candidates = Array.from(
+    doc.querySelectorAll<HTMLElement>('div,section,article,main,form'),
+  ).filter((el) => {
+    const text = el.innerText ?? ''
+    if (text.length < 600) return false
+    if (!CORE_SECTION.test(text)) return false
+    if (text.includes('简历目录')) return false
+    return true
+  })
+  candidates.sort((a, b) => (a.innerText?.length ?? 0) - (b.innerText?.length ?? 0))
+  return candidates[0] ?? null
+}
+
+const RESUME_HEADINGS = new Set([
+  '个人信息',
+  '个人优势',
+  '期望职位',
+  '工作经历',
+  '项目经历',
+  '教育经历',
+  '资格证书',
+  '志愿者经历',
+  '培训经历',
+  '社团经历',
+  '实习经历',
+])
+
+/** 去掉侧栏目录、页脚、推荐位这些页面装饰 */
+export function cleanResumeText(raw: string) {
+  const lines = raw
+    .split('\n')
+    .map((line) => line.replace(/\u00a0/g, ' ').trim())
+    .filter(Boolean)
+
+  // 左侧「简历目录」整块：从出现到「导出为附件简历」为止
+  const sidebarEnd = lines.lastIndexOf('导出为附件简历')
+  let start = sidebarEnd >= 0 ? sidebarEnd + 1 : 0
+
+  // 尾部站点信息：碰到这些就截断
+  const TAIL_MARKERS = ['附件管理', '简历诊断', '隐私设置', '企业服务热线']
+  let end = lines.length
+  for (let i = start; i < lines.length; i++) {
+    const line = lines[i]!
+    if (TAIL_MARKERS.some((marker) => line.startsWith(marker)) || line.startsWith('企业服务热线')) {
+      end = i
+      break
+    }
+  }
+
+  const kept: string[] = []
+  for (let i = start; i < end; i++) {
+    const line = lines[i]!
+    if (isNoiseLine(line)) continue
+    if (kept[kept.length - 1] === line) continue
+    // 段与段之间留空行，读起来清楚一点
+    if (RESUME_HEADINGS.has(line) && kept.length > 0 && kept[kept.length - 1] !== '') {
+      kept.push('')
+    }
+    kept.push(line)
+  }
+  return kept
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 function extractResumeText(doc: Document) {
+  const root = pickResumeRoot(doc)
+  if (root) {
+    const text = cleanResumeText(root.innerText ?? '')
+    if (text.length > 200) return text
+  }
+
   let best = ''
   for (const selector of RESUME_PAGE_SELECTORS) {
     let nodes: NodeListOf<Element>
@@ -435,13 +536,7 @@ function extractResumeText(doc: Document) {
     })
   }
   if (best.length < 300) best = doc.body?.innerText?.trim() ?? ''
-  return best
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line, index, list) => line || list[index - 1])
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  return cleanResumeText(best)
 }
 
 /**

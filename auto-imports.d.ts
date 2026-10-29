@@ -18,6 +18,7 @@ declare global {
   const cityGroups: typeof import('./src/composables/useBossSearch').cityGroups
   const cityNameOf: typeof import('./src/composables/useBossSearch').cityNameOf
   const cityOptions: typeof import('./src/composables/useBossSearch').cityOptions
+  const cleanResumeText: typeof import('./src/composables/useBossResume').cleanResumeText
   const computed: typeof import('vue').computed
   const countActiveConditions: typeof import('./src/composables/useBossSearch').countActiveConditions
   const createApp: typeof import('vue').createApp
