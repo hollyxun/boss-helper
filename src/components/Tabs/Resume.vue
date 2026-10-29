@@ -78,9 +78,18 @@ async function syncFromBoss(silent = false) {
   if (syncing.value) return
   syncing.value = true
   try {
-    const { text } = await fetchBossResume()
+    const { text, data } = await fetchBossResume()
+    logger.debug('BossResumeRaw', data)
     setResume(text)
-    if (!silent) toast.add({ title: '已从 Boss 读取在线简历，记得保存', color: 'success' })
+    if (text.length < 300) {
+      toast.add({
+        title: '读到的简历内容偏少',
+        description: '可能只覆盖了在线简历的一部分，建议检查后手动补充',
+        color: 'warning',
+      })
+    } else if (!silent) {
+      toast.add({ title: '已从 Boss 读取在线简历，记得保存', color: 'success' })
+    }
   } catch (error) {
     logger.warn('BossResumeSyncError', error)
     if (!silent) {

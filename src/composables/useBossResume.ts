@@ -20,6 +20,7 @@ const SECTION_APIS = {
   trainingList: '/wapi/zpgeek/resume/training/query.json',
   clubExpList: '/wapi/zpgeek/resume/clubexp/query.json',
   volunteerList: '/wapi/zpgeek/resume/volunteer/query.json',
+  restrictList: '/wapi/zpgeek/resume/restrict/list.json',
 } as const
 
 /** 字段名 → 中文标签，认不出来的直接保留原字段名 */
@@ -97,12 +98,52 @@ const LABELS: Record<string, string> = {
   sectionList: '简历',
   previewList: '简历',
   moduleList: '简历',
+  restrictList: '求职限制',
+  expectCityList: '期望城市',
+  expectCity: '期望城市',
+  expectIndustryList: '期望行业',
+  expectIndustry: '期望行业',
+  expectPositionList: '期望职位',
+  expectSalaryDesc: '期望薪资',
+  salaryMonth: '薪资月数',
+  startWorkDate: '到岗时间',
+  startWorkDateStr: '到岗时间',
+  workStatus: '求职状态',
+  jobStatus: '求职状态',
+  gpa: 'GPA',
+  rank: '排名',
+  schoolType: '学校类型',
+  majorRank: '专业排名',
+  language: '语言',
+  languageList: '语言',
+  honor: '荣誉',
+  honorList: '荣誉',
+  certificateName: '证书名称',
+  certName: '证书名称',
+  skillName: '技能名称',
+  skillDesc: '技能说明',
+  achievement: '业绩',
+  performance: '业绩',
+  projectDesc: '项目描述',
+  projectContent: '项目内容',
+  duties: '职责',
+  staffNum: '下属人数',
+  reportTo: '汇报对象',
+  departmentName: '部门',
+  companyIndustry: '公司行业',
+  companyScale: '公司规模',
+  companyStage: '融资阶段',
+  positionType: '职位类型',
+  workPlace: '工作地点',
+  selfEvaluation: '自我评价',
+  selfDesc: '自我评价',
+  advantageList: '个人优势',
 }
 
 const SKIP_KEY =
   /(^id$|Id$|Ids$|uuid$|Url$|Icon$|Img$|Avatar$|Code$|Flag$|sort$|order$|index$|version$|show$|visible$)/
 
-const MAX_LENGTH = 12000
+const MAX_LENGTH = 20000
 
 function labelOf(key: string) {
   const normalized = key.replace(/^geek/, '')
@@ -116,12 +157,26 @@ function formatScalar(key: string, value: string | number) {
   return `${labelOf(key)}：${text}`
 }
 
+/** 简历里有些字段是富文本，拍平前把标签去掉 */
+function stripHtml(text: string) {
+  if (!/<[a-z][\s\S]*>/i.test(text)) return text
+  return text
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|tr|h\d)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+}
+
 function walk(value: unknown, out: string[]): void {
   if (value == null) return
   if (out.join('\n').length > MAX_LENGTH * 2) return
 
   if (typeof value === 'string' || typeof value === 'number') {
-    const text = String(value).trim()
+    const text = stripHtml(String(value)).trim()
     if (text) out.push(text)
     return
   }
@@ -141,8 +196,8 @@ function walk(value: unknown, out: string[]): void {
   if (typeof value === 'object') {
     for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
       if (SKIP_KEY.test(key) || typeof child === 'boolean') continue
-      if (typeof child === 'string' || typeof child === 'number') {
-        const line = formatScalar(key, child)
+      if ((typeof child === 'string' || typeof child === 'number') && child !== '') {
+        const line = formatScalar(key, stripHtml(String(child)))
         if (line) out.push(line)
         continue
       }
@@ -176,12 +231,24 @@ async function getJson(url: string) {
   return res.json()
 }
 
+/** 接口有时会把结果再包一层同名 key，剥掉 */
+function unwrap(zpData: unknown, key: string) {
+  if (zpData && typeof zpData === 'object' && !Array.isArray(zpData)) {
+    const keys = Object.keys(zpData)
+    if (keys.length === 1 && keys[0] === key) {
+      return (zpData as Record<string, unknown>)[key]
+    }
+  }
+  return zpData
+}
+
 async function fetchSections() {
   const entries = await Promise.all(
     Object.entries(SECTION_APIS).map(async ([key, url]) => {
       try {
         const json = await getJson(url)
-        return json?.code === 0 && json.zpData ? [key, json.zpData] : null
+        if (json?.code !== 0 || json.zpData == null) return null
+        return [key, unwrap(json.zpData, key)] as const
       } catch {
         return null
       }
@@ -191,6 +258,45 @@ async function fetchSections() {
   return Object.keys(data).length > 0 ? data : null
 }
 
+async function fetchPreview() {
+  try {
+    const json = await getJson(PREVIEW_API)
+    if (json?.code !== 0) return null
+    const data = json?.zpData
+    if (!data || typeof data !== 'object' || Object.keys(data).length === 0) return null
+    return data as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+function isEmptyValue(value: unknown) {
+  if (value == null) return true
+  if (typeof value === 'string') return value.trim() === ''
+  if (Array.isArray(value)) return value.length === 0
+  if (typeof value === 'object') return Object.keys(value).length === 0
+  return false
+}
+
+/** 两份数据合并：对象递归合并，数组取更长的那个，空值让位 */
+function mergeResume(a: unknown, b: unknown): unknown {
+  if (isEmptyValue(a)) return b
+  if (isEmptyValue(b)) return a
+  if (Array.isArray(a) || Array.isArray(b)) {
+    const left = Array.isArray(a) ? a : [a]
+    const right = Array.isArray(b) ? b : [b]
+    return left.length >= right.length ? left : right
+  }
+  if (typeof a === 'object' && typeof b === 'object') {
+    const out: Record<string, unknown> = { ...(a as Record<string, unknown>) }
+    for (const [key, value] of Object.entries(b as Record<string, unknown>)) {
+      out[key] = key in out ? mergeResume(out[key], value) : value
+    }
+    return out
+  }
+  return a
+}
+
 export interface BossResumeResult {
   text: string
   data: Record<string, unknown>
@@ -198,29 +304,20 @@ export interface BossResumeResult {
 
 /**
  * 读取 Boss 在线简历。
- * 先试整份预览数据，拿不到再逐个 section 拉。
+ *
+ * 预览接口经常只给一部分（预览页用不到的 section 会缺），
+ * 所以预览数据和分段接口都会拉，再合并成一份完整的。
  */
 export async function fetchBossResume(): Promise<BossResumeResult> {
-  let data: unknown = null
+  const [preview, sections] = await Promise.all([fetchPreview(), fetchSections()])
 
-  try {
-    const json = await getJson(PREVIEW_API)
-    if (json?.code === 0 && json.zpData && Object.keys(json.zpData).length > 0) {
-      data = json.zpData
-    } else if (json?.code !== 0) {
-      throw new Error(String(json?.message ?? '读取失败'))
-    }
-  } catch (error) {
-    if (error instanceof Error && error.message && error.message !== '读取失败') {
-      // 网络/接口异常时继续尝试逐段拉取
-    }
+  if (!preview && !sections) {
+    throw new Error('读不到 Boss 在线简历，请确认已登录并完善过简历')
   }
 
-  if (!data) data = await fetchSections()
-  if (!data) throw new Error('读不到 Boss 在线简历，请确认已登录并完善过简历')
-
+  const data = mergeResume(preview ?? {}, sections ?? {}) as Record<string, unknown>
   const text = resumeToText(data)
   if (!text.trim()) throw new Error('Boss 在线简历内容为空，请先完善简历或手动填写')
 
-  return { text, data: data as Record<string, unknown> }
+  return { text, data }
 }
