@@ -24,13 +24,13 @@ import TableRow from '@/components/ui/table/TableRow.vue'
 import type { JobStatus } from '@/composables/useApplying/type'
 import type { JobData } from '@/composables/useHelper'
 import { useHelper } from '@/composables/useHelper'
+import { useJobFilter } from '@/composables/useJobFilter'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/utils/logger'
 
 const helper = useHelper()
 const toast = useToast()
-
-const jobs = computed(() => helper.jobList.value)
+const { jobs: allJobs, filteredJobs: jobs, activeCount } = useJobFilter()
 
 const detailOpen = ref(false)
 const detailJob = ref<JobData | null>(null)
@@ -94,7 +94,10 @@ function openLink() {
   <div class="flex flex-col gap-2">
     <div class="flex flex-wrap items-center gap-2">
       <div class="text-sm font-medium">岗位列表</div>
-      <span class="text-xs text-muted-foreground tabular-nums">共 {{ jobs.length }} 个</span>
+      <span v-if="activeCount > 0" class="text-xs text-muted-foreground tabular-nums">
+        筛选后 {{ jobs.length }} / 共 {{ allJobs.length }} 个
+      </span>
+      <span v-else class="text-xs text-muted-foreground tabular-nums">共 {{ jobs.length }} 个</span>
       <div class="ml-auto flex items-center gap-1">
         <Hint text="重新读取页面上的岗位">
           <Button variant="ghost" size="sm" :disabled="refreshing" @click="refresh">
@@ -147,7 +150,11 @@ function openLink() {
           </TableRow>
           <TableRow v-if="jobs.length === 0">
             <TableCell colspan="4" class="py-6 text-center text-sm text-muted-foreground">
-              还没有岗位，先在上面应用页面搜索条件，或点「刷新」读取当前页面
+              {{
+                activeCount > 0
+                  ? '没有命中筛选条件的岗位，调整条件或点「清空」'
+                  : '还没有岗位，点「刷新」读取当前页面上的岗位'
+              }}
             </TableCell>
           </TableRow>
         </TableBody>

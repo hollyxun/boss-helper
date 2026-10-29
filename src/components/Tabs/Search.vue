@@ -19,8 +19,7 @@ import SelectTrigger from '@/components/ui/select/SelectTrigger.vue'
 import SelectValue from '@/components/ui/select/SelectValue.vue'
 import type { SearchOption } from '@/composables/useBossSearch'
 import {
-  applySearch,
-  buildSearchUrl,
+  applyPanelConditions,
   cityGroups,
   cityOptions,
   filterOptions,
@@ -31,16 +30,15 @@ import {
   panelConditions,
   resetPanelConditions,
 } from '@/composables/useBossSearch'
-import { useHelper } from '@/composables/useHelper'
+import { useJobFilter } from '@/composables/useJobFilter'
 import { useToast } from '@/composables/useToast'
 
 const toast = useToast()
-const helper = useHelper()
+const { jobs, filteredJobs, activeCount } = useJobFilter()
 
 const conditions = panelConditions
 const cityDialogOpen = ref(false)
 const cityQuery = ref('')
-const applyLoading = ref(false)
 
 const chipClass =
   'rounded-md border px-2 py-1 text-sm transition-colors hover:bg-accent hover:text-accent-foreground'
@@ -110,66 +108,23 @@ function pickCity(code: string) {
   cityQuery.value = ''
 }
 
-function jobSignature() {
-  const first = helper.jobList.value[0]
-  return `${helper.jobList.value.length}:${first?.key ?? ''}`
-}
-
-/**
- * 等页面把新列表写回来。
- * 每次轮询都重新挂一次页面数据钩子——SPA 换页后岗位组件可能是新实例，
- * 旧钩子已经读不到数据了。
- */
-async function waitJobListChange(before: string, timeout = 4000) {
-  const deadline = Date.now() + timeout
-  while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 250))
-    // 页面可能正在路由切换，给刷新加个上限，别把轮询卡死
-    await Promise.race([
-      helper.refreshPageData(),
-      new Promise((resolve) => setTimeout(resolve, 700)),
-    ])
-    if (jobSignature() !== before) return true
-  }
-  return false
-}
-
-async function apply() {
+function apply() {
   const typed = conditions.value.city
   if (typed && !/^\d{6,9}$/.test(typed) && !cityOptions.value.some((city) => city.code === typed)) {
     toast.add({ color: 'error', title: '未识别的城市，请从城市列表中选择' })
     return
   }
-  applyLoading.value = true
-  try {
-    const before = jobSignature()
-    const mode = await applySearch(conditions.value)
-    if (mode === 'reload') {
-      toast.add({ color: 'success', title: '已按条件跳转，页面会刷新' })
-      return
-    }
-
-    const changed = await waitJobListChange(before)
-    if (changed) {
-      toast.add({ color: 'success', title: '搜索已应用' })
-      return
-    }
-
-    // SPA 跳转后列表没变（页面没重新搜索 / 钩子没挂上），直接整页跳转兜底
-    toast.add({
-      color: 'warning',
-      title: '页面没有重新搜索，正在整页跳转…',
-      description: '整页跳转会关闭面板，重新打开即可看到新列表',
-    })
-    await new Promise((resolve) => setTimeout(resolve, 600))
-    location.assign(buildSearchUrl(conditions.value))
-  } finally {
-    applyLoading.value = false
-  }
+  applyPanelConditions()
+  toast.add({
+    color: 'success',
+    title: activeCount.value > 0 ? '筛选已应用' : '已清空筛选',
+    description: `命中 ${filteredJobs.value.length} / ${jobs.value.length} 个岗位`,
+  })
 }
 
 function reset() {
   resetPanelConditions()
+  toast.add({ color: 'success', title: '已清空筛选' })
 }
 
 function setSelect(key: (typeof selectFields.value)[number]['key'], value: unknown) {
@@ -182,7 +137,7 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
     <Alert class="items-center">
       <Info class="size-4" />
       <AlertDescription>
-        这里是面板自己的一套搜索条件，不会读取页面上的筛选；应用时只拼 Boss 原生搜索参数并跳转。
+        筛选只作用于面板里的岗位列表：不跳转、不改页面 URL，也不会碰到 Boss 页面上的筛选。
       </AlertDescription>
     </Alert>
 
@@ -228,10 +183,11 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
-      <Button :disabled="optionsLoading || applyLoading" @click="apply">应用搜索</Button>
+      <Button :disabled="optionsLoading" @click="apply">应用筛选</Button>
       <Button variant="ghost" @click="reset">清空</Button>
       <span class="text-xs text-muted-foreground">
-        面板里的条件和页面上的筛选互不影响，应用后按 Boss 原生参数搜索
+        只筛选面板里的岗位列表，不会动 Boss 页面；已应用
+        {{ activeCount }} 个条件
       </span>
     </div>
 

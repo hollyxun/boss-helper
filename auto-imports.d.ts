@@ -10,12 +10,16 @@ export {}
 declare global {
   const EffectScope: typeof import('vue').EffectScope
   const PipelineCacheManager: typeof import('./src/composables/usePipelineCache').PipelineCacheManager
+  const activePanelTab: typeof import('./src/composables/usePanelTab').activePanelTab
+  const appliedConditions: typeof import('./src/composables/useBossSearch').appliedConditions
+  const applyPanelConditions: typeof import('./src/composables/useBossSearch').applyPanelConditions
   const applySearch: typeof import('./src/composables/useBossSearch').applySearch
   const buildSearchUrl: typeof import('./src/composables/useBossSearch').buildSearchUrl
   const cityGroups: typeof import('./src/composables/useBossSearch').cityGroups
   const cityNameOf: typeof import('./src/composables/useBossSearch').cityNameOf
   const cityOptions: typeof import('./src/composables/useBossSearch').cityOptions
   const computed: typeof import('vue').computed
+  const countActiveConditions: typeof import('./src/composables/useBossSearch').countActiveConditions
   const createApp: typeof import('vue').createApp
   const customRef: typeof import('vue').customRef
   const defineAsyncComponent: typeof import('vue').defineAsyncComponent
@@ -38,6 +42,7 @@ declare global {
   const isShallow: typeof import('vue').isShallow
   const loadSearchOptions: typeof import('./src/composables/useBossSearch').loadSearchOptions
   const markRaw: typeof import('vue').markRaw
+  const matchJobConditions: typeof import('./src/composables/useJobFilter').matchJobConditions
   const nextTick: typeof import('vue').nextTick
   const onActivated: typeof import('vue').onActivated
   const onBeforeMount: typeof import('vue').onBeforeMount
@@ -53,6 +58,7 @@ declare global {
   const onUnmounted: typeof import('vue').onUnmounted
   const onUpdated: typeof import('vue').onUpdated
   const onWatcherCleanup: typeof import('vue').onWatcherCleanup
+  const openPanelTab: typeof import('./src/composables/usePanelTab').openPanelTab
   const optionsLoaded: typeof import('./src/composables/useBossSearch').optionsLoaded
   const optionsLoading: typeof import('./src/composables/useBossSearch').optionsLoading
   const panelConditions: typeof import('./src/composables/useBossSearch').panelConditions
@@ -84,6 +90,7 @@ declare global {
   const useHookVueData: typeof import('./src/composables/useVue').useHookVueData
   const useHookVueFn: typeof import('./src/composables/useVue').useHookVueFn
   const useId: typeof import('vue').useId
+  const useJobFilter: typeof import('./src/composables/useJobFilter').useJobFilter
   const useModel: typeof import('vue').useModel
   const useScrollLock: typeof import('./src/composables/useScrollLock').useScrollLock
   const useSlots: typeof import('vue').useSlots
@@ -129,6 +136,9 @@ declare global {
     CityGroup,
   } from './src/composables/useBossSearch'
   import('./src/composables/useBossSearch')
+  // @ts-ignore
+  export type { PanelTab } from './src/composables/usePanelTab'
+  import('./src/composables/usePanelTab')
   // @ts-ignore
   export type { PipelineCacheManager } from './src/composables/usePipelineCache'
   import('./src/composables/usePipelineCache')

@@ -12,10 +12,11 @@ import Button from '@/components/ui/button/Button.vue'
 import Textarea from '@/components/ui/textarea/Textarea.vue'
 import { useConf } from '@/composables/conf'
 import { fetchBossResume } from '@/composables/useBossResume'
-import { applySearch, emptyConditions } from '@/composables/useBossSearch'
+import { applyPanelConditions, emptyConditions, panelConditions } from '@/composables/useBossSearch'
 import { enabledModelData, useModel } from '@/composables/useModel'
 import { resolveModelAvatar } from '@/composables/useModel/icons'
 import { openai } from '@/composables/useModel/openai'
+import { openPanelTab } from '@/composables/usePanelTab'
 import { useToast } from '@/composables/useToast'
 import type { ResumeAdvice } from '@/types/formData'
 import { parseGptJson, renderTemplate } from '@/utils/ai'
@@ -148,9 +149,15 @@ async function recommend() {
   }
 }
 
-async function searchKeyword(keyword: string) {
-  await applySearch({ ...emptyConditions(), query: keyword })
-  toast.add({ title: `已按「${keyword}」搜索`, color: 'success' })
+function searchKeyword(keyword: string) {
+  panelConditions.value = { ...emptyConditions(), query: keyword }
+  applyPanelConditions()
+  openPanelTab('statistics')
+  toast.add({
+    title: `已按「${keyword}」筛选面板岗位`,
+    description: '只作用于面板里的岗位列表，不会影响页面',
+    color: 'success',
+  })
 }
 </script>
 

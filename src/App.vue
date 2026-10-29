@@ -23,6 +23,8 @@ import SheetHeader from '@/components/ui/sheet/SheetHeader.vue'
 import SheetTitle from '@/components/ui/sheet/SheetTitle.vue'
 import { appearanceConf, useConf } from '@/composables/conf'
 import { useModel } from '@/composables/useModel'
+import { activePanelTab, openPanelTab } from '@/composables/usePanelTab'
+import type { PanelTab } from '@/composables/usePanelTab'
 import { useScrollLock } from '@/composables/useScrollLock'
 
 import { useHelper, VITE_VERSION } from './composables/useHelper'
@@ -33,18 +35,16 @@ const { todayData } = helper.statistics
 const conf = useConf()
 
 /** 面板 → 组件映射，menu 与内容区共用，避免两处各写一份 */
-const panels = {
+const panels: Record<PanelTab, Component> = {
   statistics: Statistics,
   resume: Resume,
   config: Config,
   ai: Ai,
   logs: Logs,
   about: About,
-} as const
+}
 
-type PanelKey = keyof typeof panels
-
-const menu: { value: PanelKey; label: string; hint: string; icon: Component }[] = [
+const menu: { value: PanelTab; label: string; hint: string; icon: Component }[] = [
   { value: 'statistics', label: '统计', hint: '失败是成功她妈', icon: ChartColumn },
   { value: 'resume', label: '简历', hint: '简历写得好，AI 筛得准', icon: FileText },
   { value: 'config', label: '配置', hint: '好好看，好好学', icon: Settings2 },
@@ -53,7 +53,7 @@ const menu: { value: PanelKey; label: string; hint: string; icon: Component }[] 
   { value: 'about', label: '关于&赞赏', hint: '项目是写不完美的,但总要去追求完美', icon: Heart },
 ]
 
-const activeTab = ref<PanelKey>('statistics')
+const activeTab = activePanelTab
 const activePanel = computed(() => panels[activeTab.value])
 
 const container = ref<HTMLElement>()
@@ -232,7 +232,7 @@ function onPointerMove(ev: PointerEvent) {
                     : 'text-muted-foreground'
                 "
                 :aria-current="activeTab === item.value ? 'page' : undefined"
-                @click="activeTab = item.value"
+                @click="openPanelTab(item.value)"
               >
                 <component :is="item.icon" class="size-4" />
                 <span class="truncate">{{ item.label }}</span>

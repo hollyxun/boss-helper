@@ -1,15 +1,13 @@
 import { ref } from 'vue'
 
-import { getRootVue } from '@/composables/useVue'
-
 /**
- * Boss 页面「搜索条件」能力。
+ * 面板内的岗位筛选条件。
  *
  * 这里只做两件事：
  * 1. 只读地拉取 Boss 自己的筛选字典接口，给面板提供选项；
- * 2. 拼出 Boss 原生搜索 URL 并跳转，让页面按自己的逻辑重新搜索。
+ * 2. 保存面板自己的筛选条件，用来过滤面板里的岗位列表。
  *
- * 不读写页面 DOM，也不注入任何页面级样式。
+ * 不读写页面 URL、不触发页面搜索，也不动页面 DOM / 样式。
  */
 
 export interface SearchOption {
@@ -260,76 +258,32 @@ export function emptyConditions(): SearchConditions {
 /**
  * 面板自己的搜索条件。
  *
- * 刻意不读页面 URL：面板里的条件和 Boss 页面上的筛选是两套，
- * 外面改了筛选不会影响这里，这里改了也不会被页面覆盖回来。
- * 放在模块级 ref 里，切换面板页签不会丢，只有点「应用搜索」时才落盘。
+ * 条件只用来筛选面板里的岗位列表，不会写进页面 URL、也不触发页面搜索，
+ * 和 Boss 页面上的筛选完全隔离。
+ * - panelConditions：表单里正在编辑的草稿
+ * - appliedConditions：点过「应用筛选」之后真正生效的条件
  */
 export const panelConditions = ref<SearchConditions>(loadSavedConditions() ?? emptyConditions())
+export const appliedConditions = ref<SearchConditions>({ ...panelConditions.value })
+
+export function applyPanelConditions() {
+  appliedConditions.value = { ...panelConditions.value }
+  saveSearchConditions(appliedConditions.value)
+}
 
 export function resetPanelConditions() {
   panelConditions.value = emptyConditions()
+  appliedConditions.value = emptyConditions()
+  saveSearchConditions(appliedConditions.value)
 }
 
-export function buildSearchUrl(conditions: SearchConditions): string {
-  const url = new URL(location.href)
-  for (const key of SEARCH_KEYS) url.searchParams.delete(key)
-
-  const query = conditions.query.trim()
-  if (query) url.searchParams.set('query', query)
-  if (conditions.city && conditions.city !== ALL_CITY_CODE) {
-    url.searchParams.set('city', conditions.city)
-  }
+/** 已应用的条件里有几项生效 */
+export function countActiveConditions(conditions: SearchConditions): number {
+  let count = 0
+  if (conditions.query.trim()) count++
+  if (conditions.city && conditions.city !== ALL_CITY_CODE) count++
   for (const key of SELECT_KEYS) {
-    const value = conditions[key]
-    if (value && value !== '0') url.searchParams.set(key, value)
+    if (conditions[key] && conditions[key] !== '0') count++
   }
-
-  if (!url.pathname.startsWith('/web/geek/jobs')) {
-    url.pathname = '/web/geek/jobs'
-  }
-  return url.toString()
-}
-
-/**
- * 应用搜索。
- *
- * 走页面自身的 vue-router（SPA，不刷新、扩展状态不丢）。
- * 注意：同一个路由只改 query 不会重新挂载页面组件，页面也就不会重新搜索，
- * 所以等于当前路由时先跳到推荐页再跳回来，强制页面按新 query 初始化；
- * 跳完之后再核对一次路由，没落到目标 query 就退回整页跳转。
- */
-export async function applySearch(conditions: SearchConditions): Promise<'spa' | 'reload'> {
-  saveSearchConditions(conditions)
-  const target = new URL(buildSearchUrl(conditions))
-
-  try {
-    const vue = await getRootVue()
-    const router = vue?.$router
-    if (router && typeof router.push === 'function') {
-      const query: Record<string, string> = {}
-      target.searchParams.forEach((value, key) => {
-        query[key] = value
-      })
-
-      if (router.currentRoute?.value?.path === target.pathname) {
-        await router.push('/web/geek/job-recommend')
-        await new Promise((resolve) => setTimeout(resolve, 300))
-      }
-
-      await router.push({ path: target.pathname, query })
-      await new Promise((resolve) => setTimeout(resolve, 600))
-
-      const current = router.currentRoute?.value
-      const landed =
-        current?.path === target.pathname &&
-        Object.entries(query).every(([key, value]) => String(current?.query?.[key] ?? '') === value)
-
-      if (landed) return 'spa'
-    }
-  } catch {
-    // 走下面的整页跳转
-  }
-
-  location.assign(target.toString())
-  return 'reload'
+  return count
 }

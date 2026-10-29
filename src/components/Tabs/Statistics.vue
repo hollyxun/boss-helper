@@ -13,9 +13,11 @@ import DropdownMenuTrigger from '@/components/ui/dropdown-menu/DropdownMenuTrigg
 import Progress from '@/components/ui/progress/Progress.vue'
 import { useConf } from '@/composables/conf'
 import { useHelper } from '@/composables/useHelper'
+import { useJobFilter } from '@/composables/useJobFilter'
 
 const helper = useHelper()
 const conf = useConf()
+const { jobs: allJobs, filteredJobs, activeCount: activeFilterCount } = useJobFilter()
 
 const { todayData, statisticsData } = helper.statistics
 
@@ -87,8 +89,12 @@ onMounted(() => {
         <span data-help="最近未活跃的岗位数">
           不活跃 <span class="font-semibold">{{ todayData.activityFilter }}</span>
         </span>
-        <span data-help="Boss 页面当前抓取到的岗位数，随筛选条件同步变化">
-          列表 <span class="font-semibold">{{ helper.jobList.value.length }}</span>
+        <span data-help="面板岗位列表的条数（筛选后 / 页面抓取总数）">
+          列表
+          <span class="font-semibold">
+            {{ filteredJobs.length }}
+            <template v-if="activeFilterCount > 0">/{{ allJobs.length }}</template>
+          </span>
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
