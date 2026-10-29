@@ -20,6 +20,7 @@ import TableHeader from '@/components/ui/table/TableHeader.vue'
 import TableRow from '@/components/ui/table/TableRow.vue'
 import type { ModelConf } from '@/composables/useModel'
 import { useModel } from '@/composables/useModel'
+import { resolveModelAvatar } from '@/composables/useModel/icons'
 import { useToast } from '@/composables/useToast'
 import deepmerge, { jsonClone } from '@/utils/deepmerge'
 import { exportJson, importJson } from '@/utils/jsonImportExport'
@@ -120,7 +121,7 @@ function importllm() {
                   <Avatar>
                     <AvatarImage
                       v-if="item.data?.avatar"
-                      :src="item.data.avatar"
+                      :src="resolveModelAvatar(item.data.avatar)"
                       :alt="item.name"
                     />
                     <AvatarFallback>{{ item.name.slice(0, 2) }}</AvatarFallback>

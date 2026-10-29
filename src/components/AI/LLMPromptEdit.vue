@@ -43,6 +43,7 @@ import { parseFiltering } from '@/composables/useApplying/utils'
 import { useHelper } from '@/composables/useHelper'
 import type { JobData } from '@/composables/useHelper'
 import { useModel } from '@/composables/useModel'
+import { resolveModelAvatar } from '@/composables/useModel/icons'
 import { useToast } from '@/composables/useToast'
 import type { Prompt } from '@/types/formData'
 import { logger } from '@/utils/logger'
@@ -297,7 +298,7 @@ async function savePrompt() {
                   <Avatar class="size-5">
                     <AvatarImage
                       v-if="currentModelData?.data?.avatar"
-                      :src="currentModelData.data.avatar"
+                      :src="resolveModelAvatar(currentModelData.data.avatar)"
                       :alt="currentModelData.name"
                     />
                     <AvatarFallback>{{
@@ -313,7 +314,7 @@ async function savePrompt() {
                     <Avatar class="size-5">
                       <AvatarImage
                         v-if="item.data?.avatar"
-                        :src="item.data.avatar"
+                        :src="resolveModelAvatar(item.data.avatar)"
                         :alt="item.name"
                       />
                       <AvatarFallback>{{ item.name.slice(0, 1) }}</AvatarFallback>

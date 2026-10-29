@@ -1,25 +1,24 @@
 <script lang="ts" setup>
-import { reactive } from 'vue'
+import { computed, reactive, useId } from 'vue'
 
 import LLMFormItem from '@/components/AI/LLMFormItem.vue'
+import Hint from '@/components/Hint.vue'
 import Avatar from '@/components/ui/avatar/Avatar.vue'
 import AvatarFallback from '@/components/ui/avatar/AvatarFallback.vue'
 import AvatarImage from '@/components/ui/avatar/AvatarImage.vue'
 import Input from '@/components/ui/input/Input.vue'
 import Label from '@/components/ui/label/Label.vue'
 import type { ModelConfData } from '@/composables/useModel'
+import { modelIcons, resolveModelAvatar } from '@/composables/useModel/icons'
 import { openai } from '@/composables/useModel/openai'
 import type { LLMInfo } from '@/composables/useModel/type'
-
-interface IconOption {
-  label: string
-  value: string
-}
 
 const formData = defineModel<ModelConfData>({ required: true })
 
 const enabledFields = reactive<Record<string, boolean>>({})
 const avatarId = useId()
+
+const avatarSrc = computed(() => resolveModelAvatar(formData.value.avatar))
 
 const initializeEnabledFields = () => {
   const info = openai.info as unknown as LLMInfo<ModelConfData>
@@ -33,43 +32,6 @@ const initializeEnabledFields = () => {
 }
 
 initializeEnabledFields()
-
-async function getIconGroups() {
-  const baseUrl = 'https://testingcf.jsdelivr.net/npm/@lobehub/icons-static-svg@latest/icons/'
-  const html = await fetch(baseUrl).then((res) => res.text())
-  const doc = new DOMParser().parseFromString(html, 'text/html')
-  const result: Record<string, Record<string, string>> = {}
-  doc.querySelectorAll('tr a').forEach((x) => {
-    const name = x.textContent.trim()
-    const match = name.match(/^(.+?)(?:-(color|text))?\.svg$/)
-
-    if (match) {
-      const [_, baseName, type = 'default'] = match
-      if (!baseName) return
-      if (!result[baseName]) result[baseName] = {}
-      result[baseName][type] = `${baseUrl}${name}`
-    }
-  })
-  return result
-}
-
-const iconGroups = ref<IconOption[]>([])
-
-onMounted(() => {
-  getIconGroups()
-    .then((groups) => {
-      iconGroups.value = Object.entries(groups).map(([key, value]) => {
-        const avatar = value.color || value.default || ''
-        return {
-          label: key,
-          value: avatar,
-        }
-      })
-    })
-    .catch(() => {
-      iconGroups.value = []
-    })
-})
 </script>
 
 <template>
@@ -81,29 +43,41 @@ onMounted(() => {
         </h3> -->
       </div>
       <div v-else-if="key == 'avatar'" class="mb-4 border-b border-border pb-4">
-        <div class="flex flex-col gap-1.5">
-          <Label :for="avatarId">
+        <div class="flex flex-col gap-2">
+          <Label :for="avatarId" class="flex items-center gap-1">
             <span class="text-destructive">*</span>
-            <span>Avatar</span>
+            <span>模型头像</span>
           </Label>
           <div class="flex items-center gap-2">
             <Avatar class="size-8 shrink-0">
-              <AvatarImage v-if="formData.avatar" :src="formData.avatar" alt="avatar" />
+              <AvatarImage v-if="avatarSrc" :src="avatarSrc" alt="avatar" />
               <AvatarFallback>AI</AvatarFallback>
             </Avatar>
             <Input
               :id="avatarId"
               :model-value="formData.avatar"
-              :list="`${avatarId}-icons`"
-              placeholder="选择或输入图标地址"
+              placeholder="选择下方图标，或粘贴图片地址"
               @update:model-value="(value) => (formData.avatar = String(value))"
             />
           </div>
-          <datalist :id="`${avatarId}-icons`">
-            <option v-for="group in iconGroups" :key="group.value" :value="group.value">
-              {{ group.label }}
-            </option>
-          </datalist>
+          <div class="max-h-32 overflow-y-auto rounded-md border border-border p-2">
+            <div class="flex flex-wrap gap-1">
+              <Hint v-for="icon in modelIcons" :key="icon.key" :text="icon.label">
+                <button
+                  type="button"
+                  class="flex size-8 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-muted"
+                  :class="formData.avatar === icon.token ? 'bg-muted ring-1 ring-ring' : ''"
+                  :aria-label="icon.label"
+                  @click="formData.avatar = icon.token"
+                >
+                  <img :src="icon.src" :alt="icon.label" class="size-6" />
+                </button>
+              </Hint>
+            </div>
+          </div>
+          <p class="text-muted-foreground text-xs leading-snug">
+            内置图标保存为 icon:xxx，不依赖网络；也可以直接填 https 图片地址。
+          </p>
         </div>
       </div>
       <LLMFormItem
