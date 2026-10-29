@@ -68,7 +68,7 @@ onMounted(() => {
   <div class="flex flex-col gap-3">
     <Alert
       id="config-statistics"
-      description="数据并不完全准确，投递上限根据自身情况调整, 建议 120-140, boss限制最高150"
+      description="数据并不完全准确，投递上限根据自身情况调整，建议 120-140，Boss限制最高150"
       color="warning"
       show-icon
     />

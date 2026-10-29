@@ -123,13 +123,20 @@ async function syncFromBoss(silent = false) {
   if (syncing.value) return
   syncing.value = true
   try {
-    const { text, data } = await fetchBossResume()
+    const { text, data, sources } = await fetchBossResume()
     logger.debug('BossResumeRaw', data)
     setResume(text)
+    const fromPage = sources.some((item) => item.key === 'page')
     if (text.length < 300) {
       toast.add({
         title: '读到的简历内容偏少',
         description: '可能只覆盖了在线简历的一部分，建议检查后手动补充',
+        color: 'warning',
+      })
+    } else if (fromPage) {
+      toast.add({
+        title: '接口缺模块，已改用简历页内容',
+        description: '内容来自 Boss 简历页渲染结果，建议检查后保存',
         color: 'warning',
       })
     } else if (!silent) {

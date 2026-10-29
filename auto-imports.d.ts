@@ -27,6 +27,7 @@ declare global {
   const effectScope: typeof import('vue').effectScope
   const emptyConditions: typeof import('./src/composables/useBossSearch').emptyConditions
   const fetchBossResume: typeof import('./src/composables/useBossResume').fetchBossResume
+  const fetchResumeFromPage: typeof import('./src/composables/useBossResume').fetchResumeFromPage
   const filterOptions: typeof import('./src/composables/useBossSearch').filterOptions
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope

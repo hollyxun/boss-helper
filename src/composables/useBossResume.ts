@@ -23,6 +23,8 @@ const SECTION_APIS = {
   clubExpList: '/wapi/zpgeek/resume/clubexp/query.json',
   volunteerList: '/wapi/zpgeek/resume/volunteer/query.json',
   restrictList: '/wapi/zpgeek/resume/restrict/list.json',
+  // 简历编辑页的草稿接口，偶尔能一次拿到全部模块
+  presave: '/wapi/zpgeek/resume/presave/query.json',
 } as const
 
 /** 字段名 → 中文标签，认不出来的直接保留原字段名 */
@@ -303,6 +305,7 @@ const SECTION_LABELS: Record<keyof typeof SECTION_APIS, string> = {
   clubExpList: '社团经历',
   volunteerList: '志愿经历',
   restrictList: '求职限制',
+  presave: '简历草稿',
 }
 
 /** 每个接口拉到了什么，用来在面板里展示原始数据 */
@@ -404,12 +407,87 @@ export interface BossResumeResult {
 /** 最近一次读取结果，面板里用来展示原始 JSON */
 export const lastBossResume = ref<BossResumeResult | null>(null)
 
+/** 简历页里可能承载内容的容器，按优先级找一遍 */
+const RESUME_PAGE_SELECTORS = [
+  '.resume-box',
+  '.resume-detail',
+  '.resume-content',
+  '.geek-resume',
+  '.resume-preview',
+  '[class*="resume"]',
+  'main',
+]
+
+const CORE_SECTION = /工作经历|项目经历|教育经历|实习经历|专业技能/
+
+function extractResumeText(doc: Document) {
+  let best = ''
+  for (const selector of RESUME_PAGE_SELECTORS) {
+    let nodes: NodeListOf<Element>
+    try {
+      nodes = doc.querySelectorAll(selector)
+    } catch {
+      continue
+    }
+    nodes.forEach((node) => {
+      const text = (node as HTMLElement).innerText?.trim() ?? ''
+      if (text.length > best.length) best = text
+    })
+  }
+  if (best.length < 300) best = doc.body?.innerText?.trim() ?? ''
+  return best
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line, index, list) => line || list[index - 1])
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/**
+ * 兜底方案：在隐藏 iframe 里打开 Boss 简历页，直接读渲染后的文本。
+ *
+ * 接口那条路如果缺模块（分段接口没数据），至少还能从页面 DOM 里拿到完整内容。
+ * 同源，cookie 会带上；离屏摆放而不是 display:none，否则 innerText 拿不到布局结果。
+ */
+export async function fetchResumeFromPage(timeout = 12000): Promise<string> {
+  const iframe = document.createElement('iframe')
+  iframe.src = '/web/geek/resume'
+  iframe.setAttribute('aria-hidden', 'true')
+  iframe.style.cssText =
+    'position:fixed;left:-99999px;top:0;width:1280px;height:2000px;border:0;opacity:0;pointer-events:none;'
+  document.body.appendChild(iframe)
+
+  const deadline = Date.now() + timeout
+  try {
+    await new Promise<void>((resolve) => {
+      iframe.addEventListener('load', () => resolve(), { once: true })
+      setTimeout(resolve, 4000)
+    })
+
+    let text = ''
+    while (Date.now() < deadline) {
+      await sleep(400)
+      const doc = iframe.contentDocument
+      if (!doc || !doc.body) continue
+      text = extractResumeText(doc)
+      if (text.length > 300 && CORE_SECTION.test(text)) break
+    }
+    return text
+  } finally {
+    iframe.remove()
+  }
+}
+
 /**
  * 读取 Boss 在线简历。
  *
  * 预览接口只给预览页用得到的那几段（常见只有 baseInfo / userDesc / restrictList），
  * 其余模块要逐个分段接口拉。这里顺序请求、每条之间留一点间隔，
  * 避免并发太多被 Boss 的风控挡掉。
+ *
+ * 如果接口拿到的内容明显缺模块，再走一遍「渲染页面兜底」：
+ * 在隐藏 iframe 里打开简历页，直接读 DOM 文本。
  */
 export async function fetchBossResume(): Promise<BossResumeResult> {
   const sources: BossResumeSource[] = []
@@ -435,13 +513,11 @@ export async function fetchBossResume(): Promise<BossResumeResult> {
       ? (previewData as Record<string, unknown>)
       : null
 
+  const data = mergeResume(preview ?? {}, sections) as Record<string, unknown>
+  let text = resumeToText(data)
+
   if (!preview && Object.keys(sections).length === 0) {
-    lastBossResume.value = {
-      text: '',
-      data: {},
-      raw: { preview, sections, responses },
-      sources,
-    }
+    lastBossResume.value = { text: '', data: {}, raw: { preview, sections, responses }, sources }
     const failed = sources
       .filter((item) => item.status !== 'ok')
       .map((item) => `${item.label}(${item.message ?? '失败'})`)
@@ -450,8 +526,21 @@ export async function fetchBossResume(): Promise<BossResumeResult> {
     throw new Error(`读不到 Boss 在线简历${failed ? `：${failed}` : ''}`)
   }
 
-  const data = mergeResume(preview ?? {}, sections) as Record<string, unknown>
-  const text = resumeToText(data)
+  // 接口结果明显不全时，退回页面渲染数据
+  if (text.length < 300 || !CORE_SECTION.test(text)) {
+    const pageText = await fetchResumeFromPage().catch(() => '')
+    if (pageText && pageText.length > text.length) {
+      text = pageText
+      sources.push({
+        key: 'page',
+        label: '页面渲染',
+        ok: true,
+        status: 'ok',
+        size: pageText.length,
+        message: '接口缺模块，已改用简历页渲染结果',
+      })
+    }
+  }
 
   const result: BossResumeResult = {
     text,
