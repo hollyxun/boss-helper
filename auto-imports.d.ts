@@ -22,6 +22,7 @@ declare global {
   const defineComponent: typeof import('vue').defineComponent
   const effectScope: typeof import('vue').effectScope
   const emptyConditions: typeof import('./src/composables/useBossSearch').emptyConditions
+  const fetchBossResume: typeof import('./src/composables/useBossResume').fetchBossResume
   const filterOptions: typeof import('./src/composables/useBossSearch').filterOptions
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
@@ -63,6 +64,7 @@ declare global {
   const resetPanelConditions: typeof import('./src/composables/useBossSearch').resetPanelConditions
   const resolveCityCode: typeof import('./src/composables/useBossSearch').resolveCityCode
   const resolveComponent: typeof import('vue').resolveComponent
+  const resumeToText: typeof import('./src/composables/useBossResume').resumeToText
   const saveSearchConditions: typeof import('./src/composables/useBossSearch').saveSearchConditions
   const shallowReactive: typeof import('vue').shallowReactive
   const shallowReadonly: typeof import('vue').shallowReadonly
@@ -116,6 +118,9 @@ declare global {
     WritableComputedRef,
   } from 'vue'
   import('vue')
+  // @ts-ignore
+  export type { BossResumeResult } from './src/composables/useBossResume'
+  import('./src/composables/useBossResume')
   // @ts-ignore
   export type {
     SearchOption,

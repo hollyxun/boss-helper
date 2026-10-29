@@ -1,7 +1,7 @@
 <script lang="ts" setup>
-import { LoaderCircle, Sparkles } from '@lucide/vue'
+import { LoaderCircle, RefreshCw, Sparkles } from '@lucide/vue'
 import { generateText } from 'ai'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import Hint from '@/components/Hint.vue'
 import Avatar from '@/components/ui/avatar/Avatar.vue'
@@ -11,6 +11,7 @@ import Badge from '@/components/ui/badge/Badge.vue'
 import Button from '@/components/ui/button/Button.vue'
 import Textarea from '@/components/ui/textarea/Textarea.vue'
 import { useConf } from '@/composables/conf'
+import { fetchBossResume } from '@/composables/useBossResume'
 import { applySearch, emptyConditions } from '@/composables/useBossSearch'
 import { enabledModelData, useModel } from '@/composables/useModel'
 import { resolveModelAvatar } from '@/composables/useModel/icons'
@@ -26,6 +27,7 @@ const toast = useToast()
 
 const fileInput = ref<HTMLInputElement>()
 const loading = ref(false)
+const syncing = ref(false)
 
 const advice = computed<ResumeAdvice | null>(() => conf.formData.resume.advice ?? null)
 const currentModel = computed(
@@ -69,6 +71,29 @@ function clearResume() {
   setResume('')
   conf.formData.resume.advice = null
 }
+
+/** 从 Boss 在线简历读取，silent 用于首次打开时自动填充失败不打扰 */
+async function syncFromBoss(silent = false) {
+  if (syncing.value) return
+  syncing.value = true
+  try {
+    const { text } = await fetchBossResume()
+    setResume(text)
+    if (!silent) toast.add({ title: '已从 Boss 读取在线简历，记得保存', color: 'success' })
+  } catch (error) {
+    logger.warn('BossResumeSyncError', error)
+    if (!silent) {
+      toast.add({ title: `读取失败: ${errorHandle(error)}`, color: 'error' })
+    }
+  } finally {
+    syncing.value = false
+  }
+}
+
+onMounted(() => {
+  // 默认用 Boss 上的在线简历，只有用户自己没填过时才自动拉
+  if (!conf.formData.resume.text.trim()) void syncFromBoss(true)
+})
 
 async function saveResume() {
   await conf.confSaving()
@@ -143,7 +168,13 @@ async function searchKeyword(keyword: string) {
             class="hidden"
             @change="onFileChange"
           />
-          <Button variant="outline" size="sm" @click="pickFile">导入文件</Button>
+          <Hint text="直接读取 Boss 上的在线简历，自动填进来">
+            <Button variant="outline" size="sm" :disabled="syncing" @click="syncFromBoss(false)">
+              <RefreshCw class="size-3.5" :class="syncing ? 'animate-spin' : ''" />
+              从 Boss 读取
+            </Button>
+          </Hint>
+          <Button variant="ghost" size="sm" @click="pickFile">导入文件</Button>
           <Button variant="ghost" size="sm" @click="clearResume">清空</Button>
           <Button size="sm" @click="saveResume">保存</Button>
         </div>
