@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ChevronDown, LoaderCircle, RefreshCw, Sparkles } from '@lucide/vue'
 import { generateText } from 'ai'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 import Hint from '@/components/Hint.vue'
 import Avatar from '@/components/ui/avatar/Avatar.vue'
@@ -11,7 +11,7 @@ import Badge from '@/components/ui/badge/Badge.vue'
 import Button from '@/components/ui/button/Button.vue'
 import Textarea from '@/components/ui/textarea/Textarea.vue'
 import { useConf } from '@/composables/conf'
-import { fetchBossResume, lastBossResume } from '@/composables/useBossResume'
+import { fetchBossResume, lastBossResume, mergeResumeTexts } from '@/composables/useBossResume'
 import { applyPanelConditions, emptyConditions, panelConditions } from '@/composables/useBossSearch'
 import { enabledModelData, useModel } from '@/composables/useModel'
 import { resolveModelAvatar } from '@/composables/useModel/icons'
@@ -39,7 +39,52 @@ const rawTabs = [
   { value: 'responses', label: '接口返回' },
 ] as const
 
+const sourceOpen = reactive<Record<'api' | 'page', boolean>>({ api: false, page: false })
+
 const rawResult = computed(() => lastBossResume.value)
+const apiText = computed(() => rawResult.value?.raw.apiText ?? '')
+const pageText = computed(() => rawResult.value?.raw.pageText ?? '')
+const mergedLength = computed(() => conf.formData.resume.text.trim().length)
+
+const sourceCards = computed(() => [
+  {
+    key: 'api' as const,
+    label: '接口抓取（JSON）',
+    text: apiText.value,
+    emptyHint: '接口没有返回可用文本',
+  },
+  {
+    key: 'page' as const,
+    label: '页面抓取（iframe）',
+    text: pageText.value,
+    emptyHint: '这次没走页面抓取（接口内容已经完整）',
+  },
+])
+
+function toggleSource(key: 'api' | 'page') {
+  sourceOpen[key] = !sourceOpen[key]
+}
+
+function useSource(key: 'api' | 'page') {
+  const text = key === 'api' ? apiText.value : pageText.value
+  if (!text) return
+  setResume(text)
+  toast.add({
+    title: key === 'api' ? '已改用接口抓取的内容' : '已改用页面抓取的内容',
+    color: 'success',
+  })
+}
+
+function mergeAgain() {
+  const merged = mergeResumeTexts(apiText.value, pageText.value)
+  if (!merged) {
+    toast.add({ title: '两份来源都为空，无法合并', color: 'warning' })
+    return
+  }
+  setResume(merged)
+  toast.add({ title: '已重新合并两份内容', color: 'success' })
+}
+
 const rawJson = computed(() => {
   const result = rawResult.value
   if (!result) return ''
@@ -221,7 +266,7 @@ function searchKeyword(keyword: string) {
   <div class="flex flex-col gap-4">
     <div class="flex flex-col gap-2">
       <div class="flex flex-wrap items-center gap-2">
-        <div class="text-sm font-medium">简历内容</div>
+        <div class="text-sm font-medium">合并结果 · 简历内容</div>
         <span class="text-xs text-muted-foreground tabular-nums">{{ resumeLength }} 字</span>
         <div class="ml-auto flex items-center gap-1">
           <input
@@ -254,6 +299,56 @@ function searchKeyword(keyword: string) {
         <code class="rounded bg-muted px-1">&#123;&#123; resume &#125;&#125;</code>
         引用这份简历；留空时 AI 只按岗位本身打分。
       </p>
+    </div>
+
+    <div v-if="rawResult" class="flex flex-col gap-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="text-sm font-medium">抓取来源</div>
+        <span class="text-xs text-muted-foreground tabular-nums">
+          接口 {{ apiText.length }} 字 · 页面 {{ pageText.length }} 字 · 合并后
+          {{ mergedLength }} 字
+        </span>
+        <div class="ml-auto">
+          <Button variant="outline" size="sm" :disabled="!apiText && !pageText" @click="mergeAgain">
+            重新合并两份
+          </Button>
+        </div>
+      </div>
+
+      <div class="grid gap-2 sm:grid-cols-2">
+        <div
+          v-for="source in sourceCards"
+          :key="source.key"
+          class="flex flex-col gap-1 rounded-md border border-border p-2"
+        >
+          <div class="flex flex-wrap items-center gap-1">
+            <span class="text-sm">{{ source.label }}</span>
+            <span class="text-xs text-muted-foreground tabular-nums">
+              {{ source.text.length }} 字
+            </span>
+            <div class="ml-auto flex items-center gap-1">
+              <Button variant="ghost" size="xs" @click="toggleSource(source.key)">
+                {{ sourceOpen[source.key] ? '收起' : '查看' }}
+              </Button>
+              <Button
+                variant="outline"
+                size="xs"
+                :disabled="!source.text"
+                @click="useSource(source.key)"
+              >
+                用这份
+              </Button>
+            </div>
+          </div>
+          <p v-if="!source.text" class="text-xs text-muted-foreground">
+            {{ source.emptyHint }}
+          </p>
+          <pre
+            v-else-if="sourceOpen[source.key]"
+            class="max-h-52 overflow-auto rounded bg-muted/40 p-2 text-[11px] leading-relaxed whitespace-pre-wrap break-all"
+            >{{ source.text }}</pre>
+        </div>
+      </div>
     </div>
 
     <div v-if="rawResult" class="flex flex-col gap-2 rounded-md border border-border p-3">
