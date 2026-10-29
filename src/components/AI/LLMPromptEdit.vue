@@ -49,12 +49,13 @@ import type { Prompt } from '@/types/formData'
 import { logger } from '@/utils/logger'
 
 const props = defineProps<{
-  data: 'aiGreeting' | 'aiFiltering' | 'aiReply'
+  data: 'aiGreeting' | 'aiFiltering' | 'aiReply' | 'aiResume'
 }>()
 const agentTitles: Record<typeof props.data, string> = {
   aiGreeting: 'AI招呼语',
   aiFiltering: 'AI过滤',
   aiReply: 'AI回复',
+  aiResume: 'AI简历推荐',
 }
 const toast = useToast()
 const helper = useHelper()

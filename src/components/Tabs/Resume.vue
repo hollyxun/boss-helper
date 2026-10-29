@@ -9,14 +9,10 @@ import AvatarFallback from '@/components/ui/avatar/AvatarFallback.vue'
 import AvatarImage from '@/components/ui/avatar/AvatarImage.vue'
 import Badge from '@/components/ui/badge/Badge.vue'
 import Button from '@/components/ui/button/Button.vue'
-import Select from '@/components/ui/select/Select.vue'
-import SelectContent from '@/components/ui/select/SelectContent.vue'
-import SelectItem from '@/components/ui/select/SelectItem.vue'
-import SelectTrigger from '@/components/ui/select/SelectTrigger.vue'
 import Textarea from '@/components/ui/textarea/Textarea.vue'
 import { useConf } from '@/composables/conf'
 import { applySearch, emptyConditions } from '@/composables/useBossSearch'
-import { useModel } from '@/composables/useModel'
+import { enabledModelData, useModel } from '@/composables/useModel'
 import { resolveModelAvatar } from '@/composables/useModel/icons'
 import { openai } from '@/composables/useModel/openai'
 import { useToast } from '@/composables/useToast'
@@ -36,7 +32,7 @@ const currentModel = computed(
   () =>
     conf.formData.aiResume.model ??
     conf.formData.aiFiltering.model ??
-    model.modelData.value[0]?.key ??
+    enabledModelData.value[0]?.key ??
     '',
 )
 const currentModelData = computed(() =>
@@ -173,41 +169,19 @@ async function searchKeyword(keyword: string) {
           AI 简历分析
         </div>
         <div class="ml-auto flex items-center gap-2">
-          <Select
-            :model-value="conf.formData.aiResume.model"
-            @update:model-value="(value) => (conf.formData.aiResume.model = value as string)"
-          >
-            <SelectTrigger class="w-[180px]">
-              <div class="flex items-center gap-2">
-                <Avatar class="size-5">
-                  <AvatarImage
-                    v-if="currentModelData?.data?.avatar"
-                    :src="resolveModelAvatar(currentModelData.data.avatar)"
-                    :alt="currentModelData.name"
-                  />
-                  <AvatarFallback>{{ currentModelData?.name?.slice(0, 1) ?? 'A' }}</AvatarFallback>
-                </Avatar>
-                <span class="truncate text-sm">
-                  {{ currentModelData?.name ?? '选择模型' }}
-                </span>
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="item in model.modelData.value" :key="item.key" :value="item.key">
-                <div class="flex items-center gap-2">
-                  <Avatar class="size-5">
-                    <AvatarImage
-                      v-if="item.data?.avatar"
-                      :src="resolveModelAvatar(item.data.avatar)"
-                      :alt="item.name"
-                    />
-                    <AvatarFallback>{{ item.name.slice(0, 1) }}</AvatarFallback>
-                  </Avatar>
-                  <span>{{ item.name }}</span>
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <Hint text="在 AI 页的「简历推荐」里切换渠道">
+            <span class="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Avatar class="size-5">
+                <AvatarImage
+                  v-if="currentModelData?.data?.avatar"
+                  :src="resolveModelAvatar(currentModelData.data.avatar)"
+                  :alt="currentModelData.name"
+                />
+                <AvatarFallback>{{ currentModelData?.name?.slice(0, 1) ?? 'A' }}</AvatarFallback>
+              </Avatar>
+              {{ currentModelData?.name ?? '未绑定渠道' }}
+            </span>
+          </Hint>
           <Hint text="让 AI 读一遍简历，给出适合投递的岗位方向和搜索关键词">
             <Button :disabled="loading || !resumeLength" @click="recommend">
               <LoaderCircle v-if="loading" class="size-4 animate-spin" />

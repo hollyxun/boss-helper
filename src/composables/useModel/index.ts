@@ -1,4 +1,4 @@
-import { ref, toRaw } from 'vue'
+import { computed, ref, toRaw } from 'vue'
 
 import { useToast } from '@/composables/useToast'
 import { counter } from '@/message'
@@ -19,6 +19,8 @@ export interface ModelConf {
   key: string
   name: string
   color?: string
+  /** 渠道是否启用，未设置视为启用 */
+  enable?: boolean
   data?: ModelConfData
   // vip?: {
   //   description: string
@@ -31,6 +33,11 @@ export interface ModelConf {
 
 const modelData = ref<ModelConf[]>([])
 
+/** 只有启用的渠道才会出现在 AI 功能的下拉里 */
+export const enabledModelData = computed(() =>
+  modelData.value.filter((item) => item.enable !== false),
+)
+
 export const useModel = () => {
   async function init() {
     const data = await counter.storageGet<ModelConf[]>(confModelKey, [])
@@ -38,17 +45,20 @@ export const useModel = () => {
     modelData.value = data
   }
 
-  async function save() {
+  async function save(silent = false) {
     await counter.storageSet(confModelKey, toRaw(modelData.value))
-    toast.add({
-      title: '保存成功',
-      color: 'success',
-    })
+    if (!silent) {
+      toast.add({
+        title: '保存成功',
+        color: 'success',
+      })
+    }
   }
 
   return {
     initModel: init,
     modelData,
+    enabledModelData,
     saveModel: save,
   }
 }
