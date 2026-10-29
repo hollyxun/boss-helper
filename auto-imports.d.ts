@@ -18,6 +18,8 @@ declare global {
   const appliedConditions: typeof import('./src/composables/useBossSearch').appliedConditions
   const applyPanelConditions: typeof import('./src/composables/useBossSearch').applyPanelConditions
   const applySearch: typeof import('./src/composables/useBossSearch').applySearch
+  const batchKeywords: typeof import('./src/composables/useBatchSearch').batchKeywords
+  const batchState: typeof import('./src/composables/useBatchSearch').batchState
   const buildSearchUrl: typeof import('./src/composables/useBossSearch').buildSearchUrl
   const cityGroups: typeof import('./src/composables/useBossSearch').cityGroups
   const cityNameOf: typeof import('./src/composables/useBossSearch').cityNameOf
@@ -35,6 +37,8 @@ declare global {
   const effectScope: typeof import('vue').effectScope
   const emptyConditions: typeof import('./src/composables/useBossSearch').emptyConditions
   const fetchBossResume: typeof import('./src/composables/useBossResume').fetchBossResume
+  const fetchJobDetail: typeof import('./src/composables/useBossJobSearch').fetchJobDetail
+  const fetchJobPage: typeof import('./src/composables/useBossJobSearch').fetchJobPage
   const fetchResumeFromPage: typeof import('./src/composables/useBossResume').fetchResumeFromPage
   const filterLogs: typeof import('./src/composables/useLogs').filterLogs
   const filterOptions: typeof import('./src/composables/useBossSearch').filterOptions
@@ -78,6 +82,7 @@ declare global {
   const panelConditions: typeof import('./src/composables/useBossSearch').panelConditions
   const panelSearchResults: typeof import('./src/composables/useBossJobSearch').panelSearchResults
   const provide: typeof import('vue').provide
+  const rawJobItems: typeof import('./src/composables/useBossJobSearch').rawJobItems
   const reactive: typeof import('vue').reactive
   const readSearchConditions: typeof import('./src/composables/useBossSearch').readSearchConditions
   const readonly: typeof import('vue').readonly
@@ -86,13 +91,16 @@ declare global {
   const resolveCityCode: typeof import('./src/composables/useBossSearch').resolveCityCode
   const resolveComponent: typeof import('vue').resolveComponent
   const resumeToText: typeof import('./src/composables/useBossResume').resumeToText
+  const runBatchSearch: typeof import('./src/composables/useBatchSearch').runBatchSearch
   const saveSearchConditions: typeof import('./src/composables/useBossSearch').saveSearchConditions
   const searchJobs: typeof import('./src/composables/useBossJobSearch').searchJobs
   const searchMeta: typeof import('./src/composables/useBossJobSearch').searchMeta
   const shallowReactive: typeof import('vue').shallowReactive
   const shallowReadonly: typeof import('vue').shallowReadonly
   const shallowRef: typeof import('vue').shallowRef
+  const splitKeywords: typeof import('./src/composables/useBatchSearch').splitKeywords
   const statisticsKey: typeof import('./src/composables/useStatistics').statisticsKey
+  const stopBatchSearch: typeof import('./src/composables/useBatchSearch').stopBatchSearch
   const toRaw: typeof import('vue').toRaw
   const toRef: typeof import('vue').toRef
   const toRefs: typeof import('vue').toRefs
@@ -142,6 +150,9 @@ declare global {
     WritableComputedRef,
   } from 'vue'
   import('vue')
+  // @ts-ignore
+  export type { JobPageResult } from './src/composables/useBossJobSearch'
+  import('./src/composables/useBossJobSearch')
   // @ts-ignore
   export type { BossResumeSource, BossResumeResult } from './src/composables/useBossResume'
   import('./src/composables/useBossResume')

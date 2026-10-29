@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ChevronsUpDown, Info, Search as SearchIcon } from '@lucide/vue'
+import { ChevronDown, ChevronsUpDown, Info, Search as SearchIcon } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 
 import Alert from '@/components/ui/alert/Alert.vue'
@@ -17,6 +17,14 @@ import SelectContent from '@/components/ui/select/SelectContent.vue'
 import SelectItem from '@/components/ui/select/SelectItem.vue'
 import SelectTrigger from '@/components/ui/select/SelectTrigger.vue'
 import SelectValue from '@/components/ui/select/SelectValue.vue'
+import { useConf } from '@/composables/conf'
+import {
+  batchKeywords,
+  batchState,
+  runBatchSearch,
+  splitKeywords,
+  stopBatchSearch,
+} from '@/composables/useBatchSearch'
 import { clearSearchResults, searchJobs } from '@/composables/useBossJobSearch'
 import type { SearchOption } from '@/composables/useBossSearch'
 import {
@@ -31,13 +39,30 @@ import {
   resetPanelConditions,
   saveSearchConditions,
 } from '@/composables/useBossSearch'
+import { useHelper } from '@/composables/useHelper'
 import { useToast } from '@/composables/useToast'
 
 const toast = useToast()
+const helper = useHelper()
+const conf = useConf()
 
 const conditions = panelConditions
 const cityDialogOpen = ref(false)
 const cityQuery = ref('')
+const batchOpen = ref(false)
+
+const suggestedKeywords = computed(() => conf.formData.resume.advice?.keywords ?? [])
+const batchCount = computed(() => splitKeywords(batchKeywords.value).length)
+
+function fillSuggestedKeywords() {
+  batchKeywords.value = suggestedKeywords.value.join('\n')
+  batchOpen.value = true
+}
+
+async function startBatch() {
+  batchOpen.value = true
+  await runBatchSearch(helper)
+}
 const applyLoading = ref(false)
 
 const chipClass =
@@ -206,6 +231,86 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
       <span class="text-xs text-muted-foreground">
         调用 Boss 搜索接口，结果只显示在面板里，不会改动页面
       </span>
+    </div>
+
+    <div class="flex flex-col gap-2 rounded-md border border-border p-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          class="flex cursor-pointer items-center gap-1 text-sm font-medium"
+          :aria-expanded="batchOpen"
+          @click="batchOpen = !batchOpen"
+        >
+          <ChevronDown
+            class="size-3.5 transition-transform"
+            :class="batchOpen ? 'rotate-180' : ''"
+          />
+          批量搜索 + AI 过滤
+        </button>
+        <span class="text-xs text-muted-foreground">
+          多个关键词换行或逗号分隔，每个最多翻 10 页
+        </span>
+        <div class="ml-auto flex items-center gap-1">
+          <Button
+            v-if="suggestedKeywords.length"
+            variant="ghost"
+            size="xs"
+            :disabled="batchState.running"
+            @click="fillSuggestedKeywords"
+          >
+            用简历推荐的 {{ suggestedKeywords.length }} 个关键词
+          </Button>
+          <Button
+            v-if="batchState.running"
+            variant="destructive"
+            size="xs"
+            :disabled="batchState.stopping"
+            @click="stopBatchSearch"
+          >
+            停止
+          </Button>
+          <Button size="xs" :disabled="batchState.running || !batchCount" @click="startBatch">
+            开始批量搜索
+          </Button>
+        </div>
+      </div>
+
+      <template v-if="batchOpen">
+        <textarea
+          v-model="batchKeywords"
+          class="min-h-20 w-full rounded-md border border-border bg-transparent p-2 text-xs leading-relaxed"
+          placeholder="一行一个关键词，例如：&#10;前端开发&#10;Node.js&#10;低代码平台"
+        />
+        <div class="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          <span>已填 {{ batchCount }} 个关键词</span>
+          <span v-if="conf.formData.aiFiltering.enable" class="text-emerald-600">
+            AI 过滤已开启，会边搜边筛（低于 {{ conf.formData.aiFiltering.score ?? 10 }} 分跳过）
+          </span>
+          <span v-else class="text-amber-600"> AI 过滤未开启，只收集岗位不做筛选 </span>
+        </div>
+
+        <div
+          v-if="batchState.running || batchState.message || batchState.error"
+          class="flex flex-col gap-1"
+        >
+          <div class="flex flex-wrap items-center gap-3 text-xs">
+            <span class="tabular-nums">
+              关键词 {{ batchState.keywordIndex }}/{{ batchState.keywordTotal }}
+            </span>
+            <span class="tabular-nums">第 {{ batchState.page }} 页</span>
+            <span class="tabular-nums">已搜 {{ batchState.total }}</span>
+            <span class="tabular-nums text-emerald-600">通过 {{ batchState.passed }}</span>
+            <span v-if="batchState.filtered" class="tabular-nums">
+              已过滤 {{ batchState.filtered - batchState.passed }}
+            </span>
+            <span v-if="batchState.failed" class="tabular-nums text-amber-600">
+              失败 {{ batchState.failed }}
+            </span>
+          </div>
+          <p class="text-xs text-muted-foreground">{{ batchState.message }}</p>
+          <p v-if="batchState.error" class="text-xs text-red-600">{{ batchState.error }}</p>
+        </div>
+      </template>
     </div>
 
     <Dialog v-model:open="cityDialogOpen">

@@ -97,6 +97,58 @@ function buildSearchBody(conditions: SearchConditions, page: number) {
   return body
 }
 
+export interface JobPageResult {
+  jobs: JobData[]
+  hasMore: boolean
+}
+
+/** 只拉一页，不改面板状态，供批量搜索 / 分页加载复用 */
+export async function fetchJobPage(conditions: SearchConditions, page = 1): Promise<JobPageResult> {
+  const token = window?.Cookie?.get?.('bst')
+  const res = await fetch(SEARCH_API, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...(token ? { Zp_token: token } : {}),
+    },
+    body: buildSearchBody(conditions, page).toString(),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const json = await res.json()
+  logger.debug('BossJobSearchResponse', { page, code: json?.code, message: json?.message })
+  if (json?.code !== 0) throw new Error(String(json?.message ?? `code ${json?.code}`))
+
+  const zp = json?.zpData ?? {}
+  const rawList = (zp.jobList ?? zp.list ?? []) as BossZpJobItemData[]
+  const jobs = rawList.map(convertJobSafe).filter((item): item is JobData => !!item)
+  return { jobs, hasMore: Boolean(zp.hasMore) }
+}
+
+/** 搜索结果 key → 原始接口字段，详情接口需要 securityId + lid */
+export const rawJobItems = new Map<string, { securityId?: string; lid?: string }>()
+
+/** 拉岗位详情（AI 过滤需要岗位描述） */
+export async function fetchJobDetail(job: JobData) {
+  const raw = rawJobItems.get(job.key)
+  const securityId = raw?.securityId
+  const lid = raw?.lid
+  if (!securityId || !lid) return null
+  const token = window?.Cookie?.get?.('bst')
+  const url = new URL('/wapi/zpgeek/job/detail.json', location.origin)
+  url.searchParams.set('securityId', securityId)
+  url.searchParams.set('lid', lid)
+  url.searchParams.set('_', String(Date.now()))
+  const res = await fetch(url.toString(), { headers: token ? { Zp_token: token } : {} })
+  const json = await res.json()
+  if (json?.code !== 0) return null
+  return json.zpData as {
+    jobInfo?: { postDescription?: string; locationName?: string }
+    brandComInfo?: { labels?: string[]; introduce?: string }
+    bossInfo?: { activeTimeDesc?: string }
+  }
+}
+
 /**
  * 调用 Boss 自己的岗位搜索接口，把结果放进面板。
  *
@@ -106,30 +158,12 @@ export async function searchJobs(conditions: SearchConditions, page = 1, append 
   searchMeta.loading = true
   searchMeta.error = ''
   try {
-    const token = window?.Cookie?.get?.('bst')
-    const res = await fetch(SEARCH_API, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        ...(token ? { Zp_token: token } : {}),
-      },
-      body: buildSearchBody(conditions, page).toString(),
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const json = await res.json()
-    logger.debug('BossJobSearchResponse', json)
-    if (json?.code !== 0) throw new Error(String(json?.message ?? `code ${json?.code}`))
-
-    const zp = json?.zpData ?? {}
-    const rawList = (zp.jobList ?? zp.list ?? []) as BossZpJobItemData[]
-    const converted = rawList.map(convertJobSafe).filter((item): item is JobData => !!item)
-
-    panelSearchResults.value = append ? [...panelSearchResults.value, ...converted] : converted
+    const { jobs, hasMore } = await fetchJobPage(conditions, page)
+    panelSearchResults.value = append ? [...panelSearchResults.value, ...jobs] : jobs
     searchMeta.page = page
-    searchMeta.hasMore = Boolean(zp.hasMore)
+    searchMeta.hasMore = hasMore
     searchMeta.conditions = { ...conditions }
-    return converted.length
+    return jobs.length
   } catch (error) {
     searchMeta.error = error instanceof Error ? error.message : String(error)
     logger.warn('BossJobSearchError', error)
@@ -141,7 +175,9 @@ export async function searchJobs(conditions: SearchConditions, page = 1, append 
 
 function convertJobSafe(item: BossZpJobItemData) {
   try {
-    return convertBossZpJobItemToJobData(item)
+    const job = convertBossZpJobItemToJobData(item)
+    rawJobItems.set(job.key, { securityId: item.securityId, lid: item.lid })
+    return job
   } catch (error) {
     logger.warn('BossJobConvertError', error)
     return null
