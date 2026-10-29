@@ -480,18 +480,22 @@ function isNoiseLine(line: string) {
   return PAGE_NOISE_LINE.test(line) || PAGE_NOISE_PATTERNS.some((pattern) => pattern.test(line))
 }
 
-/** 优先挑「包含核心模块、且不含侧栏目录」的最小容器，避免把整页都抓进来 */
+/** 优先挑「包含核心模块、且不含侧栏目录」的容器；模块数量优先，其次尽量小 */
 function pickResumeRoot(doc: Document): HTMLElement | null {
   const candidates = Array.from(
     doc.querySelectorAll<HTMLElement>('div,section,article,main,form'),
   ).filter((el) => {
     const text = el.innerText ?? ''
-    if (text.length < 600) return false
-    if (!CORE_SECTION.test(text)) return false
-    if (text.includes('简历目录')) return false
-    return true
+    if (text.length < 400) return false
+    if (text.includes('简历目录') || text.includes('导出为附件简历')) return false
+    // 至少包含两个模块，避免只抓到工作经历这一块、把项目经历漏掉
+    return countResumeHeadings(text) >= 2
   })
-  candidates.sort((a, b) => (a.innerText?.length ?? 0) - (b.innerText?.length ?? 0))
+  candidates.sort((a, b) => {
+    const diff = countResumeHeadings(b.innerText ?? '') - countResumeHeadings(a.innerText ?? '')
+    if (diff !== 0) return diff
+    return (a.innerText?.length ?? 0) - (b.innerText?.length ?? 0)
+  })
   return candidates[0] ?? null
 }
 
@@ -507,7 +511,17 @@ const RESUME_HEADINGS = new Set([
   '培训经历',
   '社团经历',
   '实习经历',
+  '专业技能',
+  '求职状态',
 ])
+
+function countResumeHeadings(text: string) {
+  let count = 0
+  for (const heading of RESUME_HEADINGS) {
+    if (text.includes(heading)) count++
+  }
+  return count
+}
 
 /** 去掉侧栏目录、页脚、推荐位这些页面装饰 */
 export function cleanResumeText(raw: string) {
@@ -516,16 +530,23 @@ export function cleanResumeText(raw: string) {
     .map((line) => line.replace(/\u00a0/g, ' ').trim())
     .filter(Boolean)
 
-  // 左侧「简历目录」整块：从出现到「导出为附件简历」为止
+  // 左侧「简历目录」整块：从出现到「导出为附件简历」为止。
+  // 只有当跳过后仍保留至少两个模块时才认为目录块在开头，否则可能是侧栏渲染在后面，跳过会丢正文。
+  const sidebarStart = lines.indexOf('简历目录')
   const sidebarEnd = lines.lastIndexOf('导出为附件简历')
-  let start = sidebarEnd >= 0 ? sidebarEnd + 1 : 0
+  let start = 0
+  if (sidebarStart >= 0 && sidebarEnd > sidebarStart) {
+    const after = lines.slice(sidebarEnd + 1).join('\n')
+    if (countResumeHeadings(after) >= 2) start = sidebarEnd + 1
+  }
 
-  // 尾部站点信息：碰到这些就截断
-  const TAIL_MARKERS = ['附件管理', '简历诊断', '隐私设置', '企业服务热线']
+  // 只有页脚类标记才截断；简历诊断 / 附件管理 / 隐私设置这些可能夹在模块中间，
+  // 截断会把后面的项目经历一起丢掉，所以只按行过滤
+  const TAIL_MARKERS = ['企业服务热线', '京ICP', 'Copyright', '北京华品博睿']
   let end = lines.length
   for (let i = start; i < lines.length; i++) {
     const line = lines[i]!
-    if (TAIL_MARKERS.some((marker) => line.startsWith(marker)) || line.startsWith('企业服务热线')) {
+    if (TAIL_MARKERS.some((marker) => line.includes(marker))) {
       end = i
       break
     }
@@ -555,7 +576,9 @@ function extractResumeText(doc: Document) {
     if (text.length > 200) return text
   }
 
+  // 兜底：在候选选择器里挑「模块最全」的那个，而不是纯看长度
   let best = ''
+  let bestScore = -1
   for (const selector of RESUME_PAGE_SELECTORS) {
     let nodes: NodeListOf<Element>
     try {
@@ -565,10 +588,19 @@ function extractResumeText(doc: Document) {
     }
     nodes.forEach((node) => {
       const text = (node as HTMLElement).innerText?.trim() ?? ''
-      if (text.length > best.length) best = text
+      const score = countResumeHeadings(text) * 10000 + text.length
+      if (score > bestScore) {
+        bestScore = score
+        best = text
+      }
     })
   }
-  if (best.length < 300) best = doc.body?.innerText?.trim() ?? ''
+
+  const bodyText = doc.body?.innerText?.trim() ?? ''
+  if (countResumeHeadings(best) < 2 && countResumeHeadings(bodyText) > countResumeHeadings(best)) {
+    best = bodyText
+  }
+  if (best.length < 300) best = bodyText
   return cleanResumeText(best)
 }
 
@@ -719,6 +751,9 @@ export async function fetchResumeFromPage(timeout = 12000): Promise<string> {
       setTimeout(resolve, 4000)
     })
 
+    // 简历模块可能懒加载 / 需要滚动才渲染，先把整页滚一遍再提取
+    await scrollResumeFrame(iframe, deadline)
+
     let text = ''
     while (Date.now() < deadline) {
       await sleep(400)
@@ -730,6 +765,23 @@ export async function fetchResumeFromPage(timeout = 12000): Promise<string> {
     return text
   } finally {
     iframe.remove()
+  }
+}
+
+/** 触发懒加载：滚到页面底部再回顶部，多滚几轮等模块渲染 */
+async function scrollResumeFrame(iframe: HTMLIFrameElement, deadline: number) {
+  for (let round = 0; round < 3 && Date.now() < deadline; round++) {
+    const win = iframe.contentWindow
+    const doc = iframe.contentDocument
+    if (!win || !doc?.body) return
+    const height = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight)
+    for (let y = 0; y < height && Date.now() < deadline; y += 600) {
+      win.scrollTo(0, y)
+      await sleep(120)
+    }
+    win.scrollTo(0, height)
+    await sleep(400)
+    if (round === 0) win.scrollTo(0, 0)
   }
 }
 
