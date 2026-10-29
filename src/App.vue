@@ -1,6 +1,7 @@
 <script lang="ts" setup>
-import { Bot } from '@lucide/vue'
+import { Bot, ChartColumn, Heart, ScrollText, Settings2, Sparkles } from '@lucide/vue'
 import { useRafFn } from '@vueuse/core'
+import type { Component } from 'vue'
 import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 import { Toaster } from 'vue-sonner'
 
@@ -19,10 +20,6 @@ import SheetContent from '@/components/ui/sheet/SheetContent.vue'
 import SheetDescription from '@/components/ui/sheet/SheetDescription.vue'
 import SheetHeader from '@/components/ui/sheet/SheetHeader.vue'
 import SheetTitle from '@/components/ui/sheet/SheetTitle.vue'
-import Tabs from '@/components/ui/tabs/Tabs.vue'
-import TabsContent from '@/components/ui/tabs/TabsContent.vue'
-import TabsList from '@/components/ui/tabs/TabsList.vue'
-import TabsTrigger from '@/components/ui/tabs/TabsTrigger.vue'
 import { appearanceConf, useConf } from '@/composables/conf'
 import { useModel } from '@/composables/useModel'
 import { useScrollLock } from '@/composables/useScrollLock'
@@ -33,7 +30,28 @@ const model = useModel()
 const helper = useHelper()
 const { todayData } = helper.statistics
 const conf = useConf()
-const activeTab = ref('statistics')
+
+/** 面板 → 组件映射，menu 与内容区共用，避免两处各写一份 */
+const panels = {
+  statistics: Statistics,
+  config: Config,
+  ai: Ai,
+  logs: Logs,
+  about: About,
+} as const
+
+type PanelKey = keyof typeof panels
+
+const menu: { value: PanelKey; label: string; hint: string; icon: Component }[] = [
+  { value: 'statistics', label: '统计', hint: '失败是成功她妈', icon: ChartColumn },
+  { value: 'config', label: '配置', hint: '好好看，好好学', icon: Settings2 },
+  { value: 'ai', label: 'AI', hint: 'AI时代，脚本怎么能落伍!', icon: Sparkles },
+  { value: 'logs', label: '日志', hint: '反正你也不看', icon: ScrollText },
+  { value: 'about', label: '关于&赞赏', hint: '项目是写不完美的,但总要去追求完美', icon: Heart },
+]
+
+const activeTab = ref<PanelKey>('statistics')
+const activePanel = computed(() => panels[activeTab.value])
 
 const container = ref<HTMLElement>()
 const isFeatureEnabled = ref(false)
@@ -163,10 +181,10 @@ function onPointerMove(ev: PointerEvent) {
         :to="container"
         overlay-class="z-[900]"
         content-class="z-[901]"
-        class="w-[min(96vw,780px)] max-w-[780px] gap-0 p-0 sm:max-w-[780px]"
+        class="w-[min(96vw,880px)] max-w-[880px] gap-0 p-0 sm:max-w-[880px]"
       >
         <SheetHeader
-          class="flex flex-nowrap items-center gap-2 overflow-hidden border-b px-4 py-2 pr-10"
+          class="flex flex-row flex-nowrap items-center gap-2 overflow-hidden border-b px-4 py-2 pr-10"
         >
           <SheetTitle class="shrink-0 text-sm font-semibold tracking-tight">
             boss-helper-plus
@@ -182,6 +200,48 @@ function onPointerMove(ev: PointerEvent) {
           <Hint v-if="isDot" text="有新版本">
             <span class="size-2 shrink-0 rounded-full bg-primary" />
           </Hint>
+        </SheetHeader>
+
+        <div v-if="drawerOpen" class="flex min-h-0 flex-1 overflow-hidden">
+          <nav class="flex w-40 shrink-0 flex-col gap-0.5 border-r p-2">
+            <Hint v-for="item in menu" :key="item.value" :text="item.hint" side="right">
+              <Button
+                variant="ghost"
+                size="sm"
+                class="w-full justify-start gap-2 px-2 text-sm"
+                :class="
+                  activeTab === item.value
+                    ? 'bg-muted font-medium text-foreground hover:bg-muted hover:text-foreground'
+                    : 'text-muted-foreground'
+                "
+                :aria-current="activeTab === item.value ? 'page' : undefined"
+                @click="activeTab = item.value"
+              >
+                <component :is="item.icon" class="size-4" />
+                <span class="truncate">{{ item.label }}</span>
+              </Button>
+            </Hint>
+          </nav>
+
+          <div class="min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+            <div
+              v-if="helper.netConf.value && helper.netConf.value.notification"
+              class="netAlerts mb-3 flex flex-col gap-2"
+            >
+              <template
+                v-for="item in helper.netConf.value.notification.filter(
+                  (item) => item.type === 'alert',
+                )"
+                :key="item.key ?? item.data.title"
+              >
+                <Alert :id="`netConf-${item.key}`" v-bind="item.data" />
+              </template>
+            </div>
+            <component :is="activePanel" />
+          </div>
+        </div>
+
+        <footer class="flex flex-nowrap items-center gap-2 overflow-hidden border-t px-4 py-2">
           <span
             v-if="todayData.total > 0"
             class="shrink-0 text-xs text-muted-foreground tabular-nums"
@@ -204,54 +264,16 @@ function onPointerMove(ev: PointerEvent) {
             >
               反馈
             </Button>
-            <label
-              class="flex shrink-0 cursor-pointer items-center gap-1 text-xs text-muted-foreground"
+            <Button
+              size="sm"
+              :variant="isFeatureEnabled ? 'secondary' : 'ghost'"
+              :aria-pressed="isFeatureEnabled"
+              @click="isFeatureEnabled = !isFeatureEnabled"
             >
-              <input v-model="isFeatureEnabled" type="checkbox" class="size-3.5 accent-primary" />
               帮助
-            </label>
+            </Button>
           </div>
-        </SheetHeader>
-
-        <div v-if="drawerOpen" class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
-          <div
-            v-if="helper.netConf.value && helper.netConf.value.notification"
-            class="netAlerts mb-3 flex flex-col gap-2"
-          >
-            <template
-              v-for="item in helper.netConf.value.notification.filter(
-                (item) => item.type === 'alert',
-              )"
-              :key="item.key ?? item.data.title"
-            >
-              <Alert :id="`netConf-${item.key}`" v-bind="item.data" />
-            </template>
-          </div>
-          <Tabs v-model="activeTab" class="w-full">
-            <TabsList class="h-auto flex-wrap justify-start">
-              <Hint text="失败是成功她妈">
-                <TabsTrigger value="statistics">统计</TabsTrigger>
-              </Hint>
-              <Hint text="好好看，好好学">
-                <TabsTrigger value="config">配置</TabsTrigger>
-              </Hint>
-              <Hint text="AI时代，脚本怎么能落伍!">
-                <TabsTrigger value="ai">AI</TabsTrigger>
-              </Hint>
-              <Hint text="反正你也不看">
-                <TabsTrigger value="logs">日志</TabsTrigger>
-              </Hint>
-              <Hint text="项目是写不完美的,但总要去追求完美">
-                <TabsTrigger value="about">关于&赞赏</TabsTrigger>
-              </Hint>
-            </TabsList>
-            <TabsContent value="statistics"><Statistics /></TabsContent>
-            <TabsContent value="config"><Config /></TabsContent>
-            <TabsContent value="ai"><Ai /></TabsContent>
-            <TabsContent value="logs"><Logs /></TabsContent>
-            <TabsContent value="about"><About /></TabsContent>
-          </Tabs>
-        </div>
+        </footer>
       </SheetContent>
     </Sheet>
 
