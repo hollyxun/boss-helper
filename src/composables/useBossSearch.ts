@@ -51,11 +51,10 @@ const CITY_API = '/wapi/zpCommon/data/cityGroup.json'
 // 页面热门城市接口（会随登录态/定位变化）
 const HOT_CITY_API = '/wapi/zpgeek/search/job/hot/city.json'
 const CITY_FALLBACK_API = '/wapi/zpgeek/common/data/city/site.json'
-// 全国：选它时不要把 city 写进 URL
+// 全国：选它时不带城市条件
 const ALL_CITY_CODE = '100010000'
 
 const SEARCH_KEYS = ['query', 'city', 'experience', 'degree', 'salary', 'scale', 'jobType'] as const
-const SELECT_KEYS = ['experience', 'degree', 'salary', 'scale', 'jobType'] as const
 
 const emptyOptions = (): FilterConditionOptions => ({
   experienceList: [],
@@ -258,32 +257,12 @@ export function emptyConditions(): SearchConditions {
 /**
  * 面板自己的搜索条件。
  *
- * 条件只用来筛选面板里的岗位列表，不会写进页面 URL、也不触发页面搜索，
- * 和 Boss 页面上的筛选完全隔离。
- * - panelConditions：表单里正在编辑的草稿
- * - appliedConditions：点过「应用筛选」之后真正生效的条件
+ * 条件只用来调用 Boss 搜索接口、把结果显示在面板里，
+ * 不会写进页面 URL、也不触发页面上的搜索，和页面筛选完全隔离。
  */
 export const panelConditions = ref<SearchConditions>(loadSavedConditions() ?? emptyConditions())
-export const appliedConditions = ref<SearchConditions>({ ...panelConditions.value })
-
-export function applyPanelConditions() {
-  appliedConditions.value = { ...panelConditions.value }
-  saveSearchConditions(appliedConditions.value)
-}
 
 export function resetPanelConditions() {
   panelConditions.value = emptyConditions()
-  appliedConditions.value = emptyConditions()
-  saveSearchConditions(appliedConditions.value)
-}
-
-/** 已应用的条件里有几项生效 */
-export function countActiveConditions(conditions: SearchConditions): number {
-  let count = 0
-  if (conditions.query.trim()) count++
-  if (conditions.city && conditions.city !== ALL_CITY_CODE) count++
-  for (const key of SELECT_KEYS) {
-    if (conditions[key] && conditions[key] !== '0') count++
-  }
-  return count
+  saveSearchConditions(panelConditions.value)
 }

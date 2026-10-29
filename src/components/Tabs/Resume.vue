@@ -11,8 +11,9 @@ import Badge from '@/components/ui/badge/Badge.vue'
 import Button from '@/components/ui/button/Button.vue'
 import Textarea from '@/components/ui/textarea/Textarea.vue'
 import { useConf } from '@/composables/conf'
+import { searchJobs } from '@/composables/useBossJobSearch'
 import { fetchBossResume, lastBossResume, mergeResumeTexts } from '@/composables/useBossResume'
-import { applyPanelConditions, emptyConditions, panelConditions } from '@/composables/useBossSearch'
+import { emptyConditions, panelConditions } from '@/composables/useBossSearch'
 import { enabledModelData, useModel } from '@/composables/useModel'
 import { resolveModelAvatar } from '@/composables/useModel/icons'
 import { openai } from '@/composables/useModel/openai'
@@ -277,15 +278,19 @@ async function recommend() {
   }
 }
 
-function searchKeyword(keyword: string) {
+async function searchKeyword(keyword: string) {
   panelConditions.value = { ...emptyConditions(), query: keyword }
-  applyPanelConditions()
   openPanelTab('statistics')
-  toast.add({
-    title: `已按「${keyword}」筛选面板岗位`,
-    description: '只作用于面板里的岗位列表，不会影响页面',
-    color: 'success',
-  })
+  try {
+    const count = await searchJobs(panelConditions.value)
+    toast.add({
+      title: count > 0 ? `已按「${keyword}」搜索到 ${count} 个岗位` : '没有搜到岗位',
+      description: '结果在「统计」页的岗位列表里，不会影响 Boss 页面',
+      color: count > 0 ? 'success' : 'warning',
+    })
+  } catch (error) {
+    toast.add({ title: `搜索失败: ${errorHandle(error)}`, color: 'error' })
+  }
 }
 </script>
 

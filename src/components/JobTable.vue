@@ -22,15 +22,18 @@ import TableHead from '@/components/ui/table/TableHead.vue'
 import TableHeader from '@/components/ui/table/TableHeader.vue'
 import TableRow from '@/components/ui/table/TableRow.vue'
 import type { JobStatus } from '@/composables/useApplying/type'
+import { clearSearchResults, panelSearchResults, searchMeta } from '@/composables/useBossJobSearch'
 import type { JobData } from '@/composables/useHelper'
 import { useHelper } from '@/composables/useHelper'
-import { useJobFilter } from '@/composables/useJobFilter'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/utils/logger'
 
 const helper = useHelper()
 const toast = useToast()
-const { jobs: allJobs, filteredJobs: jobs, activeCount } = useJobFilter()
+
+const pageJobs = computed(() => helper.jobList.value)
+const usingSearch = computed(() => panelSearchResults.value.length > 0)
+const jobs = computed(() => (usingSearch.value ? panelSearchResults.value : pageJobs.value))
 
 const detailOpen = ref(false)
 const detailJob = ref<JobData | null>(null)
@@ -71,6 +74,13 @@ async function openDetail(job: JobData) {
   detailOpen.value = true
   if (job.jobDescription) return
 
+  // 搜索结果不一定在页面列表里，抓不到就只展示已有信息
+  if (!helper.jobMaps.has(job.key)) {
+    const fresh = helper.jobMaps.get(job.key)?.jobData
+    if (fresh) detailJob.value = fresh
+    return
+  }
+
   detailLoading.value = true
   try {
     await helper.onJobCardClick(job.key)
@@ -94,11 +104,15 @@ function openLink() {
   <div class="flex flex-col gap-2">
     <div class="flex flex-wrap items-center gap-2">
       <div class="text-sm font-medium">岗位列表</div>
-      <span v-if="activeCount > 0" class="text-xs text-muted-foreground tabular-nums">
-        筛选后 {{ jobs.length }} / 共 {{ allJobs.length }} 个
-      </span>
-      <span v-else class="text-xs text-muted-foreground tabular-nums">共 {{ jobs.length }} 个</span>
+      <Badge v-if="usingSearch" variant="secondary" class="text-[10px] text-sky-600">
+        Boss 搜索
+      </Badge>
+      <span class="text-xs text-muted-foreground tabular-nums">共 {{ jobs.length }} 个</span>
+      <span v-if="searchMeta.loading" class="text-xs text-muted-foreground">搜索中…</span>
       <div class="ml-auto flex items-center gap-1">
+        <Button v-if="usingSearch" variant="ghost" size="sm" @click="clearSearchResults">
+          清空搜索
+        </Button>
         <Hint text="重新读取页面上的岗位">
           <Button variant="ghost" size="sm" :disabled="refreshing" @click="refresh">
             <RefreshCw class="size-3.5" :class="refreshing ? 'animate-spin' : ''" />
@@ -150,11 +164,7 @@ function openLink() {
           </TableRow>
           <TableRow v-if="jobs.length === 0">
             <TableCell colspan="4" class="py-6 text-center text-sm text-muted-foreground">
-              {{
-                activeCount > 0
-                  ? '没有命中筛选条件的岗位，调整条件或点「清空」'
-                  : '面板里还没有岗位：请在 Boss 职位列表页点「刷新」，或滚动一下页面再刷新'
-              }}
+              {{ searchMeta.error || '还没有岗位：在上面按条件搜索，或点「刷新」读取当前页面' }}
             </TableCell>
           </TableRow>
         </TableBody>

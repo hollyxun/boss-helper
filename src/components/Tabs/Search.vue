@@ -17,9 +17,9 @@ import SelectContent from '@/components/ui/select/SelectContent.vue'
 import SelectItem from '@/components/ui/select/SelectItem.vue'
 import SelectTrigger from '@/components/ui/select/SelectTrigger.vue'
 import SelectValue from '@/components/ui/select/SelectValue.vue'
+import { clearSearchResults, searchJobs } from '@/composables/useBossJobSearch'
 import type { SearchOption } from '@/composables/useBossSearch'
 import {
-  applyPanelConditions,
   cityGroups,
   cityOptions,
   filterOptions,
@@ -29,14 +29,11 @@ import {
   optionsLoading,
   panelConditions,
   resetPanelConditions,
+  saveSearchConditions,
 } from '@/composables/useBossSearch'
-import { useHelper } from '@/composables/useHelper'
-import { useJobFilter } from '@/composables/useJobFilter'
 import { useToast } from '@/composables/useToast'
 
 const toast = useToast()
-const helper = useHelper()
-const { jobs, filteredJobs, activeCount } = useJobFilter()
 
 const conditions = panelConditions
 const cityDialogOpen = ref(false)
@@ -118,39 +115,31 @@ async function apply() {
     return
   }
 
-  // 先同步一次页面上的岗位，避免面板里还是空列表
   applyLoading.value = true
   try {
-    await Promise.race([
-      helper.refreshPageData(),
-      new Promise((resolve) => setTimeout(resolve, 3000)),
-    ])
+    const count = await searchJobs(panelConditions.value)
+    saveSearchConditions(panelConditions.value)
+    toast.add({
+      color: count > 0 ? 'success' : 'warning',
+      title: count > 0 ? '搜索完成' : '没有搜到岗位',
+      description:
+        count > 0 ? `Boss 返回 ${count} 个岗位，已显示在下方岗位列表` : '换个关键词或放宽条件再试',
+    })
+  } catch (error) {
+    toast.add({
+      color: 'error',
+      title: `搜索失败: ${errorHandle(error)}`,
+      description: '检查是否已登录 Boss，或稍后重试',
+    })
   } finally {
     applyLoading.value = false
   }
-
-  applyPanelConditions()
-
-  const total = jobs.value.length
-  const hit = filteredJobs.value.length
-  if (total === 0) {
-    toast.add({
-      color: 'warning',
-      title: '面板里还没有岗位',
-      description: '筛选只能过滤已抓到的岗位：先打开 Boss 职位列表页，再点「应用筛选」',
-    })
-    return
-  }
-  toast.add({
-    color: activeCount.value > 0 ? (hit > 0 ? 'success' : 'warning') : 'success',
-    title: activeCount.value === 0 ? '已清空筛选' : hit > 0 ? '筛选已应用' : '没有岗位命中筛选条件',
-    description: `命中 ${hit} / ${total} 个岗位`,
-  })
 }
 
 function reset() {
   resetPanelConditions()
-  toast.add({ color: 'success', title: '已清空筛选' })
+  clearSearchResults()
+  toast.add({ color: 'success', title: '已清空筛选和搜索结果' })
 }
 
 function setSelect(key: (typeof selectFields.value)[number]['key'], value: unknown) {
@@ -163,7 +152,8 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
     <Alert class="items-center">
       <Info class="size-4" />
       <AlertDescription>
-        筛选只作用于面板里的岗位列表：不跳转、不改页面 URL，也不会碰到 Boss 页面上的筛选。
+        按这里的条件调用 Boss
+        搜索接口，结果直接显示在面板的岗位列表里；不会跳转页面，也不会改页面上的筛选。
       </AlertDescription>
     </Alert>
 
@@ -209,11 +199,12 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
-      <Button :disabled="optionsLoading" @click="apply">应用筛选</Button>
+      <Button :disabled="optionsLoading || applyLoading" @click="apply">
+        {{ applyLoading ? '搜索中…' : '搜索岗位' }}
+      </Button>
       <Button variant="ghost" @click="reset">清空</Button>
       <span class="text-xs text-muted-foreground">
-        只筛选面板里的岗位列表，不会动 Boss 页面；已应用
-        {{ activeCount }} 个条件
+        调用 Boss 搜索接口，结果只显示在面板里，不会改动页面
       </span>
     </div>
 

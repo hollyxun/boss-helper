@@ -12,12 +12,17 @@ import DropdownMenuItem from '@/components/ui/dropdown-menu/DropdownMenuItem.vue
 import DropdownMenuTrigger from '@/components/ui/dropdown-menu/DropdownMenuTrigger.vue'
 import Progress from '@/components/ui/progress/Progress.vue'
 import { useConf } from '@/composables/conf'
+import { panelSearchResults } from '@/composables/useBossJobSearch'
 import { useHelper } from '@/composables/useHelper'
-import { useJobFilter } from '@/composables/useJobFilter'
 
 const helper = useHelper()
 const conf = useConf()
-const { jobs: allJobs, filteredJobs, activeCount: activeFilterCount } = useJobFilter()
+
+const allJobs = computed(() => helper.jobList.value)
+const filteredJobs = computed(() =>
+  panelSearchResults.value.length > 0 ? panelSearchResults.value : helper.jobList.value,
+)
+const activeFilterCount = computed(() => (panelSearchResults.value.length > 0 ? 1 : 0))
 
 const { todayData, statisticsData } = helper.statistics
 

@@ -19,7 +19,9 @@ declare global {
   const cityNameOf: typeof import('./src/composables/useBossSearch').cityNameOf
   const cityOptions: typeof import('./src/composables/useBossSearch').cityOptions
   const cleanResumeText: typeof import('./src/composables/useBossResume').cleanResumeText
+  const clearSearchResults: typeof import('./src/composables/useBossJobSearch').clearSearchResults
   const computed: typeof import('vue').computed
+  const convertBossZpJobItemToJobData: typeof import('./src/composables/useBossJobSearch').convertBossZpJobItemToJobData
   const countActiveConditions: typeof import('./src/composables/useBossSearch').countActiveConditions
   const createApp: typeof import('vue').createApp
   const customRef: typeof import('vue').customRef
@@ -66,6 +68,7 @@ declare global {
   const optionsLoaded: typeof import('./src/composables/useBossSearch').optionsLoaded
   const optionsLoading: typeof import('./src/composables/useBossSearch').optionsLoading
   const panelConditions: typeof import('./src/composables/useBossSearch').panelConditions
+  const panelSearchResults: typeof import('./src/composables/useBossJobSearch').panelSearchResults
   const provide: typeof import('vue').provide
   const reactive: typeof import('vue').reactive
   const readSearchConditions: typeof import('./src/composables/useBossSearch').readSearchConditions
@@ -76,6 +79,8 @@ declare global {
   const resolveComponent: typeof import('vue').resolveComponent
   const resumeToText: typeof import('./src/composables/useBossResume').resumeToText
   const saveSearchConditions: typeof import('./src/composables/useBossSearch').saveSearchConditions
+  const searchJobs: typeof import('./src/composables/useBossJobSearch').searchJobs
+  const searchMeta: typeof import('./src/composables/useBossJobSearch').searchMeta
   const shallowReactive: typeof import('vue').shallowReactive
   const shallowReadonly: typeof import('vue').shallowReadonly
   const shallowRef: typeof import('vue').shallowRef
