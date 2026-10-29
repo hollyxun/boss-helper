@@ -12,6 +12,19 @@ export interface Statistics {
 const ConfigLevels = ['beginner', 'intermediate', 'advanced', 'expert'] as const
 export type ConfigLevel = (typeof ConfigLevels)[number]
 
+/** AI 根据简历给出的岗位推荐结果 */
+export interface ResumeAdvice {
+  directions: { title: string; match: number; reason: string }[]
+  keywords: string[]
+  gaps: string[]
+}
+
+export interface FormDataResume {
+  text: string
+  updatedAt: number
+  advice?: ResumeAdvice | null
+}
+
 export interface FormData {
   configLevel: ConfigLevel
   company: FormDataSelect
@@ -32,8 +45,10 @@ export interface FormData {
   goldHunterFilter: FormDataCheckbox
   notification: FormDataCheckbox
   useCache: FormDataCheckbox
+  resume: FormDataResume
   aiGreeting: FormDataAi
   aiFiltering: FormDataAi & { score: number }
+  aiResume: FormDataAi
   aiReply: FormDataAi
   amap: {
     key: string

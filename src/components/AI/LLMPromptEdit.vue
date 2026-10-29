@@ -258,7 +258,7 @@ async function savePrompt() {
 <template>
   <Dialog v-model:open="show">
     <DialogContent
-      class="sm:max-w-[70%]"
+      class="sm:max-w-2xl"
       :show-close-button="false"
       @interact-outside.prevent
       @escape-key-down.prevent
@@ -268,7 +268,7 @@ async function savePrompt() {
         <DialogDescription>编辑提示词内容、角色与使用的模型</DialogDescription>
       </DialogHeader>
 
-      <div class="flex flex-col gap-4">
+      <div class="flex max-h-[62vh] flex-col gap-4 overflow-y-auto pr-1">
         <div v-if="data === 'aiFiltering'" class="flex items-center gap-2">
           <Label for="prompt-score" class="w-20 shrink-0"> 过滤分数 </Label>
           <Input
@@ -305,7 +305,7 @@ async function savePrompt() {
                       currentModelData?.name?.slice(0, 1) ?? 'A'
                     }}</AvatarFallback>
                   </Avatar>
-                  <SelectValue placeholder="选择模型" />
+                  <span class="truncate text-sm">{{ currentModelData?.name ?? '选择模型' }}</span>
                 </div>
               </SelectTrigger>
               <SelectContent>

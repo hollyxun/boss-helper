@@ -159,7 +159,7 @@ function create() {
 <template>
   <Dialog v-model:open="show">
     <DialogContent
-      class="sm:max-w-[70%]"
+      class="sm:max-w-2xl"
       :show-close-button="false"
       @interact-outside.prevent
       @escape-key-down.prevent

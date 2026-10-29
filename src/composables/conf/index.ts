@@ -131,6 +131,22 @@ const FROM_VERSION: [string, (from: Partial<FormData>) => Partial<FormData>][] =
       return from
     },
   ],
+  [
+    // AI 过滤改为按简历匹配：只替换「没改过」的旧默认提示词，用户自定义的不动
+    '20261029',
+    (from) => {
+      const prompt = from.aiFiltering?.prompt
+      const text = JSON.stringify(prompt ?? '')
+      const isLegacyDefault = text.includes('求职评委') && !text.includes('{{ resume }}')
+      if (from.aiFiltering && isLegacyDefault) {
+        from.aiFiltering = {
+          ...from.aiFiltering,
+          prompt: jsonClone(defaultFormData.aiFiltering.prompt),
+        }
+      }
+      return from
+    },
+  ],
 ]
 
 export const useConf = () => {

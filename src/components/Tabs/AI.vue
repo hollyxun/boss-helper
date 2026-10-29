@@ -64,6 +64,10 @@ function change(v: Partial<FormDataAi>) {
         @change="change"
       />
     </div>
+    <p class="text-xs leading-snug text-muted-foreground">
+      AI 过滤会读取「简历」里的内容做匹配打分，简历为空时只按岗位本身打分； 提示词里用
+      <code class="rounded bg-muted px-1">&#123;&#123; resume &#125;&#125;</code> 引用简历。
+    </p>
     <div>
       <LLMModelManage>
         <Button

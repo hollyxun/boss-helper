@@ -95,7 +95,7 @@ function importllm() {
     </div>
 
     <DialogContent
-      class="sm:max-w-[70%]"
+      class="sm:max-w-3xl"
       :show-close-button="false"
       @interact-outside.prevent
       @escape-key-down.prevent

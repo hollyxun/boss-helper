@@ -156,7 +156,9 @@ export class ChatModel {
     }
     for (const msg of messages) {
       if (typeof msg.content === 'string') {
-        msg.content = renderTemplate(msg.content, data)
+        msg.content = renderTemplate(msg.content, data, {
+          resume: this.ctx.conf.formData.resume?.text ?? '',
+        })
       }
     }
     let state: VueChatState<Message>

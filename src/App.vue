@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { Bot, ChartColumn, Heart, ScrollText, Settings2, Sparkles } from '@lucide/vue'
+import { Bot, ChartColumn, FileText, Heart, ScrollText, Settings2, Sparkles } from '@lucide/vue'
 import { useRafFn } from '@vueuse/core'
 import type { Component } from 'vue'
 import { computed, onMounted, ref, shallowRef, watch } from 'vue'
@@ -13,6 +13,7 @@ import About from '@/components/Tabs/About.vue'
 import Ai from '@/components/Tabs/AI.vue'
 import Config from '@/components/Tabs/Config.vue'
 import Logs from '@/components/Tabs/Logs.vue'
+import Resume from '@/components/Tabs/Resume.vue'
 import Statistics from '@/components/Tabs/Statistics.vue'
 import Button from '@/components/ui/button/Button.vue'
 import Sheet from '@/components/ui/sheet/Sheet.vue'
@@ -34,6 +35,7 @@ const conf = useConf()
 /** 面板 → 组件映射，menu 与内容区共用，避免两处各写一份 */
 const panels = {
   statistics: Statistics,
+  resume: Resume,
   config: Config,
   ai: Ai,
   logs: Logs,
@@ -44,6 +46,7 @@ type PanelKey = keyof typeof panels
 
 const menu: { value: PanelKey; label: string; hint: string; icon: Component }[] = [
   { value: 'statistics', label: '统计', hint: '失败是成功她妈', icon: ChartColumn },
+  { value: 'resume', label: '简历', hint: '简历写得好，AI 筛得准', icon: FileText },
   { value: 'config', label: '配置', hint: '好好看，好好学', icon: Settings2 },
   { value: 'ai', label: 'AI', hint: 'AI时代，脚本怎么能落伍!', icon: Sparkles },
   { value: 'logs', label: '日志', hint: '反正你也不看', icon: ScrollText },
