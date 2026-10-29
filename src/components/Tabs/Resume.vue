@@ -53,13 +53,15 @@ const sourceCards = computed(() => [
     key: 'api' as const,
     label: '接口抓取（JSON）',
     text: apiText.value,
-    emptyHint: '接口没有返回可用文本',
+    emptyHint: rawResult.value ? '接口没有返回可用文本' : '还没读取，点上面的「从 Boss 读取」',
   },
   {
     key: 'page' as const,
     label: '页面抓取（iframe）',
     text: pageText.value,
-    emptyHint: '这次没走页面抓取（接口内容已经完整）',
+    emptyHint: rawResult.value
+      ? '这次没走页面抓取（接口内容已经完整）'
+      : '还没读取，点上面的「从 Boss 读取」',
   },
 ])
 
@@ -409,7 +411,7 @@ async function searchKeyword(keyword: string) {
       </p>
     </div>
 
-    <div v-if="rawResult" class="flex flex-col gap-2">
+    <div class="flex flex-col gap-2">
       <div class="flex flex-wrap items-center gap-2">
         <div class="text-sm font-medium">抓取来源</div>
         <span class="text-xs text-muted-foreground tabular-nums">

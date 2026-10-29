@@ -409,7 +409,36 @@ export interface BossResumeResult {
 }
 
 /** 最近一次读取结果，面板里用来展示原始 JSON */
-export const lastBossResume = ref<BossResumeResult | null>(null)
+export const lastBossResume = ref<BossResumeResult | null>(loadPersistedResume())
+
+/** 刷新页面后还能看到上次抓取的来源，不用重新读一遍 */
+const RESUME_CACHE_KEY = 'boss-helper:last-resume'
+const RESUME_CACHE_LIMIT = 1_500_000
+
+function loadPersistedResume(): BossResumeResult | null {
+  try {
+    if (typeof localStorage === 'undefined') return null
+    const raw = localStorage.getItem(RESUME_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { at: number; data: BossResumeResult }
+    // 超过一天就当过期，避免看到太旧的数据
+    if (!parsed?.data || Date.now() - (parsed.at ?? 0) > 24 * 60 * 60 * 1000) return null
+    return parsed.data
+  } catch {
+    return null
+  }
+}
+
+function persistResume(result: BossResumeResult) {
+  try {
+    if (typeof localStorage === 'undefined') return
+    const payload = JSON.stringify({ at: Date.now(), data: result })
+    if (payload.length > RESUME_CACHE_LIMIT) return
+    localStorage.setItem(RESUME_CACHE_KEY, payload)
+  } catch (error) {
+    logger.debug('ResumeCacheError', error)
+  }
+}
 
 /** 简历页里可能承载内容的容器，按优先级找一遍 */
 const RESUME_PAGE_SELECTORS = [
@@ -776,6 +805,7 @@ export async function fetchBossResume(): Promise<BossResumeResult> {
     sources,
   }
   lastBossResume.value = result
+  persistResume(result)
 
   if (!text.trim()) throw new Error('Boss 在线简历内容为空，请先完善简历或手动填写')
   return result

@@ -22,7 +22,12 @@ import TableHead from '@/components/ui/table/TableHead.vue'
 import TableHeader from '@/components/ui/table/TableHeader.vue'
 import TableRow from '@/components/ui/table/TableRow.vue'
 import type { JobStatus } from '@/composables/useApplying/type'
-import { clearSearchResults, panelSearchResults, searchMeta } from '@/composables/useBossJobSearch'
+import {
+  clearSearchResults,
+  fetchJobDetail,
+  panelSearchResults,
+  searchMeta,
+} from '@/composables/useBossJobSearch'
 import type { JobData } from '@/composables/useHelper'
 import { useHelper } from '@/composables/useHelper'
 import { useToast } from '@/composables/useToast'
@@ -74,18 +79,30 @@ async function openDetail(job: JobData) {
   detailOpen.value = true
   if (job.jobDescription) return
 
-  // 搜索结果不一定在页面列表里，抓不到就只展示已有信息
-  if (!helper.jobMaps.has(job.key)) {
-    const fresh = helper.jobMaps.get(job.key)?.jobData
-    if (fresh) detailJob.value = fresh
-    return
-  }
-
   detailLoading.value = true
   try {
-    await helper.onJobCardClick(job.key)
-    const fresh = helper.jobMaps.get(job.key)?.jobData
-    if (fresh && detailJob.value?.key === job.key) detailJob.value = fresh
+    // 页面列表里的岗位走页面钩子，能顺带拿到完整详情
+    if (helper.jobMaps.has(job.key)) {
+      await helper.onJobCardClick(job.key)
+      const fresh = helper.jobMaps.get(job.key)?.jobData
+      if (fresh && detailJob.value?.key === job.key) {
+        detailJob.value = fresh
+        if (fresh.jobDescription) return
+      }
+    }
+
+    // 搜索结果不在页面列表里，直接调详情接口补岗位描述
+    const detail = await fetchJobDetail(job)
+    const description = detail?.jobInfo?.postDescription
+    if (description) {
+      job.jobDescription = description
+      if (detail?.jobInfo?.locationName) job.city = detail.jobInfo.locationName
+      if (detail?.brandComInfo?.introduce) {
+        job.brand = { ...job.brand, introduce: detail.brandComInfo.introduce }
+      }
+      if (detail?.bossInfo?.activeTimeDesc) job.activeTimeStr = detail.bossInfo.activeTimeDesc
+      if (detailJob.value?.key === job.key) detailJob.value = { ...job }
+    }
   } catch (error) {
     logger.error('JobDetailLoadError', error)
     toast.add({ title: `岗位详情加载失败: ${errorHandle(error)}`, color: 'error' })
