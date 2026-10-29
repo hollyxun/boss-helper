@@ -30,15 +30,18 @@ import {
   panelConditions,
   resetPanelConditions,
 } from '@/composables/useBossSearch'
+import { useHelper } from '@/composables/useHelper'
 import { useJobFilter } from '@/composables/useJobFilter'
 import { useToast } from '@/composables/useToast'
 
 const toast = useToast()
+const helper = useHelper()
 const { jobs, filteredJobs, activeCount } = useJobFilter()
 
 const conditions = panelConditions
 const cityDialogOpen = ref(false)
 const cityQuery = ref('')
+const applyLoading = ref(false)
 
 const chipClass =
   'rounded-md border px-2 py-1 text-sm transition-colors hover:bg-accent hover:text-accent-foreground'
@@ -108,17 +111,40 @@ function pickCity(code: string) {
   cityQuery.value = ''
 }
 
-function apply() {
+async function apply() {
   const typed = conditions.value.city
   if (typed && !/^\d{6,9}$/.test(typed) && !cityOptions.value.some((city) => city.code === typed)) {
     toast.add({ color: 'error', title: '未识别的城市，请从城市列表中选择' })
     return
   }
+
+  // 先同步一次页面上的岗位，避免面板里还是空列表
+  applyLoading.value = true
+  try {
+    await Promise.race([
+      helper.refreshPageData(),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ])
+  } finally {
+    applyLoading.value = false
+  }
+
   applyPanelConditions()
+
+  const total = jobs.value.length
+  const hit = filteredJobs.value.length
+  if (total === 0) {
+    toast.add({
+      color: 'warning',
+      title: '面板里还没有岗位',
+      description: '筛选只能过滤已抓到的岗位：先打开 Boss 职位列表页，再点「应用筛选」',
+    })
+    return
+  }
   toast.add({
-    color: 'success',
-    title: activeCount.value > 0 ? '筛选已应用' : '已清空筛选',
-    description: `命中 ${filteredJobs.value.length} / ${jobs.value.length} 个岗位`,
+    color: activeCount.value > 0 ? (hit > 0 ? 'success' : 'warning') : 'success',
+    title: activeCount.value === 0 ? '已清空筛选' : hit > 0 ? '筛选已应用' : '没有岗位命中筛选条件',
+    description: `命中 ${hit} / ${total} 个岗位`,
   })
 }
 
