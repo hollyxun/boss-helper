@@ -20,13 +20,23 @@ import type { ModelConf } from '.'
 import type { WorkflowData } from '../useApplying/type'
 import type { HelperContext } from '../useHelper'
 
-const role = ['system', 'user', 'assistant', 'boss', 'jd', 'filtering', 'greetings'] as const
+const role = [
+  'system',
+  'user',
+  'assistant',
+  'boss',
+  'jd',
+  'filtering',
+  'greetings',
+  'reply',
+] as const
 type MessageRole = (typeof role)[number]
 
 /** 日志里展示的 AI 能力名称 */
 const AGENT_LABELS: Partial<Record<MessageRole, string>> = {
   filtering: 'AI 筛选',
   greetings: 'AI 招呼语',
+  reply: 'AI 回复',
   jd: '职位解析',
   boss: '招聘者沟通',
 }
@@ -154,7 +164,10 @@ export class ChatModel {
   async chat(
     agentName: MessageRole,
     data: WorkflowData<any, any>,
-    { disableMessages = false }: { disableMessages?: boolean } = {},
+    {
+      disableMessages = false,
+      extra = {},
+    }: { disableMessages?: boolean; extra?: Record<string, unknown> } = {},
   ) {
     const _agent = this.agents.get(agentName)
     if (!_agent) {
@@ -180,6 +193,7 @@ export class ChatModel {
       if (typeof msg.content === 'string') {
         msg.content = renderTemplate(msg.content, data, {
           resume: this.ctx.conf.formData.resume?.text ?? '',
+          ...extra,
         })
       }
     }

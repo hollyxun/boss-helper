@@ -15,6 +15,7 @@ import { counter, initCounter } from '@/message'
 import type { FormDataInput } from '@/types/formData'
 import { logger } from '@/utils/logger'
 
+import { AutoReplyService } from './autoReply'
 import { GeekChatClientManager } from './chat'
 import type { BoosJobData } from './delivery'
 import { bossWorkflow } from './delivery'
@@ -33,6 +34,7 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
   key = 'boss'
 
   geek!: GeekChatClientManager
+  autoReply?: AutoReplyService
 
   _page = ref({ page: 1, pageSize: 15 })
   _pageHasMore = ref(true)
@@ -189,6 +191,10 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
       this.geek = new GeekChatClientManager()
       await this.geek.connect()
     }
+    if (!this.autoReply) {
+      this.autoReply = new AutoReplyService(this)
+      this.autoReply.attach()
+    }
   }
 
   /** 打开面板时先对齐一次页面数据，避免看到上次页面残留的岗位 */
@@ -249,8 +255,8 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                   {
                     type: 'select',
                     key: 'hrPosition',
-                    label: 'Hr职位',
-                    help: 'Hr职位一定包含/排除在集合中，精确匹配, 不在内置中可手动输入,能实现只向经理等进行投递，毕竟人事干的不一定是人事',
+                    label: 'HR职位',
+                    help: 'HR职位一定包含/排除在集合中，精确匹配, 不在内置中可手动输入,能实现只向经理等进行投递，毕竟人事干的不一定是人事',
                   },
                   conf.configLevel.intermediate && {
                     type: 'select',
@@ -297,25 +303,25 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                     type: 'checkbox',
                     key: 'friendStatus',
                     label: '好友过滤(已聊)',
-                    help: '判断和hr是否建立过聊天，理论上能过滤的同hr，但是不同岗位的工作',
+                    help: '判断和HR是否建立过聊天，理论上能过滤的同HR，但是不同岗位的工作',
                   },
                   {
                     type: 'checkbox',
                     key: 'bossGoldMedalHr',
                     label: '过滤金牌面试官',
-                    help: '通过头像框来判断是否是金牌面试官, 据小红书经验 金牌面试官多数是刷kpi,并不靠谱',
+                    help: '通过头像框来判断是否是金牌面试官, 据小红书经验 金牌面试官多数是刷KPI, 并不靠谱',
                   },
                   conf.configLevel.intermediate && {
                     type: 'checkbox-expire',
                     key: 'sameCompanyFilter',
                     label: '相同公司过滤',
-                    help: '投递过的公司id存储到浏览器本地，避免多次向同公司投递，即使岗位不同hr不同',
+                    help: '投递过的公司ID存储到浏览器本地，避免多次向同公司投递，即使岗位不同HR不同',
                   },
                   conf.configLevel.intermediate && {
                     type: 'checkbox-expire',
                     key: 'sameHrFilter',
-                    label: '相同Hr过滤',
-                    help: '投递过的hr存储到浏览器本地，避免多次向同hr投递。',
+                    label: '相同HR过滤',
+                    help: '投递过的HR存储到浏览器本地，避免多次向同HR投递。',
                   },
                 ],
               },

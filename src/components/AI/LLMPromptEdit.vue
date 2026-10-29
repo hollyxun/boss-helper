@@ -69,6 +69,23 @@ const currentModelData = computed(() =>
 
 const score = ref(props.data === 'aiFiltering' ? (conf.formData[props.data].score ?? 10) : 10)
 
+/** 不同能力对应到 chatModel 里的 agent */
+const agentName = computed(() => {
+  if (props.data === 'aiFiltering') return 'filtering' as const
+  if (props.data === 'aiReply') return 'reply' as const
+  return 'greetings' as const
+})
+
+/** 测试时给模板变量兜个底，方便在编辑器里预览 */
+const testTemplateExtra = computed(() =>
+  props.data === 'aiReply'
+    ? {
+        reply: '你好，方便发一份简历吗？',
+        messages: '对方：你好，看到你投递了我们的岗位\n我：您好，方便的话可以聊聊',
+      }
+    : undefined,
+)
+
 const role = ['system', 'user', 'assistant'] as const
 
 const message = ref<Prompt>(jsonClone(conf.formData[props.data].prompt))
@@ -173,7 +190,7 @@ async function testJob() {
           model: currentModel.value,
           enable: true,
         },
-        props.data === 'aiFiltering' ? 'filtering' : 'greetings',
+        agentName.value,
         {
           json: props.data === 'aiFiltering',
         },
@@ -189,7 +206,7 @@ async function testJob() {
       try {
         const content = await helper.chatModel
           .chat(
-            props.data === 'aiFiltering' ? 'filtering' : 'greetings',
+            agentName.value,
             {
               jobData: item.job,
               rawData: null,
@@ -197,6 +214,7 @@ async function testJob() {
             },
             {
               disableMessages: true,
+              extra: testTemplateExtra.value,
             },
           )
           .then((r) => Promise.all([r.text, r.finalStep.then((x) => x.reasoningText)]))
@@ -339,6 +357,13 @@ async function savePrompt() {
             变量表
           </a>
           <br />
+          <template v-if="data === 'aiReply'">
+            AI 回复额外支持
+            <code class="text-foreground">{{ '{{ reply }}' }}</code>
+            （对方最新消息）和
+            <code class="text-foreground">{{ '{{ messages }}' }}</code>
+            （最近对话）。<br />
+          </template>
           推荐阅读
           <a
             class="text-primary underline underline-offset-4"

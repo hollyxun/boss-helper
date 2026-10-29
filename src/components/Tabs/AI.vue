@@ -42,8 +42,7 @@ const features: Feature[] = [
   {
     key: 'aiReply',
     label: 'AI 回复',
-    help: '消息太多回不过来时自动回复，功能暂未实现。',
-    disabled: true,
+    help: '开启后监听招聘方的消息，收到文字消息就用 AI 生成一句回复并发送（最多 10 条/岗位）。',
   },
   {
     key: 'aiResume',
