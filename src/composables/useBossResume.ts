@@ -400,6 +400,10 @@ export interface BossResumeResult {
     sections: Record<string, unknown>
     /** 每个接口的完整响应，排查用 */
     responses: Record<string, unknown>
+    /** 简历页渲染出来的文本（走兜底时才有） */
+    pageText?: string
+    /** 接口拍平出来的文本 */
+    apiText?: string
   }
   sources: BossResumeSource[]
 }
@@ -539,6 +543,132 @@ function extractResumeText(doc: Document) {
   return cleanResumeText(best)
 }
 
+/** 段落标题 → 统一 key，接口和页面两条路的标题写法不一样 */
+const SECTION_ALIAS: Record<string, string> = {
+  基本信息: 'basic',
+  个人信息: 'basic',
+  个人优势: 'summary',
+  自我介绍: 'summary',
+  自我评价: 'summary',
+  求职意向: 'expect',
+  期望职位: 'expect',
+  工作经历: 'work',
+  项目经历: 'project',
+  教育经历: 'edu',
+  培训经历: 'training',
+  资格证书: 'cert',
+  证书: 'cert',
+  社团经历: 'club',
+  志愿经历: 'volunteer',
+  志愿者经历: 'volunteer',
+  求职限制: 'restrict',
+}
+
+const SECTION_ORDER = [
+  'basic',
+  'summary',
+  'expect',
+  'work',
+  'project',
+  'edu',
+  'cert',
+  'training',
+  'club',
+  'volunteer',
+  'restrict',
+]
+
+interface ParsedSection {
+  key: string
+  title: string
+  body: string
+}
+
+/** 把文本切成段落：接口那份用【标题】分隔，页面那份是纯标题行 */
+function parseSections(text: string, fallbackTitle = '基本信息'): ParsedSection[] {
+  if (!text.trim()) return []
+  const sections: ParsedSection[] = []
+  let title = fallbackTitle
+  let buffer: string[] = []
+
+  const flush = () => {
+    const body = buffer.join('\n').trim()
+    if (body) sections.push({ key: SECTION_ALIAS[title] ?? title, title, body })
+    buffer = []
+  }
+
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim()
+    const bracket = /^【(.+?)】$/.exec(line)
+    const heading = bracket?.[1] ?? (SECTION_ALIAS[line] ? line : '')
+    if (heading) {
+      flush()
+      title = heading
+      continue
+    }
+    buffer.push(rawLine)
+  }
+  flush()
+  return sections
+}
+
+/** 基本信息：两份都保留，去掉被包含的重复行 */
+function mergeBasicLines(a: string, b: string) {
+  const lines = [...a.split('\n'), ...b.split('\n')].map((line) => line.trim()).filter(Boolean)
+  const kept: string[] = []
+  for (const line of lines) {
+    if (kept.some((existing) => existing.includes(line) || line.includes(existing))) continue
+    kept.push(line)
+  }
+  return kept.join('\n')
+}
+
+/**
+ * 合并接口拍平的文本和页面渲染的文本。
+ *
+ * 按段落对齐：基本信息的行合并去重，其它段落取内容更多的那一份，
+ * 只在一边出现的段落直接保留，这样既不漏模块，也不会同一段出现两次。
+ */
+export function mergeResumeTexts(apiText: string, pageText: string): string {
+  const apiSections = parseSections(apiText)
+  const pageSections = parseSections(pageText)
+
+  const merged = new Map<string, { title: string; body: string }>()
+  const order: string[] = []
+
+  const push = (section: ParsedSection) => {
+    const existing = merged.get(section.key)
+    if (!existing) {
+      merged.set(section.key, { title: section.title, body: section.body })
+      order.push(section.key)
+      return
+    }
+    if (section.key === 'basic') {
+      existing.body = mergeBasicLines(existing.body, section.body)
+      return
+    }
+    if (section.body.length > existing.body.length) {
+      existing.body = section.body
+      existing.title = section.title
+    }
+  }
+
+  apiSections.forEach(push)
+  pageSections.forEach(push)
+
+  const rank = (key: string) => {
+    const index = SECTION_ORDER.indexOf(key)
+    return index === -1 ? SECTION_ORDER.length : index
+  }
+
+  return order
+    .map((key) => ({ key, ...merged.get(key)! }))
+    .sort((a, b) => rank(a.key) - rank(b.key))
+    .map((section) => `${section.title}\n${section.body}`.trim())
+    .join('\n\n')
+    .trim()
+}
+
 /**
  * 兜底方案：在隐藏 iframe 里打开 Boss 简历页，直接读渲染后的文本。
  *
@@ -609,7 +739,9 @@ export async function fetchBossResume(): Promise<BossResumeResult> {
       : null
 
   const data = mergeResume(preview ?? {}, sections) as Record<string, unknown>
-  let text = resumeToText(data)
+  const apiText = resumeToText(data)
+  let text = apiText
+  let pageText: string | undefined
 
   if (!preview && Object.keys(sections).length === 0) {
     lastBossResume.value = { text: '', data: {}, raw: { preview, sections, responses }, sources }
@@ -621,18 +753,18 @@ export async function fetchBossResume(): Promise<BossResumeResult> {
     throw new Error(`读不到 Boss 在线简历${failed ? `：${failed}` : ''}`)
   }
 
-  // 接口结果明显不全时，退回页面渲染数据
+  // 接口结果缺模块时，再抓一遍简历页渲染文本，两边合并而不是二选一
   if (text.length < 300 || !CORE_SECTION.test(text)) {
-    const pageText = await fetchResumeFromPage().catch(() => '')
-    if (pageText && pageText.length > text.length) {
-      text = pageText
+    pageText = await fetchResumeFromPage().catch(() => '')
+    if (pageText) {
+      text = mergeResumeTexts(apiText, pageText)
       sources.push({
         key: 'page',
         label: '页面渲染',
         ok: true,
         status: 'ok',
         size: pageText.length,
-        message: '接口缺模块，已改用简历页渲染结果',
+        message: '已与接口结果合并',
       })
     }
   }
@@ -640,7 +772,7 @@ export async function fetchBossResume(): Promise<BossResumeResult> {
   const result: BossResumeResult = {
     text,
     data,
-    raw: { preview, sections, responses },
+    raw: { preview, sections, responses, pageText, apiText },
     sources,
   }
   lastBossResume.value = result

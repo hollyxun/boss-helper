@@ -46,6 +46,7 @@ declare global {
   const loadSearchOptions: typeof import('./src/composables/useBossSearch').loadSearchOptions
   const markRaw: typeof import('vue').markRaw
   const matchJobConditions: typeof import('./src/composables/useJobFilter').matchJobConditions
+  const mergeResumeTexts: typeof import('./src/composables/useBossResume').mergeResumeTexts
   const nextTick: typeof import('vue').nextTick
   const onActivated: typeof import('vue').onActivated
   const onBeforeMount: typeof import('vue').onBeforeMount

@@ -31,11 +31,11 @@ const loading = ref(false)
 const syncing = ref(false)
 
 const rawOpen = ref(false)
-const rawTab = ref<'merged' | 'preview' | 'sections' | 'responses'>('merged')
+const rawTab = ref<'merged' | 'api' | 'page' | 'responses'>('merged')
 const rawTabs = [
   { value: 'merged', label: '合并后' },
-  { value: 'preview', label: '预览接口' },
-  { value: 'sections', label: '分段接口' },
+  { value: 'api', label: '接口文本' },
+  { value: 'page', label: '页面文本' },
   { value: 'responses', label: '接口返回' },
 ] as const
 
@@ -43,14 +43,9 @@ const rawResult = computed(() => lastBossResume.value)
 const rawJson = computed(() => {
   const result = rawResult.value
   if (!result) return ''
-  const data =
-    rawTab.value === 'preview'
-      ? result.raw.preview
-      : rawTab.value === 'sections'
-        ? result.raw.sections
-        : rawTab.value === 'responses'
-          ? result.raw.responses
-          : result.data
+  if (rawTab.value === 'api') return result.raw.apiText || '（接口没有产出文本）'
+  if (rawTab.value === 'page') return result.raw.pageText || '（这次没走页面渲染兜底）'
+  const data = rawTab.value === 'responses' ? result.raw.responses : result.data
   try {
     return JSON.stringify(data, null, 2)
   } catch {
@@ -135,8 +130,8 @@ async function syncFromBoss(silent = false) {
       })
     } else if (fromPage) {
       toast.add({
-        title: '接口缺模块，已改用简历页内容',
-        description: '内容来自 Boss 简历页渲染结果，建议检查后保存',
+        title: '接口缺模块，已合并简历页内容',
+        description: '接口数据和简历页渲染结果已按段落合并，建议检查后保存',
         color: 'warning',
       })
     } else if (!silent) {
