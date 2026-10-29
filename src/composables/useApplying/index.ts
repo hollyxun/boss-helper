@@ -1,6 +1,7 @@
 import type { ContextLogger } from 'devlog-ui'
 import { shallowRef, ref } from 'vue'
 
+import { addJobLog } from '@/composables/useLogs'
 import { PipelineCacheManager } from '@/composables/usePipelineCache'
 import type { PipelineCacheItem, ProcessorType } from '@/types/pipelineCache'
 
@@ -327,9 +328,49 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
           msg: '投递成功',
         })
         helper.statistics.todayData.value.success++
+        addJobLog({
+          status: 'success',
+          tag: '投递成功',
+          job: {
+            key: data.jobData.key,
+            name: data.jobData.jobName,
+            company: data.jobData.brand?.name,
+            salary: data.jobData.salary,
+            city: data.jobData.city ?? data.jobData.address,
+          },
+          message: '招呼语已发送',
+        })
       } else if (!errorLog) {
         const r = helper.jobResultMaps.get(data.jobData.key)
         log.warn(`投递过滤: ${data.jobData.jobName}`, r?.msg, r?.reason)
+        addJobLog({
+          status: 'skip',
+          tag: r?.msg ?? '已过滤',
+          job: {
+            key: data.jobData.key,
+            name: data.jobData.jobName,
+            company: data.jobData.brand?.name,
+            salary: data.jobData.salary,
+            city: data.jobData.city ?? data.jobData.address,
+          },
+          message: r?.msg,
+          reason: r?.reason,
+        })
+      } else {
+        const r = helper.jobResultMaps.get(data.jobData.key)
+        addJobLog({
+          status: 'error',
+          tag: r?.msg ?? '执行出错',
+          job: {
+            key: data.jobData.key,
+            name: data.jobData.jobName,
+            company: data.jobData.brand?.name,
+            salary: data.jobData.salary,
+            city: data.jobData.city ?? data.jobData.address,
+          },
+          message: r?.msg,
+          reason: r?.reason,
+        })
       }
     } catch (e) {
       status.value = 'error'

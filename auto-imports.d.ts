@@ -11,6 +11,10 @@ declare global {
   const EffectScope: typeof import('vue').EffectScope
   const PipelineCacheManager: typeof import('./src/composables/usePipelineCache').PipelineCacheManager
   const activePanelTab: typeof import('./src/composables/usePanelTab').activePanelTab
+  const addAiLog: typeof import('./src/composables/useLogs').addAiLog
+  const addJobLog: typeof import('./src/composables/useLogs').addJobLog
+  const addLog: typeof import('./src/composables/useLogs').addLog
+  const addSystemLog: typeof import('./src/composables/useLogs').addSystemLog
   const appliedConditions: typeof import('./src/composables/useBossSearch').appliedConditions
   const applyPanelConditions: typeof import('./src/composables/useBossSearch').applyPanelConditions
   const applySearch: typeof import('./src/composables/useBossSearch').applySearch
@@ -19,6 +23,7 @@ declare global {
   const cityNameOf: typeof import('./src/composables/useBossSearch').cityNameOf
   const cityOptions: typeof import('./src/composables/useBossSearch').cityOptions
   const cleanResumeText: typeof import('./src/composables/useBossResume').cleanResumeText
+  const clearLogs: typeof import('./src/composables/useLogs').clearLogs
   const clearSearchResults: typeof import('./src/composables/useBossJobSearch').clearSearchResults
   const computed: typeof import('vue').computed
   const convertBossZpJobItemToJobData: typeof import('./src/composables/useBossJobSearch').convertBossZpJobItemToJobData
@@ -31,6 +36,7 @@ declare global {
   const emptyConditions: typeof import('./src/composables/useBossSearch').emptyConditions
   const fetchBossResume: typeof import('./src/composables/useBossResume').fetchBossResume
   const fetchResumeFromPage: typeof import('./src/composables/useBossResume').fetchResumeFromPage
+  const filterLogs: typeof import('./src/composables/useLogs').filterLogs
   const filterOptions: typeof import('./src/composables/useBossSearch').filterOptions
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
@@ -46,6 +52,8 @@ declare global {
   const isShallow: typeof import('vue').isShallow
   const lastBossResume: typeof import('./src/composables/useBossResume').lastBossResume
   const loadSearchOptions: typeof import('./src/composables/useBossSearch').loadSearchOptions
+  const logCounts: typeof import('./src/composables/useLogs').logCounts
+  const logEntries: typeof import('./src/composables/useLogs').logEntries
   const markRaw: typeof import('vue').markRaw
   const matchJobConditions: typeof import('./src/composables/useJobFilter').matchJobConditions
   const mergeResumeTexts: typeof import('./src/composables/useBossResume').mergeResumeTexts
@@ -145,6 +153,16 @@ declare global {
     CityGroup,
   } from './src/composables/useBossSearch'
   import('./src/composables/useBossSearch')
+  // @ts-ignore
+  export type {
+    LogKind,
+    LogStatus,
+    LogJobSnapshot,
+    LogDetail,
+    LogEntry,
+    LogFilter,
+  } from './src/composables/useLogs'
+  import('./src/composables/useLogs')
   // @ts-ignore
   export type { PanelTab } from './src/composables/usePanelTab'
   import('./src/composables/usePanelTab')

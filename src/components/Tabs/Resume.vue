@@ -14,6 +14,7 @@ import { useConf } from '@/composables/conf'
 import { searchJobs } from '@/composables/useBossJobSearch'
 import { fetchBossResume, lastBossResume, mergeResumeTexts } from '@/composables/useBossResume'
 import { emptyConditions, panelConditions } from '@/composables/useBossSearch'
+import { addAiLog } from '@/composables/useLogs'
 import { enabledModelData, useModel } from '@/composables/useModel'
 import { resolveModelAvatar } from '@/composables/useModel/icons'
 import { openai } from '@/composables/useModel/openai'
@@ -258,6 +259,9 @@ async function recommend() {
   }
 
   loading.value = true
+  const startedAt = Date.now()
+  let promptText = ''
+  let responseText = ''
   try {
     // AI SDK v7 不允许 system 消息出现在 messages 里，要拆到 instructions
     const instructions: string[] = []
@@ -270,12 +274,14 @@ async function recommend() {
     if (messages.length === 0) {
       messages.push({ role: 'user', content: '请分析上面的简历并输出结果。' })
     }
+    promptText = [...instructions, ...messages.map((item) => item.content)].join('\n\n')
 
     const { text } = await generateText({
       model: openai.createModel({ ...modelConf.data, advanced: modelConf.data.advanced ?? {} }),
       instructions: instructions.join('\n\n') || undefined,
       messages,
     })
+    responseText = text
     const result = parseGptJson<ResumeAdvice>(text)
     const directions = (result?.directions ?? []).map((item) => ({
       title: String(item?.title ?? ''),
@@ -297,9 +303,26 @@ async function recommend() {
     // 分析结果是大模型产出的，立刻落盘，别等防抖
     await conf.confSaving(true)
     toast.add({ title: '推荐完成，已保存到本地', color: 'success' })
+    addAiLog({
+      agent: 'AI 简历推荐',
+      ok: true,
+      model: modelConf.name,
+      durationMs: Date.now() - startedAt,
+      prompt: promptText,
+      response: responseText,
+    })
   } catch (error) {
     logger.error('ResumeRecommendError', error)
     toast.add({ title: `推荐失败: ${errorHandle(error)}`, color: 'error' })
+    addAiLog({
+      agent: 'AI 简历推荐',
+      ok: false,
+      model: modelConf.name,
+      durationMs: Date.now() - startedAt,
+      prompt: promptText,
+      response: responseText,
+      message: errorHandle(error),
+    })
   } finally {
     loading.value = false
   }

@@ -11,6 +11,7 @@ import {
 } from 'ai'
 import type { ShallowReactive } from 'vue'
 
+import { addAiLog } from '@/composables/useLogs'
 import type { FormDataAi } from '@/types/formData'
 import type { ChatMessageProps } from '@/types/ui'
 import { renderTemplate } from '@/utils/ai'
@@ -21,6 +22,26 @@ import type { HelperContext } from '../useHelper'
 
 const role = ['system', 'user', 'assistant', 'boss', 'jd', 'filtering', 'greetings'] as const
 type MessageRole = (typeof role)[number]
+
+/** 日志里展示的 AI 能力名称 */
+const AGENT_LABELS: Partial<Record<MessageRole, string>> = {
+  filtering: 'AI 筛选',
+  greetings: 'AI 招呼语',
+  jd: '职位解析',
+  boss: '招聘者沟通',
+}
+
+function toPlainText(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    return content
+      .map((part) =>
+        typeof part === 'string' ? part : String((part as { text?: string })?.text ?? ''),
+      )
+      .join('')
+  }
+  return ''
+}
 
 export interface Message extends ChatMessageProps {
   uiRole: MessageRole
@@ -147,6 +168,7 @@ export class ChatModel {
     const [agent, modelConf, model] = _agent
 
     const timeout = modelConf.data?.other?.timeout ?? 60000
+    const startedAt = Date.now()
     let messages: ModelMessage[]
 
     if (typeof model.prompt === 'string') {
@@ -161,6 +183,7 @@ export class ChatModel {
         })
       }
     }
+    const promptText = messages.map((m) => `【${m.role}】\n${toPlainText(m.content)}`).join('\n\n')
     let state: VueChatState<Message>
     if (!this.states.has(data.jobData.key)) {
       state = new VueChatState<Message>()
@@ -327,8 +350,40 @@ ${data.jobData.jobDescription}`,
     }
 
     if (state.error) {
+      addAiLog({
+        agent: AGENT_LABELS[agentName] ?? agentName,
+        ok: false,
+        job: {
+          key: data.jobData.key,
+          name: data.jobData.jobName,
+          company: data.jobData.brand?.name,
+          salary: data.jobData.salary,
+          city: data.jobData.city,
+        },
+        model: modelConf.name,
+        durationMs: Date.now() - startedAt,
+        prompt: promptText,
+        response: msg.parts.map((part) => toPlainText(part)).join(''),
+        message: state.error.message,
+      })
       throw state.error
     }
+
+    addAiLog({
+      agent: AGENT_LABELS[agentName] ?? agentName,
+      ok: true,
+      job: {
+        key: data.jobData.key,
+        name: data.jobData.jobName,
+        company: data.jobData.brand?.name,
+        salary: data.jobData.salary,
+        city: data.jobData.city,
+      },
+      model: modelConf.name,
+      durationMs: Date.now() - startedAt,
+      prompt: promptText,
+      response: msg.parts.map((part) => toPlainText(part)).join(''),
+    })
 
     // for await (const chunk of readUIMessageStream({ // BUG: 无法正确处理消息
     //   stream: stream.toUIMessageStream({

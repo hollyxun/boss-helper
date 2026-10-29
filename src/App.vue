@@ -6,7 +6,6 @@ import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 import { Toaster } from 'vue-sonner'
 
 import Alert from '@/components/Alert.vue'
-import ChatBox from '@/components/ChatBox.vue'
 import Hint from '@/components/Hint.vue'
 import Version from '@/components/Menu/Version.vue'
 import About from '@/components/Tabs/About.vue'
@@ -21,7 +20,7 @@ import SheetContent from '@/components/ui/sheet/SheetContent.vue'
 import SheetDescription from '@/components/ui/sheet/SheetDescription.vue'
 import SheetHeader from '@/components/ui/sheet/SheetHeader.vue'
 import SheetTitle from '@/components/ui/sheet/SheetTitle.vue'
-import { appearanceConf, useConf } from '@/composables/conf'
+import { useConf } from '@/composables/conf'
 import { useModel } from '@/composables/useModel'
 import { activePanelTab, openPanelTab } from '@/composables/usePanelTab'
 import type { PanelTab } from '@/composables/usePanelTab'
@@ -113,15 +112,13 @@ const updateOverlay = () => {
 
 const { pause, resume } = useRafFn(updateOverlay, { immediate: false })
 
-const chatOpen = ref(appearanceConf.value.defaultShowChatBox)
 const drawerOpen = ref(false)
 const versionOpen = ref(false)
 
 useScrollLock(drawerOpen)
 
 /**
- * 抽屉不再因为「点到了外面」而关闭——包括对话面板（它是另一个非模态 Sheet，
- * reka 在 shadow root 里认不出层级，本来也会误关）和蒙层。
+ * 抽屉不再因为「点到了外面」而关闭——蒙层单击、焦点外移都不关。
  * 关闭方式只有三种：右上角 X、Esc、在蒙层上双击（见 onRootDblClick）。
  */
 function onDrawerInteractOutside(event: Event) {
@@ -138,16 +135,14 @@ function onRootDblClick(event: MouseEvent) {
 }
 
 watch(drawerOpen, (open) => {
-  if (!open) chatOpen.value = false
   // 打开抽屉时先把页面当前数据同步进来
-  else void helper.refreshPageData()
+  if (open) void helper.refreshPageData()
 })
 
 onMounted(() => {
   root = (container.value?.getRootNode() as ShadowRoot) ?? document
   void conf.confInit()
   void model.initModel()
-  chatOpen.value = appearanceConf.value.defaultShowChatBox
 })
 
 function tagOpen(url: string) {
@@ -278,7 +273,6 @@ function onPointerMove(ev: PointerEvent) {
             处理 {{ helper.workflow.current.value }}/{{ helper.workflow.total.value }}
           </span>
           <div class="ml-auto flex shrink-0 items-center gap-1">
-            <Button variant="ghost" size="sm" @click="chatOpen = !chatOpen">对话</Button>
             <Button
               v-if="helper.netConf.value?.feedback"
               variant="ghost"
@@ -300,7 +294,6 @@ function onPointerMove(ev: PointerEvent) {
       </SheetContent>
     </Sheet>
 
-    <ChatBox v-model:open="chatOpen" />
     <Version v-model:open="versionOpen" />
     <Toaster position="top-right" :duration="3000" close-button rich-colors theme="light" />
   </div>

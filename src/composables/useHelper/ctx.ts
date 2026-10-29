@@ -7,6 +7,7 @@ import { useConf } from '@/composables/conf'
 import type { DeliveryWorkflow } from '@/composables/useApplying'
 import type { BossHelperError } from '@/composables/useApplying/deliverError'
 import type { TaskResult, WorkflowData } from '@/composables/useApplying/type'
+import { addJobLog, addSystemLog, clearLogs } from '@/composables/useLogs'
 import { useModel } from '@/composables/useModel'
 import { ChatModel } from '@/composables/useModel'
 import { useToast } from '@/composables/useToast'
@@ -49,29 +50,28 @@ export abstract class HelperContext<C extends HelperContext<C, T, S>, T, S> {
     this.currentJob = ref(null)
     this._logs = ref([])
     this.logs = extendRef(this._logs, {
-      add: (job: JobData, err?: BossHelperError, logdata?: LogData, msg?: string) => {
+      add: (job: JobData, err?: BossHelperError, _logdata?: LogData, msg?: string) => {
         const state = !err ? 'success' : err.state
-        const message = msg ?? (err ? err.message : undefined)
-        this._logs.value.push({
-          job,
-          title: job.jobName,
-          state,
-          state_name: err?.name ?? '投递成功',
-          message,
-          data: logdata,
+        addJobLog({
+          status: state === 'danger' ? 'error' : state === 'warning' ? 'skip' : 'success',
+          tag: err?.name ?? '投递成功',
+          job: {
+            key: job.key,
+            name: job.jobName,
+            company: job.brand?.name,
+            salary: job.salary,
+            city: job.city ?? job.address,
+          },
+          message: msg ?? (err ? err.message : undefined),
+          reason: err?.message,
         })
       },
       info: (title: string, message: string) => {
-        this._logs.value.push({
-          title,
-          state: 'info',
-          state_name: '消息',
-          message,
-          data: undefined,
-        })
+        addSystemLog(title, message)
       },
       clear: () => {
         this._logs.value = []
+        clearLogs()
       },
     })
 
