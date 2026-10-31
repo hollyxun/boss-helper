@@ -82,7 +82,7 @@ onMounted(() => {
       show-icon
     />
 
-    <div v-if="conf.configLevel.intermediate" class="flex flex-col gap-2">
+    <div class="flex flex-col gap-2">
       <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
         <span data-help="当天投递成功 / 扫描过的岗位总数">
           投递
@@ -140,43 +140,9 @@ onMounted(() => {
           <span class="shrink-0 font-mono"> {{ row.skip }}/{{ row.total }} </span>
         </div>
       </div>
-    </div>
 
-    <div class="flex flex-row items-center justify-center gap-2">
-      <div class="flex flex-row items-center gap-2">
-        <Button
-          data-help="点击开始就会开始投递"
-          :disabled="helper.workflow?.status.value === 'running'"
-          @click="helper.start()"
-        >
-          <LoaderCircle
-            v-if="helper.workflow?.status.value === 'running'"
-            class="size-4 animate-spin"
-          />
-          {{ helper.workflow?.status.value === 'stop' ? '继续' : '开始' }}
-        </Button>
-        <Button
-          v-if="helper.workflow?.status.value === 'stop'"
-          variant="outline"
-          class="text-amber-600"
-          data-help="重置已被筛选的岗位，开始将重新处理"
-          @click="helper.reset()"
-        >
-          重置筛选
-        </Button>
-        <Button
-          v-if="helper.workflow?.status.value === 'running'"
-          variant="outline"
-          class="text-amber-600"
-          data-help="暂停后应该能继续"
-          @click="helper.stop()"
-        >
-          暂停
-        </Button>
-      </div>
       <Progress
         data-help="我会统计当天脚本投递的数量,该记录并不准确"
-        class="flex-1"
         :model-value="(todayData.success / conf.formData.deliveryLimit.value) * 100"
       />
     </div>
@@ -190,7 +156,39 @@ onMounted(() => {
           <CircleHelp class="size-3.5 text-muted-foreground" />
         </Hint>
       </div>
-      <SearchTab />
+      <SearchTab>
+        <template #actions>
+          <Button
+            data-help="开始工作：按当前配置逐个处理岗位列表里的职位"
+            :disabled="helper.workflow?.status.value === 'running'"
+            @click="helper.start()"
+          >
+            <LoaderCircle
+              v-if="helper.workflow?.status.value === 'running'"
+              class="size-4 animate-spin"
+            />
+            {{ helper.workflow?.status.value === 'stop' ? '继续' : '开始工作' }}
+          </Button>
+          <Button
+            v-if="helper.workflow?.status.value === 'stop'"
+            variant="outline"
+            class="text-amber-600"
+            data-help="重置已被筛选的岗位，开始将重新处理"
+            @click="helper.reset()"
+          >
+            重置筛选
+          </Button>
+          <Button
+            v-if="helper.workflow?.status.value === 'running'"
+            variant="outline"
+            class="text-amber-600"
+            data-help="暂停后应该能继续"
+            @click="helper.stop()"
+          >
+            暂停
+          </Button>
+        </template>
+      </SearchTab>
     </div>
 
     <div class="flex flex-col gap-3 border-t border-border pt-3">

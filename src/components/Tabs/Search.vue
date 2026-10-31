@@ -195,6 +195,7 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
         {{ applyLoading ? '搜索中…' : '搜索岗位' }}
       </Button>
       <Button variant="ghost" @click="reset">清空</Button>
+      <slot name="actions" />
     </div>
 
     <Dialog v-model:open="cityDialogOpen">
