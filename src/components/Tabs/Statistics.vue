@@ -11,7 +11,6 @@ import DropdownMenu from '@/components/ui/dropdown-menu/DropdownMenu.vue'
 import DropdownMenuContent from '@/components/ui/dropdown-menu/DropdownMenuContent.vue'
 import DropdownMenuItem from '@/components/ui/dropdown-menu/DropdownMenuItem.vue'
 import DropdownMenuTrigger from '@/components/ui/dropdown-menu/DropdownMenuTrigger.vue'
-import Progress from '@/components/ui/progress/Progress.vue'
 import { useConf } from '@/composables/conf'
 import { useHelper } from '@/composables/useHelper'
 import { jobListFilterEnabled } from '@/composables/useJobListFilter'
@@ -62,7 +61,7 @@ const statTiles = computed(() => [
     key: 'delivery',
     label: '投递',
     value: `${todayData.value.success}/${todayData.value.total}`,
-    help: '当天投递成功 / 扫描过的岗位总数',
+    help: '当天投递成功 / 扫描过的岗位总数；到「剩余可投」为 0 时流程自动停',
   },
   {
     key: 'filtered',
@@ -92,10 +91,10 @@ const statTiles = computed(() => [
     help: '岗位列表条数（配置过滤后 / 来源总数）：来源是搜索结果或当前页面岗位',
   },
   {
-    key: 'limit',
-    label: '今日上限',
-    value: `${conf.formData.deliveryLimit.value}`,
-    help: '每日投递上限，在配置 → 基础配置里调整',
+    key: 'remaining',
+    label: '剩余可投',
+    value: `${deliveryRemaining.value}`,
+    help: `今日上限 ${deliveryLimit.value}，已成功 ${todayData.value.success}；投递流程到这个数归零时自动停`,
   },
 ])
 
@@ -113,11 +112,8 @@ const filterRows = computed(() =>
 
 const deliveryLimit = computed(() => Number(conf.formData.deliveryLimit.value) || 0)
 
-const deliveryPercent = computed(() => {
-  const limit = deliveryLimit.value
-  if (limit <= 0) return 0
-  return Math.min(100, Math.round((todayData.value.success / limit) * 100))
-})
+/** 今天还能投多少：上限 - 已成功（到 0 就说明到量了） */
+const deliveryRemaining = computed(() => Math.max(0, deliveryLimit.value - todayData.value.success))
 
 onMounted(() => {
   void helper.statistics.updateStatistics()
@@ -166,19 +162,6 @@ onMounted(() => {
           <div class="truncate text-xs text-muted-foreground">{{ tile.label }}</div>
           <div class="text-lg leading-tight font-semibold tabular-nums">{{ tile.value }}</div>
         </div>
-      </div>
-
-      <div class="flex flex-col gap-1">
-        <div class="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>今日投递进度</span>
-          <span class="tabular-nums">
-            {{ todayData.success }}/{{ deliveryLimit }} · {{ deliveryPercent }}%
-          </span>
-        </div>
-        <Progress
-          data-help="我会统计当天脚本投递的数量,该记录并不准确"
-          :model-value="deliveryPercent"
-        />
       </div>
 
       <div
