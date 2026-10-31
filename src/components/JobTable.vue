@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import { ChevronDown, ExternalLink, MapPin, RefreshCw } from '@lucide/vue'
-import { computed, ref, watch } from 'vue'
+import { ChevronDown, Clock, ExternalLink, MapPin, RefreshCw } from '@lucide/vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import Hint from '@/components/Hint.vue'
 import Avatar from '@/components/ui/avatar/Avatar.vue'
@@ -29,6 +29,7 @@ import type { JobData } from '@/composables/useHelper'
 import { useHelper } from '@/composables/useHelper'
 import { matchJobByConfig } from '@/composables/useJobMatching'
 import { useToast } from '@/composables/useToast'
+import { delay } from '@/utils'
 import { logger } from '@/utils/logger'
 
 const helper = useHelper()
@@ -106,16 +107,67 @@ async function refresh() {
   }
 }
 
+/**
+ * 翻页节奏参考旧版投递流程：
+ * 旧代码是 `helper.loadMoreJob(delay(delayDeliveryPageNext, isStop))`，
+ * 即翻页动作本身要等 `delayDeliveryPageNext` 秒（默认 60s）才对比结果，
+ * 避免短时间内连续翻页被 Boss 风控。
+ *
+ * 面板里分两种：
+ * - 页面模式：真的让 Boss 翻页，沿用 delayDeliveryPageNext，最低 5s；
+ * - 搜索模式：只是调我们自己的搜索接口，用固定 2.5s + 随机抖动。
+ */
+const PAGE_MIN_INTERVAL_SECONDS = 5
+const SEARCH_INTERVAL_SECONDS = 2.5
+/** 两次触发之间的硬性间隔，防止滚动事件连发 */
+const TRIGGER_GUARD_MS = 1200
+
+let lastLoadAt = 0
+const cooldownLeft = ref(0)
+let cooldownTimer: ReturnType<typeof setInterval> | null = null
+
+function startCooldown(seconds: number) {
+  const jittered = seconds * (1 + Math.random() * 0.3)
+  const until = Date.now() + jittered * 1000
+  cooldownLeft.value = Math.ceil(jittered)
+  if (cooldownTimer) clearInterval(cooldownTimer)
+  cooldownTimer = setInterval(() => {
+    cooldownLeft.value = Math.max(0, Math.ceil((until - Date.now()) / 1000))
+    if (cooldownLeft.value <= 0 && cooldownTimer) {
+      clearInterval(cooldownTimer)
+      cooldownTimer = null
+    }
+  }, 500)
+}
+
+onBeforeUnmount(() => {
+  if (cooldownTimer) clearInterval(cooldownTimer)
+})
+
 /** 滚到底部继续加载：搜索模式翻页，页面模式让 Boss 翻页 */
 async function loadMore() {
-  if (loadingMore.value) return
+  if (loadingMore.value || cooldownLeft.value > 0) return
+  if (Date.now() - lastLoadAt < TRIGGER_GUARD_MS) return
   loadingMore.value = true
+  lastLoadAt = Date.now()
   try {
     if (usingSearch.value) {
       if (!searchMeta.hasMore || !searchMeta.conditions) return
+      await sleep(SEARCH_INTERVAL_SECONDS * 1000)
       await searchJobs(searchMeta.conditions, searchMeta.page + 1, true)
+      startCooldown(SEARCH_INTERVAL_SECONDS)
     } else {
-      await helper.loadMoreJob(new Promise((resolve) => setTimeout(resolve, 1800)))
+      // 和旧版投递一致：等待时间交给 loadMoreJob 内部的 delay
+      const pageDelay = Math.max(
+        PAGE_MIN_INTERVAL_SECONDS,
+        Number(conf.formData.delayDeliveryPageNext ?? 60),
+      )
+      startCooldown(pageDelay)
+      const hasMore = await helper.loadMoreJob(delay(pageDelay))
+      if (!hasMore) {
+        toast.add({ title: 'Boss 没有更多岗位了', color: 'warning' })
+        return
+      }
       await helper.refreshPageData()
     }
   } catch (error) {
@@ -123,6 +175,10 @@ async function loadMore() {
   } finally {
     loadingMore.value = false
   }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function onScroll(event: Event) {
@@ -274,9 +330,16 @@ function openLink() {
         v-if="jobs.length"
         class="flex items-center justify-center gap-2 border-t border-border py-1.5 text-[11px] text-muted-foreground"
       >
-        下拉到底部继续加载
-        <ChevronDown class="size-3" />
-        <span v-if="usingSearch && !searchMeta.hasMore">（没有更多了）</span>
+        <template v-if="loadingMore">加载中…</template>
+        <template v-else-if="cooldownLeft > 0">
+          <Clock class="size-3" />
+          翻页冷却 {{ cooldownLeft }}s（防止连续翻页被风控）
+        </template>
+        <template v-else-if="usingSearch && !searchMeta.hasMore">没有更多了</template>
+        <template v-else>
+          下拉到底部继续加载
+          <ChevronDown class="size-3" />
+        </template>
       </div>
     </div>
 
