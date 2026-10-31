@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ChevronDown, Clock, ExternalLink, MapPin, RefreshCw } from '@lucide/vue'
+import { ChevronDown, CircleHelp, Clock, ExternalLink, MapPin, RefreshCw } from '@lucide/vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import Hint from '@/components/Hint.vue'
@@ -240,6 +240,11 @@ function openLink() {
   <div class="flex flex-col gap-2">
     <div class="flex flex-wrap items-center gap-2">
       <div class="text-sm font-medium">岗位列表</div>
+      <Hint
+        text="只渲染可视区域，几百上千条也不卡；下拉到底部继续加载，翻页有冷却时间，避免连续请求被 Boss 风控。点任意一行看岗位详情。"
+      >
+        <CircleHelp class="size-3.5 text-muted-foreground" />
+      </Hint>
       <Badge v-if="usingSearch" variant="secondary" class="text-[10px] text-sky-600">
         Boss 搜索
       </Badge>

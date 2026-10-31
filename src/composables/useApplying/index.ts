@@ -375,6 +375,20 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
     } catch (e) {
       status.value = 'error'
       throw e
+    } finally {
+      // 处理完就写缓存（error 不缓存），命中后下次直接跳过
+      if (helper.conf.formData.useCache.value) {
+        const result = helper.jobResultMaps.get(data.jobData.key)
+        if (result) {
+          await cachePipelineResult(
+            data.jobData.key,
+            data.jobData.jobName,
+            data.jobData.brand?.name ?? '',
+            result.isSkip ? 'warn' : (result.status ?? 'success'),
+            result.reason ?? result.msg ?? '',
+          )
+        }
+      }
     }
   }
 
@@ -414,6 +428,34 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
           if (jobStatus === 'success' || jobStatus === 'warn') {
             continue
           }
+
+          // 缓存命中：之前处理过的岗位直接跳过，不再重复打招呼 / AI 筛选
+          if (helper.conf.formData.useCache.value) {
+            const cached = checkJobCache(jobData.key)
+            if (cached) {
+              helper.jobResultMaps.set(jobData.key, {
+                status: cached.status,
+                msg: `${cached.message}（缓存）`,
+                reason: cached.message,
+                isSkip: cached.status !== 'success',
+              })
+              addJobLog({
+                status: cached.status === 'success' ? 'success' : 'skip',
+                tag: '缓存命中',
+                job: {
+                  key: jobData.key,
+                  name: jobData.jobName,
+                  company: jobData.brand?.name,
+                  salary: jobData.salary,
+                  city: jobData.city ?? jobData.address,
+                },
+                message: cached.message,
+                reason: `上次处理于 ${new Date(cached.createdAt).toLocaleString('zh-CN')}`,
+              })
+              continue
+            }
+          }
+
           const data = {
             jobData,
             rawData: rawDataMap.get(jobData.key)!,

@@ -1,5 +1,14 @@
 <script lang="ts" setup>
-import { Bot, CheckCircle2, CircleSlash, Copy, Eraser, Search, TriangleAlert } from '@lucide/vue'
+import {
+  Bot,
+  CheckCircle2,
+  CircleHelp,
+  CircleSlash,
+  Copy,
+  Eraser,
+  Search,
+  TriangleAlert,
+} from '@lucide/vue'
 import { computed, ref } from 'vue'
 
 import Hint from '@/components/Hint.vue'
@@ -66,6 +75,11 @@ function clear() {
   <div class="flex flex-col gap-3">
     <div class="flex flex-wrap items-center gap-2">
       <div class="text-sm font-medium">运行日志</div>
+      <Hint
+        text="三类记录：投递（成功 / 被过滤 / 出错）、AI 调用（提示词 + 模型回复 + 耗时）、系统消息。本机保留最近 200 条，刷新页面后仍在。"
+      >
+        <CircleHelp class="size-3.5 text-muted-foreground" />
+      </Hint>
       <span class="text-xs text-muted-foreground tabular-nums">
         共 {{ logEntries.length }} 条 / 本机保存最近 200 条
       </span>

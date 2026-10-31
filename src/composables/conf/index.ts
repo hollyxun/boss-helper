@@ -1,9 +1,8 @@
-import { reactiveComputed, useStorageAsync, watchThrottled } from '@vueuse/core'
+import { reactiveComputed, watchThrottled } from '@vueuse/core'
 import { reactive, ref, toRaw } from 'vue'
 
 import { useToast } from '@/composables/useToast'
 import { counter } from '@/message'
-import { ExtStorage } from '@/message'
 import type { ConfigLevel, FormData } from '@/types/formData'
 import deepmerge, { jsonClone } from '@/utils/deepmerge'
 import { exportJson, importJson } from '@/utils/jsonImportExport'
@@ -16,23 +15,6 @@ export * from './info'
 const formDataPresetKey = 'local:FormDataPrese'
 const formDataPresetsKey = 'local:FormDataPreses'
 
-export const appearanceConf = useStorageAsync(
-  'appearance-conf',
-  {
-    hideHeader: false,
-    changeIcon: false,
-    dynamicTitle: false,
-    changeBackground: false,
-    blurCard: false,
-    listSink: false,
-    contentOffset: 25, // 0-25, 25则为关闭
-    leftChat: false,
-    chatBoxWidth: 600,
-    defaultShowChatBox: false,
-  },
-  ExtStorage,
-  { mergeDefaults: true },
-)
 const isLoading = ref(true)
 const formData: FormData = reactive(defaultFormData)
 const formDataPreset = ref('default')

@@ -111,17 +111,6 @@ export interface LogData {
   aiGreetingA?: string
 }
 
-type logState = 'info' | 'success' | 'warning' | 'danger'
-
-export interface Log {
-  job?: JobData
-  title: string // 标题
-  state: logState // 信息,成功,过滤,出错
-  state_name: string // 标签文本
-  message?: string // 显示消息
-  data?: LogData
-}
-
 export type AlertItem = ExtendedAlertProps & {
   type: 'alert'
 }

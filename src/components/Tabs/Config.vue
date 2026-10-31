@@ -79,6 +79,11 @@ function setConfigLevel(value: unknown) {
   conf.formData.configLevel = value as ConfigLevel
 }
 
+/** 清空岗位处理缓存，下次开始时重新跑筛选 / AI 过滤 */
+async function clearCache() {
+  await getCacheManager().clearCache()
+}
+
 function setDeliveryLimit(value: string | number) {
   conf.formData.deliveryLimit.value = Number(value)
 }
@@ -167,7 +172,7 @@ async function onPresetChange() {
         <div
           v-if="conf.configLevel.expert || conf.formData.useCache.value"
           class="flex items-center gap-2"
-          data-help="开启后会缓存投递记录，避免重复投递，提高效率。但是缓存功能并不积极维护。可能会有bug，或者意外情况，如遇到可尝试清空缓存或者禁用"
+          data-help="开启后记录每个岗位的处理结果：普通筛选 3 天、AI 过滤 7 天、高德距离 5 天。命中的岗位会直接跳过，不再重复打招呼或调 AI，日志里标记为「缓存命中」。"
         >
           <Checkbox
             id="config-use-cache"
@@ -175,16 +180,20 @@ async function onPresetChange() {
             :disabled="disabled"
           />
           <Label for="config-use-cache" class="cursor-pointer">启用缓存</Label>
+          <Hint
+            text="缓存按岗位记录处理结果：普通筛选 3 天 / AI 过滤 7 天 / 高德距离 5 天。命中后直接跳过该岗位，省时间也省 AI token；规则改了想重新跑，点「清空缓存」即可。"
+          >
+            <CircleHelp class="size-3.5 text-muted-foreground" />
+          </Hint>
         </div>
-        <Button
+        <Hint
           v-if="conf.formData.useCache.value"
-          variant="outline"
-          size="sm"
-          :disabled="disabled"
-          @click="() => getCacheManager().clearCache()"
+          text="清空所有岗位的处理记录，下次开始会重新跑一遍筛选和 AI 过滤"
         >
-          清空缓存
-        </Button>
+          <Button variant="outline" size="sm" :disabled="disabled" @click="clearCache">
+            清空缓存
+          </Button>
+        </Hint>
         <div v-if="conf.configLevel.intermediate" class="flex items-center gap-2">
           <Label for="config-delivery-limit" class="cursor-pointer">投递数量</Label>
           <Input

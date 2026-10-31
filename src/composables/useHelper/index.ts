@@ -3,7 +3,7 @@ import { inject } from 'vue'
 
 import type { HelperContext } from './ctx'
 export { HelperContext } from './ctx'
-export type { JobBaseData, JobData, LogData, Log } from './type'
+export type { JobBaseData, JobData, LogData } from './type'
 
 export const HelperKey = Symbol() as InjectionKey<HelperContext<any, unknown, unknown>>
 
