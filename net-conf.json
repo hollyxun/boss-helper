@@ -1,6 +1,6 @@
 {
-  "version": "0.0.1",
-  "version_description": "boss-helper-plus 0.0.1: 基于 Ocyss/boss-helper 的衍生改造版本，迁移到 Node.js + npm，版本号从 0.0.1 重新开始",
+  "version": "0.0.2",
+  "version_description": "boss-helper-plus 0.0.2：基于 Ocyss/boss-helper 的衍生改造版本。本次更新：菜单改为 简历 / 筛选 / 配置 / AI / 日志；岗位列表改为虚拟滚动并支持下拉加载；配置过滤直接作用于面板岗位列表；新增 AI 自动回复；日志模块重写并把 AI 调用并入；简历新增候选人摘要供 AI 过滤使用",
   "store": {
     "chrome": [
       "原项目 Chrome 商店（仅参考，本项目未上架）",
