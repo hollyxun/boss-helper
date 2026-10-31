@@ -151,14 +151,7 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
 <template>
   <div class="flex flex-col gap-4">
     <div class="flex flex-col gap-1.5">
-      <div class="flex items-center gap-1.5">
-        <Label for="boss-search-query">关键词</Label>
-        <Hint
-          text="按这里的条件调用 Boss 搜索接口，结果只显示在面板的岗位列表里；不会跳转页面，也不会改页面上的筛选"
-        >
-          <CircleHelp class="size-3.5 text-muted-foreground" />
-        </Hint>
-      </div>
+      <Label for="boss-search-query">关键词</Label>
       <Input
         id="boss-search-query"
         v-model="conditions.query"
@@ -199,6 +192,11 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
+      <Hint
+        text="按这里的条件调用 Boss 搜索接口，结果只显示在面板的岗位列表里；不会跳转页面，也不会改页面上的筛选"
+      >
+        <CircleHelp class="size-3.5 text-muted-foreground" />
+      </Hint>
       <Button :disabled="optionsLoading || applyLoading" @click="apply">
         {{ applyLoading ? '搜索中…' : '搜索岗位' }}
       </Button>
