@@ -111,6 +111,14 @@ const filterRows = computed(() =>
     .sort((a, b) => b.skip - a.skip),
 )
 
+const deliveryLimit = computed(() => Number(conf.formData.deliveryLimit.value) || 0)
+
+const deliveryPercent = computed(() => {
+  const limit = deliveryLimit.value
+  if (limit <= 0) return 0
+  return Math.min(100, Math.round((todayData.value.success / limit) * 100))
+})
+
 onMounted(() => {
   void helper.statistics.updateStatistics()
 })
@@ -160,10 +168,18 @@ onMounted(() => {
         </div>
       </div>
 
-      <Progress
-        data-help="我会统计当天脚本投递的数量,该记录并不准确"
-        :model-value="(todayData.success / conf.formData.deliveryLimit.value) * 100"
-      />
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>今日投递进度</span>
+          <span class="tabular-nums">
+            {{ todayData.success }}/{{ deliveryLimit }} · {{ deliveryPercent }}%
+          </span>
+        </div>
+        <Progress
+          data-help="我会统计当天脚本投递的数量,该记录并不准确"
+          :model-value="deliveryPercent"
+        />
+      </div>
 
       <div
         v-if="filterRows.length"
