@@ -94,6 +94,15 @@ function actionVariant(action: any): 'default' | 'destructive' | 'outline' | 'se
 function setNumber(key: string, value: string | number) {
   conf.formData[key] = Number(value)
 }
+
+/**
+ * 分组里当前配置级别下是否还有要展示的项。
+ * 里面的项会按 configLevel 变成 false，整组都空的时候不能渲染外层 div，
+ * 否则它的 margin / gap 会变成一块空白。
+ */
+function visibleItems(items?: (ConfigItem | false)[]) {
+  return Boolean(items?.some(Boolean))
+}
 </script>
 
 <template>
@@ -200,7 +209,7 @@ function setNumber(key: string, value: string | number) {
     </DropdownMenu>
   </div>
 
-  <div v-else-if="item.type === 'div'" :class="item.class">
+  <div v-else-if="item.type === 'div' && visibleItems(item.items)" :class="item.class">
     <template v-for="(value, index) in item.items" :key="index">
       <ConfigItem v-if="value" :item="value" />
     </template>

@@ -238,7 +238,7 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
               },
               {
                 type: 'div',
-                class: 'flex w-full flex-col gap-2 mt-2',
+                class: 'flex w-full flex-col gap-2',
 
                 items: [
                   {
@@ -271,14 +271,11 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                     label: '工作地址',
                     help: '只能为包含模式, 即投递工作地址当中必须包含当前内容中的任意一项，否则排除',
                   },
-                  {
-                    type: 'div',
-                  },
                 ],
               },
               {
                 type: 'div',
-                class: 'flex gap-2 mt-3',
+                class: 'flex gap-2',
                 items: [
                   conf.configLevel.intermediate && {
                     type: 'salaryRange',
@@ -292,7 +289,7 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
               },
               {
                 type: 'div',
-                class: 'col-span-full flex flex-wrap gap-2 mt-3',
+                class: 'flex flex-wrap gap-2',
                 items: [
                   conf.configLevel.intermediate && {
                     type: 'checkbox',
