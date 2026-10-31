@@ -56,6 +56,49 @@ const cycleTotal = computed(() => {
 
 const filteredTotal = computed(() => Math.max(0, todayData.value.total - todayData.value.success))
 
+/** 顶部数据卡片：一项一格，避免全部挤在一行 */
+const statTiles = computed(() => [
+  {
+    key: 'delivery',
+    label: '投递',
+    value: `${todayData.value.success}/${todayData.value.total}`,
+    help: '当天投递成功 / 扫描过的岗位总数',
+  },
+  {
+    key: 'filtered',
+    label: '过滤',
+    value: `${filteredTotal.value}/${todayData.value.total}`,
+    help: '被规则过滤掉的岗位数 / 扫描过的岗位总数',
+  },
+  {
+    key: 'repeat',
+    label: '重复',
+    value: `${todayData.value.repeat}`,
+    help: '当天刷到的重复岗位数',
+  },
+  {
+    key: 'inactive',
+    label: '不活跃',
+    value: `${todayData.value.activityFilter}`,
+    help: '最近未活跃的岗位数',
+  },
+  {
+    key: 'list',
+    label: '列表',
+    value:
+      activeFilterCount.value > 0
+        ? `${filteredJobs.value.length}/${allJobs.value.length}`
+        : `${filteredJobs.value.length}`,
+    help: '面板岗位列表的条数（配置过滤后 / 抓取总数）',
+  },
+  {
+    key: 'limit',
+    label: '今日上限',
+    value: `${conf.formData.deliveryLimit.value}`,
+    help: '每日投递上限，在配置 → 基础配置里调整',
+  },
+])
+
 /** 每个任务拦截掉的岗位数 / 该任务检查过的岗位数 */
 const filterRows = computed(() =>
   Object.entries(todayData.value.tasks ?? {})
@@ -82,38 +125,18 @@ onMounted(() => {
       show-icon
     />
 
-    <div class="flex flex-col gap-2">
-      <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
-        <span data-help="当天投递成功 / 扫描过的岗位总数">
-          投递
-          <span class="text-lg font-semibold">{{ todayData.success }}/{{ todayData.total }}</span>
-        </span>
-        <span data-help="被规则过滤掉的岗位数 / 扫描过的岗位总数">
-          过滤
-          <span class="text-lg font-semibold">{{ filteredTotal }}/{{ todayData.total }}</span>
-        </span>
-        <span data-help="当天刷到的重复岗位数">
-          重复 <span class="font-semibold">{{ todayData.repeat }}</span>
-        </span>
-        <span data-help="最近未活跃的岗位数">
-          不活跃 <span class="font-semibold">{{ todayData.activityFilter }}</span>
-        </span>
-        <span data-help="面板岗位列表的条数（配置过滤后 / 抓取总数）">
-          列表
-          <span class="font-semibold">
-            {{ filteredJobs.length }}
-            <template v-if="activeFilterCount > 0">/{{ allJobs.length }}</template>
-          </span>
-        </span>
+    <section class="flex flex-col gap-3 rounded-lg border border-border p-3">
+      <div class="flex items-center justify-between gap-2">
+        <div class="text-sm font-medium">今日数据</div>
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" class="font-normal">
               {{ cycles[cycleIndex]?.label }}
               <span class="font-semibold">{{ cycleTotal + todayData.success }}</span>
               <ChevronDown class="size-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" class="w-40">
+          <DropdownMenuContent align="end" class="w-40">
             <DropdownMenuItem
               v-for="(item, index) in cycles"
               :key="item.label"
@@ -125,9 +148,26 @@ onMounted(() => {
         </DropdownMenu>
       </div>
 
+      <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div
+          v-for="tile in statTiles"
+          :key="tile.key"
+          :data-help="tile.help"
+          class="rounded-md border border-border bg-muted/30 px-2.5 py-1.5"
+        >
+          <div class="truncate text-xs text-muted-foreground">{{ tile.label }}</div>
+          <div class="text-lg leading-tight font-semibold tabular-nums">{{ tile.value }}</div>
+        </div>
+      </div>
+
+      <Progress
+        data-help="我会统计当天脚本投递的数量,该记录并不准确"
+        :model-value="(todayData.success / conf.formData.deliveryLimit.value) * 100"
+      />
+
       <div
         v-if="filterRows.length"
-        class="flex flex-col gap-1 text-sm"
+        class="flex flex-col gap-1 border-t border-border pt-2 text-sm"
         data-help="各条规则拦截的数量 / 该规则检查过的数量"
       >
         <div class="text-xs font-medium text-muted-foreground">过滤明细</div>
@@ -140,14 +180,9 @@ onMounted(() => {
           <span class="shrink-0 font-mono"> {{ row.skip }}/{{ row.total }} </span>
         </div>
       </div>
+    </section>
 
-      <Progress
-        data-help="我会统计当天脚本投递的数量,该记录并不准确"
-        :model-value="(todayData.success / conf.formData.deliveryLimit.value) * 100"
-      />
-    </div>
-
-    <div class="flex flex-col gap-3 border-t border-border pt-3">
+    <section class="flex flex-col gap-3 rounded-lg border border-border p-3">
       <div class="flex items-center gap-1.5">
         <div class="text-sm font-medium">页面搜索条件</div>
         <Hint
@@ -189,10 +224,10 @@ onMounted(() => {
           </Button>
         </template>
       </SearchTab>
-    </div>
+    </section>
 
-    <div class="flex flex-col gap-3 border-t border-border pt-3">
+    <section class="flex flex-col gap-3 rounded-lg border border-border p-3">
       <JobTable />
-    </div>
+    </section>
   </div>
 </template>
