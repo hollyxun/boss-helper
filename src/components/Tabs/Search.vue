@@ -1,9 +1,8 @@
 <script lang="ts" setup>
-import { ChevronsUpDown, Info, Search as SearchIcon } from '@lucide/vue'
+import { CircleHelp, ChevronsUpDown, Search as SearchIcon } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 
-import Alert from '@/components/ui/alert/Alert.vue'
-import AlertDescription from '@/components/ui/alert/AlertDescription.vue'
+import Hint from '@/components/Hint.vue'
 import Button from '@/components/ui/button/Button.vue'
 import Dialog from '@/components/ui/dialog/Dialog.vue'
 import DialogContent from '@/components/ui/dialog/DialogContent.vue'
@@ -151,16 +150,15 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
 
 <template>
   <div class="flex flex-col gap-4">
-    <Alert class="items-center">
-      <Info class="size-4" />
-      <AlertDescription>
-        按这里的条件调用 Boss
-        搜索接口，结果直接显示在面板的岗位列表里；不会跳转页面，也不会改页面上的筛选。
-      </AlertDescription>
-    </Alert>
-
     <div class="flex flex-col gap-1.5">
-      <Label for="boss-search-query">关键词</Label>
+      <div class="flex items-center gap-1.5">
+        <Label for="boss-search-query">关键词</Label>
+        <Hint
+          text="按这里的条件调用 Boss 搜索接口，结果只显示在面板的岗位列表里；不会跳转页面，也不会改页面上的筛选"
+        >
+          <CircleHelp class="size-3.5 text-muted-foreground" />
+        </Hint>
+      </div>
       <Input
         id="boss-search-query"
         v-model="conditions.query"
@@ -205,9 +203,6 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
         {{ applyLoading ? '搜索中…' : '搜索岗位' }}
       </Button>
       <Button variant="ghost" @click="reset">清空</Button>
-      <span class="text-xs text-muted-foreground">
-        调用 Boss 搜索接口，结果只显示在面板里，不会改动页面
-      </span>
     </div>
 
     <Dialog v-model:open="cityDialogOpen">
