@@ -37,6 +37,19 @@ function overlap(a: [number, number], b: [number, number]) {
   return a[0] <= b[1] && b[0] <= a[1]
 }
 
+/**
+ * 和投递管线里的 `rangeMatch` 保持一致的严格/宽松语义：
+ * form[2] === true 时要求岗位范围完全落在设定范围内，否则只要重叠即可。
+ */
+function matchRange(jobRange: [number, number] | null, form: [number, number, boolean]) {
+  if (!jobRange) return true
+  let [start, end, strict] = form
+  if (start > end) [start, end] = [end, start]
+  if (!start && !end) return true
+  if (strict) return jobRange[0] >= start && jobRange[1] <= end
+  return overlap(jobRange, [start, end])
+}
+
 /** 品牌规模文案「100-499人」→ [100, 499] */
 function parseScale(text?: string): [number, number] | null {
   if (!text) return null
@@ -106,17 +119,19 @@ export function matchJobByConfig(job: JobData, formData: FormData): MatchResult 
   if (!address.ok) return address
 
   if (formData.salaryRange?.enable) {
-    const [min, max] = formData.salaryRange.value
     const jobSalary = parseSalary(job.salary)
-    if (jobSalary && (min || max) && !overlap(jobSalary, [min, max])) {
-      return { ok: false, reason: `薪资 ${job.salary} 不在 ${min}-${max}K 范围` }
+    if (!matchRange(jobSalary, formData.salaryRange.value)) {
+      const [min, max, strict] = formData.salaryRange.value
+      return {
+        ok: false,
+        reason: `薪资 ${job.salary} 不在 ${min}-${max}K 范围（${strict ? '严格' : '宽松'}）`,
+      }
     }
   }
 
   if (formData.companySizeRange?.enable) {
-    const [min, max] = formData.companySizeRange.value
     const scale = parseScale(brand.scale)
-    if (scale && (min || max) && !overlap(scale, [min, max])) {
+    if (!matchRange(scale, formData.companySizeRange.value)) {
       return { ok: false, reason: `公司规模 ${brand.scale} 不在范围内` }
     }
   }
