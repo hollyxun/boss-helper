@@ -241,7 +241,9 @@ function onPointerMove(ev: PointerEvent) {
             </Hint>
           </nav>
 
-          <div class="scroll-stable min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+          <div
+            class="scroll-stable min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-3"
+          >
             <div
               v-if="helper.netConf.value && helper.netConf.value.notification"
               class="netAlerts mb-3 flex flex-col gap-2"

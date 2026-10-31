@@ -277,7 +277,7 @@ function openLink() {
 
     <div class="overflow-hidden rounded-md border border-border">
       <div
-        class="grid grid-cols-[minmax(150px,1fr)_92px_110px_80px] items-center gap-2 border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground"
+        class="grid grid-cols-[minmax(0,1fr)_92px_110px_80px] items-center gap-2 border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground"
       >
         <span>岗位</span>
         <span>薪资</span>
@@ -286,7 +286,7 @@ function openLink() {
       </div>
 
       <div
-        class="scroll-stable relative overflow-y-auto"
+        class="scroll-stable relative overflow-x-hidden overflow-y-auto"
         :style="{ height: `${VIEWPORT_HEIGHT}px` }"
         @scroll.passive="onScroll"
       >
@@ -303,7 +303,7 @@ function openLink() {
           <div
             v-for="row in rows"
             :key="row.job.key"
-            class="absolute right-0 left-0 grid cursor-pointer grid-cols-[minmax(150px,1fr)_92px_110px_80px] items-center gap-2 border-b border-border/60 px-3 text-sm hover:bg-muted/40"
+            class="absolute right-0 left-0 grid cursor-pointer grid-cols-[minmax(0,1fr)_92px_110px_80px] items-center gap-2 border-b border-border/60 px-3 text-sm hover:bg-muted/40"
             :style="{ top: `${row.top}px`, height: `${ROW_HEIGHT}px` }"
             @click="openDetail(row.job)"
           >
