@@ -1,8 +1,9 @@
 <script lang="ts" setup>
-import { ChevronDown, LoaderCircle } from '@lucide/vue'
+import { ChevronDown, CircleHelp, LoaderCircle } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 
 import Alert from '@/components/Alert.vue'
+import Hint from '@/components/Hint.vue'
 import JobTable from '@/components/JobTable.vue'
 import SearchTab from '@/components/Tabs/Search.vue'
 import Button from '@/components/ui/button/Button.vue'
@@ -181,7 +182,14 @@ onMounted(() => {
     </div>
 
     <div class="flex flex-col gap-3 border-t border-border pt-3">
-      <div class="text-sm font-medium">页面搜索条件</div>
+      <div class="flex items-center gap-1.5">
+        <div class="text-sm font-medium">页面搜索条件</div>
+        <Hint
+          text="按这里的条件调用 Boss 搜索接口，结果只显示在面板的岗位列表里；不会跳转页面，也不会改页面上的筛选"
+        >
+          <CircleHelp class="size-3.5 text-muted-foreground" />
+        </Hint>
+      </div>
       <SearchTab />
     </div>
 

@@ -1,8 +1,7 @@
 <script lang="ts" setup>
-import { CircleHelp, ChevronsUpDown, Search as SearchIcon } from '@lucide/vue'
+import { ChevronsUpDown, Search as SearchIcon } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 
-import Hint from '@/components/Hint.vue'
 import Button from '@/components/ui/button/Button.vue'
 import Dialog from '@/components/ui/dialog/Dialog.vue'
 import DialogContent from '@/components/ui/dialog/DialogContent.vue'
@@ -192,11 +191,6 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
-      <Hint
-        text="按这里的条件调用 Boss 搜索接口，结果只显示在面板的岗位列表里；不会跳转页面，也不会改页面上的筛选"
-      >
-        <CircleHelp class="size-3.5 text-muted-foreground" />
-      </Hint>
       <Button :disabled="optionsLoading || applyLoading" @click="apply">
         {{ applyLoading ? '搜索中…' : '搜索岗位' }}
       </Button>
