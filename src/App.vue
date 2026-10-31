@@ -44,8 +44,8 @@ const panels: Record<PanelTab, Component> = {
 }
 
 const menu: { value: PanelTab; label: string; hint: string; icon: Component }[] = [
-  { value: 'statistics', label: '统计', hint: '失败是成功她妈', icon: ChartColumn },
   { value: 'resume', label: '简历', hint: '简历写得好，AI 筛得准', icon: FileText },
+  { value: 'statistics', label: '筛选', hint: '配置过滤 + AI 过滤，筛完再投', icon: ChartColumn },
   { value: 'config', label: '配置', hint: '好好看，好好学', icon: Settings2 },
   { value: 'ai', label: 'AI', hint: 'AI时代，脚本怎么能落伍!', icon: Sparkles },
   { value: 'logs', label: '日志', hint: '反正你也不看', icon: ScrollText },

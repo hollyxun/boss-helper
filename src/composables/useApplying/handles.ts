@@ -263,7 +263,7 @@ export class TaskRegistry<C extends HelperContext<C, T, S>, T, S = {}> {
     }
   })
 
-  hrPosition = defineTaskHandler<C, T, S>('Hr职位', (ctx) => {
+  hrPosition = defineTaskHandler<C, T, S>('HR职位', (ctx) => {
     if (!ctx.helper.conf.formData.hrPosition.enable) {
       return
     }
@@ -277,11 +277,11 @@ export class TaskRegistry<C extends HelperContext<C, T, S>, T, S = {}> {
           if (ctx.helper.conf.formData.hrPosition.include) {
             return
           }
-          return taskResult.skip(`Hr职位在黑名单中: ${content}`)
+          return taskResult.skip(`HR职位在黑名单中: ${content}`)
         }
       }
       if (ctx.helper.conf.formData.hrPosition.include) {
-        return taskResult.skip(`Hr职位不在白名单中: ${content}`)
+        return taskResult.skip(`HR职位不在白名单中: ${content}`)
       }
     }
   })
@@ -322,7 +322,7 @@ export class TaskRegistry<C extends HelperContext<C, T, S>, T, S = {}> {
   })
 
   aiFiltering = defineTaskHandler<C, T, S>(
-    'AI筛选',
+    'AI 过滤',
     (ctx) => {
       if (!ctx.helper.conf.formData.aiFiltering.enable) {
         return
@@ -332,19 +332,22 @@ export class TaskRegistry<C extends HelperContext<C, T, S>, T, S = {}> {
           json: true,
         })
       ) {
-        throw new HelperConfigError('aiFiltering.model', 'AI筛选模型未配置')
+        throw new HelperConfigError('aiFiltering.model', 'AI 过滤模型未配置')
       }
       return async (ctx, data) => {
         const content = await ctx.helper.chatModel.chat('filtering', data).then((r) => r.text)
         const { message, rating } = parseFiltering(content)
-        if (rating < (ctx.helper.conf.formData.aiFiltering.score ?? 10)) {
-          return taskResult.skip(message)
+        const threshold = ctx.helper.conf.formData.aiFiltering.score ?? 10
+        if (rating < threshold) {
+          return taskResult.skip(
+            `${message || 'AI 评分不达标'}（AI 评分 ${rating}，低于 ${threshold}）`,
+          )
         }
       }
     },
     {
       state: 'ai',
-      stateMsg: 'AI筛选中',
+      stateMsg: 'AI 过滤中',
     },
   )
 

@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import { ExternalLink, MapPin, RefreshCw } from '@lucide/vue'
-import { computed, ref } from 'vue'
+import { ChevronDown, ExternalLink, MapPin, RefreshCw } from '@lucide/vue'
+import { computed, ref, watch } from 'vue'
 
 import Hint from '@/components/Hint.vue'
 import Avatar from '@/components/ui/avatar/Avatar.vue'
@@ -15,35 +15,67 @@ import DialogFooter from '@/components/ui/dialog/DialogFooter.vue'
 import DialogHeader from '@/components/ui/dialog/DialogHeader.vue'
 import DialogTitle from '@/components/ui/dialog/DialogTitle.vue'
 import Skeleton from '@/components/ui/skeleton/Skeleton.vue'
-import Table from '@/components/ui/table/Table.vue'
-import TableBody from '@/components/ui/table/TableBody.vue'
-import TableCell from '@/components/ui/table/TableCell.vue'
-import TableHead from '@/components/ui/table/TableHead.vue'
-import TableHeader from '@/components/ui/table/TableHeader.vue'
-import TableRow from '@/components/ui/table/TableRow.vue'
+import Switch from '@/components/ui/switch/Switch.vue'
+import { useConf } from '@/composables/conf'
 import type { JobStatus } from '@/composables/useApplying/type'
 import {
   clearSearchResults,
   fetchJobDetail,
   panelSearchResults,
+  searchJobs,
   searchMeta,
 } from '@/composables/useBossJobSearch'
 import type { JobData } from '@/composables/useHelper'
 import { useHelper } from '@/composables/useHelper'
+import { matchJobByConfig } from '@/composables/useJobMatching'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/utils/logger'
 
 const helper = useHelper()
+const conf = useConf()
 const toast = useToast()
+
+/** 虚拟列表参数：固定行高，只渲染可视区域 */
+const ROW_HEIGHT = 54
+const VIEWPORT_HEIGHT = 420
+const OVERSCAN = 8
 
 const pageJobs = computed(() => helper.jobList.value)
 const usingSearch = computed(() => panelSearchResults.value.length > 0)
-const jobs = computed(() => (usingSearch.value ? panelSearchResults.value : pageJobs.value))
+const sourceJobs = computed(() => (usingSearch.value ? panelSearchResults.value : pageJobs.value))
+
+const filterEnabled = ref(true)
+const matched = computed(() =>
+  sourceJobs.value.map((job) => {
+    if (!filterEnabled.value) return { job, ok: true as const }
+    const result = matchJobByConfig(job, conf.formData)
+    return { job, ok: result.ok, reason: result.reason }
+  }),
+)
+const jobs = computed(() => matched.value.filter((item) => item.ok).map((item) => item.job))
+const droppedCount = computed(() => matched.value.length - jobs.value.length)
+
+const scrollTop = ref(0)
+const startIndex = computed(() => Math.max(0, Math.floor(scrollTop.value / ROW_HEIGHT) - OVERSCAN))
+const endIndex = computed(() =>
+  Math.min(
+    jobs.value.length,
+    startIndex.value + Math.ceil(VIEWPORT_HEIGHT / ROW_HEIGHT) + OVERSCAN * 2,
+  ),
+)
+const rows = computed(() =>
+  jobs.value.slice(startIndex.value, endIndex.value).map((job, offset) => ({
+    job,
+    top: (startIndex.value + offset) * ROW_HEIGHT,
+  })),
+)
+const totalHeight = computed(() => jobs.value.length * ROW_HEIGHT)
 
 const detailOpen = ref(false)
 const detailJob = ref<JobData | null>(null)
 const detailLoading = ref(false)
 const refreshing = ref(false)
+const loadingMore = ref(false)
 
 const statusMap: Record<JobStatus, { label: string; class: string }> = {
   pending: { label: '未处理', class: 'text-muted-foreground' },
@@ -73,6 +105,37 @@ async function refresh() {
     refreshing.value = false
   }
 }
+
+/** 滚到底部继续加载：搜索模式翻页，页面模式让 Boss 翻页 */
+async function loadMore() {
+  if (loadingMore.value) return
+  loadingMore.value = true
+  try {
+    if (usingSearch.value) {
+      if (!searchMeta.hasMore || !searchMeta.conditions) return
+      await searchJobs(searchMeta.conditions, searchMeta.page + 1, true)
+    } else {
+      await helper.loadMoreJob(new Promise((resolve) => setTimeout(resolve, 1800)))
+      await helper.refreshPageData()
+    }
+  } catch (error) {
+    logger.warn('JobTableLoadMoreError', error)
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+function onScroll(event: Event) {
+  const el = event.target as HTMLElement
+  scrollTop.value = el.scrollTop
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - ROW_HEIGHT * 4) {
+    void loadMore()
+  }
+}
+
+watch(usingSearch, () => {
+  scrollTop.value = 0
+})
 
 async function openDetail(job: JobData) {
   detailJob.value = job
@@ -124,9 +187,21 @@ function openLink() {
       <Badge v-if="usingSearch" variant="secondary" class="text-[10px] text-sky-600">
         Boss 搜索
       </Badge>
-      <span class="text-xs text-muted-foreground tabular-nums">共 {{ jobs.length }} 个</span>
-      <span v-if="searchMeta.loading" class="text-xs text-muted-foreground">搜索中…</span>
-      <div class="ml-auto flex items-center gap-1">
+      <span class="text-xs text-muted-foreground tabular-nums">
+        共 {{ sourceJobs.length }} 个
+        <template v-if="droppedCount > 0">· 配置过滤掉 {{ droppedCount }} 个</template>
+        · 显示 {{ jobs.length }} 个
+      </span>
+      <span v-if="loadingMore || searchMeta.loading" class="text-xs text-muted-foreground">
+        加载中…
+      </span>
+      <div class="ml-auto flex items-center gap-2">
+        <Hint text="用「配置 → 筛选配置」的条件过滤这个列表">
+          <span class="flex items-center gap-1 text-xs text-muted-foreground">
+            按配置过滤
+            <Switch v-model="filterEnabled" />
+          </span>
+        </Hint>
         <Button v-if="usingSearch" variant="ghost" size="sm" @click="clearSearchResults">
           清空搜索
         </Button>
@@ -139,53 +214,70 @@ function openLink() {
       </div>
     </div>
 
-    <div class="scroll-stable max-h-[320px] overflow-y-auto rounded-md border border-border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead class="min-w-[150px]">岗位</TableHead>
-            <TableHead class="w-[92px]">薪资</TableHead>
-            <TableHead class="w-[110px]">经验 / 学历</TableHead>
-            <TableHead class="w-[80px]">状态</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow
-            v-for="job in jobs"
-            :key="job.key"
-            class="cursor-pointer hover:bg-muted/40"
-            @click="openDetail(job)"
+    <div class="overflow-hidden rounded-md border border-border">
+      <div
+        class="grid grid-cols-[minmax(150px,1fr)_92px_110px_80px] items-center gap-2 border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground"
+      >
+        <span>岗位</span>
+        <span>薪资</span>
+        <span>经验 / 学历</span>
+        <span>状态</span>
+      </div>
+
+      <div
+        class="scroll-stable relative overflow-y-auto"
+        :style="{ height: `${VIEWPORT_HEIGHT}px` }"
+        @scroll.passive="onScroll"
+      >
+        <div v-if="!jobs.length" class="p-6 text-center text-sm text-muted-foreground">
+          {{
+            searchMeta.error ||
+            (sourceJobs.length
+              ? '配置过滤后没有岗位，放宽「配置 → 筛选配置」或关掉「按配置过滤」'
+              : '还没有岗位：按条件搜索，或点「刷新」读取当前页面')
+          }}
+        </div>
+
+        <div v-else :style="{ height: `${totalHeight}px`, position: 'relative' }">
+          <div
+            v-for="row in rows"
+            :key="row.job.key"
+            class="absolute right-0 left-0 grid cursor-pointer grid-cols-[minmax(150px,1fr)_92px_110px_80px] items-center gap-2 border-b border-border/60 px-3 text-sm hover:bg-muted/40"
+            :style="{ top: `${row.top}px`, height: `${ROW_HEIGHT}px` }"
+            @click="openDetail(row.job)"
           >
-            <TableCell>
-              <div class="flex flex-col">
-                <span class="truncate text-sm">{{ job.jobName }}</span>
-                <span class="truncate text-xs text-muted-foreground">
-                  {{ job.brand?.name }} · {{ job.city ?? job.address ?? '-' }}
-                </span>
-              </div>
-            </TableCell>
-            <TableCell class="text-sm">{{ job.salary }}</TableCell>
-            <TableCell class="text-xs text-muted-foreground">
-              {{ job.experienceName }} / {{ job.degreeName }}
-            </TableCell>
-            <TableCell>
-              <Hint v-if="statusOf(job.key).reason" :text="statusOf(job.key).reason!">
-                <span class="text-xs" :class="statusOf(job.key).class">
-                  {{ statusOf(job.key).label }}
+            <div class="flex min-w-0 flex-col">
+              <span class="truncate">{{ row.job.jobName }}</span>
+              <span class="truncate text-xs text-muted-foreground">
+                {{ row.job.brand?.name }} · {{ row.job.city ?? row.job.address ?? '-' }}
+              </span>
+            </div>
+            <span class="truncate text-sm text-destructive">{{ row.job.salary }}</span>
+            <span class="truncate text-xs text-muted-foreground">
+              {{ row.job.experienceName }} / {{ row.job.degreeName }}
+            </span>
+            <span class="truncate">
+              <Hint v-if="statusOf(row.job.key).reason" :text="statusOf(row.job.key).reason!">
+                <span class="text-xs" :class="statusOf(row.job.key).class">
+                  {{ statusOf(row.job.key).label }}
                 </span>
               </Hint>
-              <span v-else class="text-xs" :class="statusOf(job.key).class">
-                {{ statusOf(job.key).label }}
+              <span v-else class="text-xs" :class="statusOf(row.job.key).class">
+                {{ statusOf(row.job.key).label }}
               </span>
-            </TableCell>
-          </TableRow>
-          <TableRow v-if="jobs.length === 0">
-            <TableCell colspan="4" class="py-6 text-center text-sm text-muted-foreground">
-              {{ searchMeta.error || '还没有岗位：在上面按条件搜索，或点「刷新」读取当前页面' }}
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-if="jobs.length"
+        class="flex items-center justify-center gap-2 border-t border-border py-1.5 text-[11px] text-muted-foreground"
+      >
+        下拉到底部继续加载
+        <ChevronDown class="size-3" />
+        <span v-if="usingSearch && !searchMeta.hasMore">（没有更多了）</span>
+      </div>
     </div>
 
     <Dialog v-model:open="detailOpen">

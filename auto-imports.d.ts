@@ -59,6 +59,7 @@ declare global {
   const logCounts: typeof import('./src/composables/useLogs').logCounts
   const logEntries: typeof import('./src/composables/useLogs').logEntries
   const markRaw: typeof import('vue').markRaw
+  const matchJobByConfig: typeof import('./src/composables/useJobMatching').matchJobByConfig
   const matchJobConditions: typeof import('./src/composables/useJobFilter').matchJobConditions
   const mergeResumeTexts: typeof import('./src/composables/useBossResume').mergeResumeTexts
   const nextTick: typeof import('vue').nextTick
@@ -164,6 +165,9 @@ declare global {
     CityGroup,
   } from './src/composables/useBossSearch'
   import('./src/composables/useBossSearch')
+  // @ts-ignore
+  export type { MatchResult } from './src/composables/useJobMatching'
+  import('./src/composables/useJobMatching')
   // @ts-ignore
   export type {
     LogKind,

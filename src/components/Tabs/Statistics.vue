@@ -14,14 +14,17 @@ import Progress from '@/components/ui/progress/Progress.vue'
 import { useConf } from '@/composables/conf'
 import { panelSearchResults } from '@/composables/useBossJobSearch'
 import { useHelper } from '@/composables/useHelper'
+import { matchJobByConfig } from '@/composables/useJobMatching'
 
 const helper = useHelper()
 const conf = useConf()
 
 const allJobs = computed(() => helper.jobList.value)
-const filteredJobs = computed(() =>
-  panelSearchResults.value.length > 0 ? panelSearchResults.value : helper.jobList.value,
-)
+const filteredJobs = computed(() => {
+  const source =
+    panelSearchResults.value.length > 0 ? panelSearchResults.value : helper.jobList.value
+  return source.filter((job) => matchJobByConfig(job, conf.formData).ok)
+})
 const activeFilterCount = computed(() => (panelSearchResults.value.length > 0 ? 1 : 0))
 
 const { todayData, statisticsData } = helper.statistics
@@ -94,7 +97,7 @@ onMounted(() => {
         <span data-help="最近未活跃的岗位数">
           不活跃 <span class="font-semibold">{{ todayData.activityFilter }}</span>
         </span>
-        <span data-help="面板岗位列表的条数（筛选后 / 页面抓取总数）">
+        <span data-help="面板岗位列表的条数（配置过滤后 / 抓取总数）">
           列表
           <span class="font-semibold">
             {{ filteredJobs.length }}
