@@ -182,9 +182,15 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     // 页面内路由切换（应用搜索 / 翻页）会再次触发 onMount，此时复用现有元素，
     // 避免把已经打开的抽屉整个卸载掉；只重新绑定页面数据钩子。
     if (!BossHelperCtx.instance) {
-      const appElement = document.createElement('boss-helper-job')
-      BossHelperCtx.instance = appElement
-      document.body.appendChild(appElement)
+      // run() 已经把宿主建好在 body 里，这里只记录引用，避免 onMount 重复创建
+      const existed = document.querySelector<HTMLElement>('[data-boss-helper-host]')
+      if (existed) {
+        BossHelperCtx.instance = existed
+      } else {
+        const appElement = document.createElement('boss-helper-job')
+        BossHelperCtx.instance = appElement
+        document.body.appendChild(appElement)
+      }
     }
 
     await this._initPage()
