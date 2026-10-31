@@ -27,6 +27,7 @@ import {
 } from '@/composables/useBossJobSearch'
 import type { JobData } from '@/composables/useHelper'
 import { useHelper } from '@/composables/useHelper'
+import { jobListFilterEnabled } from '@/composables/useJobListFilter'
 import { matchJobByConfig } from '@/composables/useJobMatching'
 import { useToast } from '@/composables/useToast'
 import { delay } from '@/utils'
@@ -41,11 +42,11 @@ const ROW_HEIGHT = 54
 const VIEWPORT_HEIGHT = 420
 const OVERSCAN = 8
 
-const pageJobs = computed(() => helper.jobList.value)
 const usingSearch = computed(() => panelSearchResults.value.length > 0)
-const sourceJobs = computed(() => (usingSearch.value ? panelSearchResults.value : pageJobs.value))
+/** 和投递流程同一个来源：搜索结果优先，没有搜索结果时用页面岗位 */
+const sourceJobs = computed(() => helper.getActiveJobs())
 
-const filterEnabled = ref(true)
+const filterEnabled = jobListFilterEnabled
 const matched = computed(() =>
   sourceJobs.value.map((job) => {
     if (!filterEnabled.value) return { job, ok: true as const }

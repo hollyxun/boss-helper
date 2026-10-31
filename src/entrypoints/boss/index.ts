@@ -4,7 +4,14 @@ import { defineUnlistedScript } from '#imports'
 import { useConf } from '@/composables/conf'
 import type { WorkflowData } from '@/composables/useApplying/type'
 import { createLazyObject, isInitialized } from '@/composables/useApplying/type'
-import { convertBossZpJobItemToJobData } from '@/composables/useBossJobSearch'
+import {
+  convertBossZpJobItemToJobData,
+  fetchJobDetail,
+  panelSearchResults,
+  rawJobItems,
+  searchJobs,
+  searchMeta,
+} from '@/composables/useBossJobSearch'
 import type { JobData } from '@/composables/useHelper'
 import { HelperContext } from '@/composables/useHelper'
 import type { AlertItem, ConfigAccordionItem } from '@/composables/useHelper/type'
@@ -450,7 +457,12 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     })
 
     job.rawData.detail = detail
-    const targetJob = job.jobData
+    this.applyJobDetail(job.jobData, detail)
+    this.jobMaps.set(key, job)
+  }
+
+  /** 把接口 / 页面拿到的详情合并进岗位数据 */
+  applyJobDetail(targetJob: JobData, detail: BossZpDetailData) {
     targetJob.activeTime = detail.brandComInfo.activeTime
     targetJob.activeTimeStr = detail.bossInfo.activeTimeDesc
     targetJob.jobDescription = detail.jobInfo.postDescription
@@ -470,7 +482,63 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
       introduce: detail.brandComInfo.introduce,
       stageName: detail.brandComInfo.stageName,
     }
-    this.jobMaps.set(key, job)
+  }
+
+  /** 面板搜索结果里的岗位不在宿主页面上，详情只能走接口 */
+  async loadPanelDetail(job: JobData) {
+    const entry = this.jobMaps.get(job.key)
+    if (!entry) {
+      throw new Error('未找到job数据')
+    }
+    if (isInitialized(entry.rawData.detail)) return
+    const detail = await fetchJobDetail(entry.jobData)
+    if (!detail) {
+      throw new Error('岗位详情获取失败')
+    }
+    entry.rawData.detail = detail
+    this.applyJobDetail(entry.jobData, detail)
+    this.jobMaps.set(job.key, entry)
+  }
+
+  /** 这个岗位是否存在于宿主页面的岗位列表里 */
+  isPageJob(key: string) {
+    return this.jobList.value.some((job) => job.key === key)
+  }
+
+  /**
+   * 要展示 / 投递的岗位来源。
+   * 面板搜索有结果时用搜索结果，否则用页面列表（保持旧版行为）。
+   */
+  override getActiveJobs(): JobData[] {
+    const panel = panelSearchResults.value
+    if (panel.length === 0) return this.jobList.value
+
+    for (const job of panel) {
+      if (this._jobDataMap.has(job.key)) continue
+      const item = rawJobItems.get(job.key)
+      if (!item) continue
+      this._jobDataMap.set(job.key, {
+        jobitem: item,
+        detail: createLazyObject('岗位详情获取'),
+        boss: createLazyObject('Boss信息获取'),
+      })
+    }
+    return panel
+  }
+
+  /** 搜索模式下继续拉下一页搜索结果 */
+  override async loadMoreActiveJobs(delay: Promise<any>): Promise<boolean> {
+    if (panelSearchResults.value.length === 0) return this.loadMoreJob(delay)
+    if (!searchMeta.hasMore || !searchMeta.conditions) return false
+    const before = panelSearchResults.value.length
+    await delay
+    try {
+      await searchJobs(searchMeta.conditions, searchMeta.page + 1, true)
+    } catch (error) {
+      logger.error('搜索翻页失败', error)
+      return false
+    }
+    return panelSearchResults.value.length > before
   }
   async _initJobList() {
     await useHookVueData(

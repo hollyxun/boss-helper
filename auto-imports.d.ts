@@ -54,6 +54,7 @@ declare global {
   const isReadonly: typeof import('vue').isReadonly
   const isRef: typeof import('vue').isRef
   const isShallow: typeof import('vue').isShallow
+  const jobListFilterEnabled: typeof import('./src/composables/useJobListFilter').jobListFilterEnabled
   const lastBossResume: typeof import('./src/composables/useBossResume').lastBossResume
   const loadSearchOptions: typeof import('./src/composables/useBossSearch').loadSearchOptions
   const logCounts: typeof import('./src/composables/useLogs').logCounts

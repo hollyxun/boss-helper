@@ -37,7 +37,13 @@ export const bossWorkflow = defineTaskWorkflow<BossHelperCtx, BoosJobData>(
   defineTaskHandler(
     '岗位详情获取',
     () => async (ctx, job) => {
-      await ctx.helper.onJobCardClick(job.jobData.key)
+      const key = job.jobData.key
+      // 页面列表里的岗位点卡片拿详情；面板搜索出来的岗位走详情接口
+      if (ctx.helper.isPageJob(key)) {
+        await ctx.helper.onJobCardClick(key)
+        return
+      }
+      await ctx.helper.loadPanelDetail(job.jobData)
     },
     {
       state: 'request',

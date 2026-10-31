@@ -46,6 +46,17 @@ export abstract class HelperContext<C extends HelperContext<C, T, S>, T, S> {
   }
 
   abstract loadMoreJob(delay: Promise<any>): Promise<boolean>
+  /**
+   * 当前要展示 / 投递的岗位来源。
+   * 默认是宿主页面上的岗位列表，面板搜索模式下由子类覆盖成搜索结果。
+   */
+  getActiveJobs(): JobData[] {
+    return this.jobList.value
+  }
+  /** 主动加载更多岗位：页面模式是翻页，搜索模式是拉搜索接口下一页 */
+  async loadMoreActiveJobs(delay: Promise<any>): Promise<boolean> {
+    return this.loadMoreJob(delay)
+  }
   abstract onMount(): Promise<void>
   /** 打开面板时重新同步一次宿主页面数据；默认无操作 */
   async refreshPageData(): Promise<void> {}

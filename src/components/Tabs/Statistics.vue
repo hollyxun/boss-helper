@@ -13,20 +13,20 @@ import DropdownMenuItem from '@/components/ui/dropdown-menu/DropdownMenuItem.vue
 import DropdownMenuTrigger from '@/components/ui/dropdown-menu/DropdownMenuTrigger.vue'
 import Progress from '@/components/ui/progress/Progress.vue'
 import { useConf } from '@/composables/conf'
-import { panelSearchResults } from '@/composables/useBossJobSearch'
 import { useHelper } from '@/composables/useHelper'
+import { jobListFilterEnabled } from '@/composables/useJobListFilter'
 import { matchJobByConfig } from '@/composables/useJobMatching'
 
 const helper = useHelper()
 const conf = useConf()
 
-const allJobs = computed(() => helper.jobList.value)
+/** 和投递流程 / 岗位列表同一个来源：搜索结果优先，否则页面岗位 */
+const allJobs = computed(() => helper.getActiveJobs())
 const filteredJobs = computed(() => {
-  const source =
-    panelSearchResults.value.length > 0 ? panelSearchResults.value : helper.jobList.value
-  return source.filter((job) => matchJobByConfig(job, conf.formData).ok)
+  if (!jobListFilterEnabled.value) return allJobs.value
+  return allJobs.value.filter((job) => matchJobByConfig(job, conf.formData).ok)
 })
-const activeFilterCount = computed(() => (panelSearchResults.value.length > 0 ? 1 : 0))
+const droppedJobs = computed(() => allJobs.value.length - filteredJobs.value.length)
 
 const { todayData, statisticsData } = helper.statistics
 
@@ -86,10 +86,10 @@ const statTiles = computed(() => [
     key: 'list',
     label: '列表',
     value:
-      activeFilterCount.value > 0
+      droppedJobs.value > 0
         ? `${filteredJobs.value.length}/${allJobs.value.length}`
-        : `${filteredJobs.value.length}`,
-    help: '面板岗位列表的条数（配置过滤后 / 抓取总数）',
+        : `${allJobs.value.length}`,
+    help: '岗位列表条数（配置过滤后 / 来源总数）：来源是搜索结果或当前页面岗位',
   },
   {
     key: 'limit',

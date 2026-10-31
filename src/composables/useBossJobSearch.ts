@@ -2,7 +2,7 @@ import { reactive, ref } from 'vue'
 
 import type { SearchConditions } from '@/composables/useBossSearch'
 import type { JobData } from '@/composables/useHelper'
-import type { BossZpJobItemData } from '@/entrypoints/boss/types'
+import type { BossZpDetailData, BossZpJobItemData } from '@/entrypoints/boss/types'
 import { logger } from '@/utils/logger'
 
 const ALL_CITY_CODE = '100010000'
@@ -125,11 +125,11 @@ export async function fetchJobPage(conditions: SearchConditions, page = 1): Prom
   return { jobs, hasMore: Boolean(zp.hasMore) }
 }
 
-/** 搜索结果 key → 原始接口字段，详情接口需要 securityId + lid */
-export const rawJobItems = new Map<string, { securityId?: string; lid?: string }>()
+/** 搜索结果 key → 原始接口字段（详情接口、投递接口都要用到） */
+export const rawJobItems = new Map<string, BossZpJobItemData>()
 
-/** 拉岗位详情（AI 过滤需要岗位描述） */
-export async function fetchJobDetail(job: JobData) {
+/** 拉岗位详情（AI 过滤、打招呼都需要岗位描述） */
+export async function fetchJobDetail(job: JobData): Promise<BossZpDetailData | null> {
   const raw = rawJobItems.get(job.key)
   const securityId = raw?.securityId
   const lid = raw?.lid
@@ -142,11 +142,7 @@ export async function fetchJobDetail(job: JobData) {
   const res = await fetch(url.toString(), { headers: token ? { Zp_token: token } : {} })
   const json = await res.json()
   if (json?.code !== 0) return null
-  return json.zpData as {
-    jobInfo?: { postDescription?: string; locationName?: string }
-    brandComInfo?: { labels?: string[]; introduce?: string }
-    bossInfo?: { activeTimeDesc?: string }
-  }
+  return json.zpData as BossZpDetailData
 }
 
 /**
@@ -176,7 +172,7 @@ export async function searchJobs(conditions: SearchConditions, page = 1, append 
 function convertJobSafe(item: BossZpJobItemData) {
   try {
     const job = convertBossZpJobItemToJobData(item)
-    rawJobItems.set(job.key, { securityId: item.securityId, lid: item.lid })
+    rawJobItems.set(job.key, item)
     return job
   } catch (error) {
     logger.warn('BossJobConvertError', error)

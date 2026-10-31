@@ -97,7 +97,7 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
 ) {
   const status = ref<'pending' | 'running' | 'stop' | 'error'>('pending')
   const current = ref(0)
-  const total = computed(() => helper.jobList.value.length)
+  const total = computed(() => helper.getActiveJobs().length)
   const errorMessage = ref<string | null>(null)
   const pipeline = shallowRef<Task<C, T, S>[]>([])
   const nodes = shallowRef<
@@ -402,11 +402,19 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
 
     try {
       while (status.value === 'running') {
-        if (helper.jobList.value.length === 0) {
+        // 已经到当天上限就直接停，避免「继续」后还多投一条
+        if (helper.statistics.todayData.value.success >= helper.conf.formData.deliveryLimit.value) {
+          stepMsg = '投递达到数量限制'
+          status.value = 'stop'
+          break
+        }
+        // 面板搜索模式下来源是搜索结果，页面模式下是宿主页面岗位列表
+        const activeJobs = helper.getActiveJobs()
+        if (activeJobs.length === 0) {
           stepMsg = '没有职位可投递'
           break
         }
-        helper.jobList.value.forEach((job) => {
+        activeJobs.forEach((job) => {
           const v = helper.jobResultMaps.get(job.key)
           if (!v) {
             helper.jobResultMaps.set(job.key, { status: 'wait', msg: '等待中' })
@@ -421,7 +429,7 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
 
         await delay(helper.conf.formData.delayDeliveryStarts, isStop)
 
-        for (const [index, jobData] of helper.jobList.value.entries()) {
+        for (const [index, jobData] of activeJobs.entries()) {
           current.value = index + 1
           if (isStop()) break
           const jobStatus = helper.jobResultMaps.get(jobData.key)?.status
@@ -456,9 +464,21 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
             }
           }
 
+          const rawData =
+            rawDataMap.get(jobData.key) ?? helper.jobMaps.get(jobData.key)?.rawData ?? null
+          if (!rawData) {
+            logger.warn(`缺少岗位原始数据，跳过: ${jobData.jobName}`)
+            helper.jobResultMaps.set(jobData.key, {
+              status: 'warn',
+              msg: '缺少原始数据',
+              isSkip: true,
+              reason: '没有拿到这个岗位的原始接口数据',
+            })
+            continue
+          }
           const data = {
             jobData,
-            rawData: rawDataMap.get(jobData.key)!,
+            rawData,
             state: stateMaps.value.get(jobData.key) || {},
           }
           helper.jobMaps.set(jobData.key, data)
@@ -474,7 +494,7 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
           await delay(helper.conf.formData.delayDeliveryInterval, isStop)
         }
         if (isStop()) break
-        const hasMore = await helper.loadMoreJob(
+        const hasMore = await helper.loadMoreActiveJobs(
           delay(helper.conf.formData.delayDeliveryPageNext, isStop),
         )
         if (!hasMore) {
@@ -515,7 +535,7 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
   const stop = () => (status.value = 'stop')
   const reset = () => {
     status.value = 'pending'
-    helper.jobList.value.forEach((job) => {
+    helper.getActiveJobs().forEach((job) => {
       const v = helper.jobResultMaps.get(job.key)
       if (!v || v.status === 'success') {
         return
