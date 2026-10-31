@@ -45,7 +45,7 @@ export const bossWorkflow = defineTaskWorkflow<BossHelperCtx, BoosJobData>(
     },
   ), // 获取岗位详情
   tasks.activityFilter({ deps: ['岗位详情获取'] }), // 活跃度过滤
-  tasks.hrPosition({ deps: ['岗位详情获取'] }), // Hr职位筛选
+  tasks.hrPosition({ deps: ['岗位详情获取'] }), // HR职位筛选
   tasks.jobAddress({ deps: ['岗位详情获取'] }), // 工作地址筛选
   tasks.jobFriendStatus({ deps: ['岗位详情获取'] }), // 好友状态过滤
   tasks.jobContent({ deps: ['岗位详情获取'] }), // 工作内容筛选

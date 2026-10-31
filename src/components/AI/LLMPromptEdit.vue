@@ -67,7 +67,7 @@ const currentModelData = computed(() =>
   model.modelData.value.find((v) => v.key === currentModel.value),
 )
 
-const score = ref(props.data === 'aiFiltering' ? (conf.formData[props.data].score ?? 10) : 10)
+const score = ref(props.data === 'aiFiltering' ? (conf.formData[props.data].score ?? 60) : 60)
 
 /** 不同能力对应到 chatModel 里的 agent */
 const agentName = computed(() => {
