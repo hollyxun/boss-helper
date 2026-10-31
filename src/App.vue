@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { Bot, ChartColumn, FileText, Heart, ScrollText, Settings2, Sparkles } from '@lucide/vue'
+import { Bot, ChartColumn, FileText, Info, ScrollText, Settings2, Sparkles } from '@lucide/vue'
 import { useRafFn } from '@vueuse/core'
 import type { Component } from 'vue'
 import { computed, onMounted, ref, shallowRef, watch } from 'vue'
@@ -49,7 +49,7 @@ const menu: { value: PanelTab; label: string; hint: string; icon: Component }[] 
   { value: 'config', label: '配置', hint: '好好看，好好学', icon: Settings2 },
   { value: 'ai', label: 'AI', hint: 'AI时代，脚本怎么能落伍!', icon: Sparkles },
   { value: 'logs', label: '日志', hint: '反正你也不看', icon: ScrollText },
-  { value: 'about', label: '关于&赞赏', hint: '项目是写不完美的,但总要去追求完美', icon: Heart },
+  { value: 'about', label: '关于', hint: '项目是写不完美的,但总要去追求完美', icon: Info },
 ]
 
 const activeTab = activePanelTab
