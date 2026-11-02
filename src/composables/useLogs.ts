@@ -1,8 +1,6 @@
 import { computed, ref } from 'vue'
 
-import { logger } from '@/utils/logger'
-
-/** 日志来源：投递流程 / AI 调用 / 系统消息 */
+/** 日志来源：投递流程 / AI 调用 / 系统与调试消息 */
 export type LogKind = 'job' | 'ai' | 'system'
 
 export type LogStatus = 'success' | 'skip' | 'error' | 'info'
@@ -25,6 +23,8 @@ export interface LogDetail {
   prompt?: string
   response?: string
   reason?: string
+  /** 调试日志的结构化参数与上下文 */
+  payload?: string
 }
 
 export interface LogEntry {
@@ -37,6 +37,8 @@ export interface LogEntry {
   title: string
   message?: string
   detail?: LogDetail
+  /** 同一条重复日志被合并后的次数 */
+  count?: number
 }
 
 const STORAGE_KEY = 'boss-helper:logs'
@@ -53,8 +55,8 @@ function loadPersisted(): LogEntry[] {
     if (!raw) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? (parsed as LogEntry[]) : []
-  } catch (error) {
-    logger.warn('LogsLoadError', error)
+  } catch {
+    // 此时 logEntries 还没建好，只能静默丢弃旧数据
     return []
   }
 }
@@ -62,16 +64,30 @@ function loadPersisted(): LogEntry[] {
 /** 所有日志，新的在前 */
 export const logEntries = ref<LogEntry[]>(loadPersisted())
 
+let reportingSelfError = false
 let persistTimer: ReturnType<typeof setTimeout> | null = null
+
 function persist() {
-  if (typeof localStorage === 'undefined') return
+  if (typeof localStorage === 'undefined' || reportingSelfError) return
   if (persistTimer) clearTimeout(persistTimer)
   persistTimer = setTimeout(() => {
     persistTimer = null
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(logEntries.value.slice(0, PERSIST_LIMIT)))
     } catch (error) {
-      logger.warn('LogsPersistError', error)
+      // 存储写满（多为超大 prompt/response）时只报一次，避免递归写入
+      reportingSelfError = true
+      try {
+        addLog({
+          kind: 'system',
+          status: 'error',
+          tag: '日志',
+          title: '日志保存到本地失败',
+          message: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+        })
+      } finally {
+        reportingSelfError = false
+      }
     }
   }, 300)
 }
@@ -92,8 +108,45 @@ export function addLog(entry: Omit<LogEntry, 'id' | 'time'> & { time?: number })
   return item
 }
 
+/**
+ * 高频重复日志合并成一条：相同 key 只更新时间与内容并累加次数，
+ * 避免调试日志把 400 条上限刷爆、挤掉投递记录。
+ * 索引只存 id，更新走响应式数组下标赋值，否则面板不会重渲染。
+ */
+const folded = new Map<string, string>()
+const FOLD_INDEX_LIMIT = MAX_ENTRIES * 2
+
+export function addFoldedLog(
+  key: string,
+  entry: Omit<LogEntry, 'id' | 'time'> & { time?: number },
+) {
+  const foldedId = folded.get(key)
+  const index = foldedId ? logEntries.value.findIndex((item) => item.id === foldedId) : -1
+  if (foldedId && index >= 0) {
+    const prev = logEntries.value[index]!
+    logEntries.value[index] = {
+      ...prev,
+      time: entry.time ?? Date.now(),
+      count: (prev.count ?? 1) + 1,
+      message: entry.message,
+      detail: entry.detail ?? prev.detail,
+    }
+    persist()
+    return logEntries.value[index]!
+  }
+
+  const item = addLog(entry)
+  folded.set(key, item.id)
+  if (folded.size > FOLD_INDEX_LIMIT) {
+    const oldest = folded.keys().next().value
+    if (oldest !== undefined) folded.delete(oldest)
+  }
+  return item
+}
+
 export function clearLogs() {
   logEntries.value = []
+  folded.clear()
   persist()
 }
 
@@ -149,26 +202,35 @@ export function addSystemLog(title: string, message?: string) {
 }
 
 export const logCounts = computed(() => {
-  const counts = { all: 0, ai: 0, job: 0, error: 0 }
+  const counts = { all: 0, ai: 0, job: 0, system: 0, error: 0 }
   for (const entry of logEntries.value) {
     counts.all++
     if (entry.kind === 'ai') counts.ai++
     if (entry.kind === 'job') counts.job++
+    if (entry.kind === 'system') counts.system++
     if (entry.status === 'error') counts.error++
   }
   return counts
 })
 
-export type LogFilter = 'all' | 'ai' | 'job' | 'error'
+export type LogFilter = 'all' | 'ai' | 'job' | 'system' | 'error'
 
 export function filterLogs(filter: LogFilter, keyword = '') {
   const text = keyword.trim().toLowerCase()
   return logEntries.value.filter((entry) => {
     if (filter === 'ai' && entry.kind !== 'ai') return false
     if (filter === 'job' && entry.kind !== 'job') return false
+    if (filter === 'system' && entry.kind !== 'system') return false
     if (filter === 'error' && entry.status !== 'error') return false
     if (!text) return true
-    return [entry.title, entry.message, entry.tag, entry.detail?.response, entry.detail?.prompt]
+    return [
+      entry.title,
+      entry.message,
+      entry.tag,
+      entry.detail?.response,
+      entry.detail?.prompt,
+      entry.detail?.payload,
+    ]
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(text))
   })

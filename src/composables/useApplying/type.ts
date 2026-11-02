@@ -1,6 +1,5 @@
-import type { ContextLogger } from 'devlog-ui'
-
 import type { HelperContext, JobData } from '@/composables/useHelper'
+import type { ContextLogger } from '@/utils/logger'
 
 import type { DeliveryWorkflow } from '.'
 import { useDeliveryWorkflow } from '.'

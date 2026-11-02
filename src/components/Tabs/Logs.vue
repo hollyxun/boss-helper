@@ -29,6 +29,7 @@ const filters: { value: LogFilter; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'ai', label: 'AI 调用' },
   { value: 'job', label: '投递' },
+  { value: 'system', label: '系统' },
   { value: 'error', label: '异常' },
 ]
 
@@ -43,6 +44,7 @@ function formatTime(timestamp: number) {
 function countOf(value: LogFilter) {
   if (value === 'ai') return logCounts.value.ai
   if (value === 'job') return logCounts.value.job
+  if (value === 'system') return logCounts.value.system
   if (value === 'error') return logCounts.value.error
   return logCounts.value.all
 }
@@ -58,8 +60,24 @@ function statusClass(status: LogEntry['status']) {
   return 'text-muted-foreground'
 }
 
+function hasDetail(entry: LogEntry) {
+  return Boolean(
+    entry.message ||
+    entry.detail?.reason ||
+    entry.detail?.payload ||
+    entry.detail?.prompt ||
+    entry.detail?.response,
+  )
+}
+
 async function copyEntry(entry: LogEntry) {
-  const parts = [entry.title, entry.message, entry.detail?.prompt, entry.detail?.response]
+  const parts = [
+    entry.title,
+    entry.message,
+    entry.detail?.payload,
+    entry.detail?.prompt,
+    entry.detail?.response,
+  ]
   await navigator.clipboard.writeText(parts.filter(Boolean).join('\n\n'))
   toast.add({ title: '已复制到剪贴板', color: 'success' })
 }
@@ -76,7 +94,7 @@ function clear() {
     <div class="flex flex-wrap items-center gap-2">
       <div class="text-sm font-medium">运行日志</div>
       <Hint
-        text="三类记录：投递（成功 / 被过滤 / 出错）、AI 调用（提示词 + 模型回复 + 耗时）、系统消息。本机保留最近 200 条，刷新页面后仍在。"
+        text="三类记录：投递（成功 / 被过滤 / 出错）、AI 调用（提示词 + 模型回复 + 耗时）、系统（消息与调试日志，重复的同名日志合并成 ×N）。本机保留最近 200 条，刷新页面后仍在。"
       >
         <CircleHelp class="size-3.5 text-muted-foreground" />
       </Hint>
@@ -144,6 +162,11 @@ function clear() {
             <Bot v-if="entry.kind === 'ai'" class="mr-0.5 size-3" />
             {{ entry.tag }}
           </Badge>
+          <span
+            v-if="entry.count && entry.count > 1"
+            class="text-[10px] text-muted-foreground tabular-nums"
+            >×{{ entry.count }}</span
+          >
           <span class="min-w-0 flex-1 truncate text-sm" :class="statusClass(entry.status)">
             {{ entry.title }}
           </span>
@@ -158,12 +181,7 @@ function clear() {
               <Copy class="size-3" />
             </Button>
           </Hint>
-          <Button
-            v-if="entry.message || entry.detail?.prompt || entry.detail?.response"
-            variant="ghost"
-            size="xs"
-            @click="toggle(entry)"
-          >
+          <Button v-if="hasDetail(entry)" variant="ghost" size="xs" @click="toggle(entry)">
             {{ expanded[entry.id] ? '收起' : '详情' }}
           </Button>
         </div>
@@ -179,6 +197,12 @@ function clear() {
           <div v-if="entry.detail?.reason" class="flex items-start gap-1 text-xs text-amber-600">
             <TriangleAlert class="mt-0.5 size-3 shrink-0" />
             <span class="break-all">{{ entry.detail.reason }}</span>
+          </div>
+          <div v-if="entry.detail?.payload" class="flex flex-col gap-1">
+            <div class="text-[11px] font-medium text-muted-foreground">上下文 / 参数</div>
+            <pre
+              class="scroll-stable max-h-56 overflow-auto rounded bg-muted/40 p-2 text-[11px] leading-relaxed whitespace-pre-wrap break-all"
+              >{{ entry.detail.payload }}</pre>
           </div>
           <div v-if="entry.detail?.prompt" class="flex flex-col gap-1">
             <div class="text-[11px] font-medium text-muted-foreground">发给 AI 的内容</div>

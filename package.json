@@ -38,7 +38,6 @@
     "cn": "^0.5.0",
     "codejar": "^4.3.0",
     "comctx": "^1.7.5",
-    "devlog-ui": "workspace:*",
     "idb": "^8.0.3",
     "mqtt": "^5.15.2",
     "partial-json": "^0.1.7",

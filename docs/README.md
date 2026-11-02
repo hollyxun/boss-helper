@@ -5,7 +5,7 @@
 - 分析对象：当前工作区中的 `boss-helper` 源码（衍生版本 `0.0.3`，代码基线来自上游 `0.5.2.2`）
 - 分析方式：静态阅读源码、配置、构建脚本与 GitHub Actions，不依赖联网资料
 - 分析范围：`src/`、`wxt.config.ts`、`package.json`、`public/`、`.github/`、`scripts/`、根目录配置文件
-- 说明：`packages/devlog-ui` 是 Git 子模块，未初始化时为空目录。涉及日志库内部实现的部分，本文只描述项目对它的调用方式，不对其内部代码做断言
+- 说明：日志只有一套实现——`src/utils/logger.ts` 写入 `src/composables/useLogs.ts` 的日志页存储，已不再依赖 `devlog-ui` 子模块
 - 版本变更：见根目录 [README.md](../README.md) 的「更新日志」；本套文档以 `0.0.3` 为准
 
 ## 文档索引

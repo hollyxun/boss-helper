@@ -1,9 +1,9 @@
-import type { ContextLogger } from 'devlog-ui'
 import { shallowRef, ref } from 'vue'
 
 import { addJobLog } from '@/composables/useLogs'
 import { PipelineCacheManager } from '@/composables/usePipelineCache'
 import type { PipelineCacheItem, ProcessorType } from '@/types/pipelineCache'
+import type { ContextLogger } from '@/utils/logger'
 
 import type { HelperContext } from '../useHelper'
 import { DependencyMissingError } from './handles'

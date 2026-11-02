@@ -1,5 +1,3 @@
-import { resolve } from 'path'
-
 import tailwindcss from '@tailwindcss/vite'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import AutoImport from 'unplugin-auto-import/vite'
@@ -18,11 +16,6 @@ export default defineConfig({
   // imports: false,
 
   vite: () => ({
-    resolve: {
-      alias: {
-        'devlog-ui': resolve(__dirname, 'packages/devlog-ui/src'),
-      },
-    },
     define: {
       __APP_VERSION__: JSON.stringify(version),
     },

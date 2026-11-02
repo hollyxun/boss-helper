@@ -13,9 +13,8 @@
       "@@": ["."],
       "@@/*": ["./*"],
       "~~": ["."],
-      "~~/*": ["./*"],
-      "devlog-ui": ["./packages/devlog-ui/src"]
+      "~~/*": ["./*"]
     }
   },
-  "exclude": ["./packages/devlog-ui", "./node_modules", "./.output"]
+  "exclude": ["./node_modules", "./.output"]
 }
