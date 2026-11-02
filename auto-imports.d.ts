@@ -12,24 +12,19 @@ declare global {
   const PipelineCacheManager: typeof import('./src/composables/usePipelineCache').PipelineCacheManager
   const activePanelTab: typeof import('./src/composables/usePanelTab').activePanelTab
   const addAiLog: typeof import('./src/composables/useLogs').addAiLog
+  const addFoldedLog: typeof import('./src/composables/useLogs').addFoldedLog
   const addJobLog: typeof import('./src/composables/useLogs').addJobLog
   const addLog: typeof import('./src/composables/useLogs').addLog
   const addSystemLog: typeof import('./src/composables/useLogs').addSystemLog
-  const appliedConditions: typeof import('./src/composables/useBossSearch').appliedConditions
-  const applyPanelConditions: typeof import('./src/composables/useBossSearch').applyPanelConditions
-  const applySearch: typeof import('./src/composables/useBossSearch').applySearch
-  const batchKeywords: typeof import('./src/composables/useBatchSearch').batchKeywords
-  const batchState: typeof import('./src/composables/useBatchSearch').batchState
-  const buildSearchUrl: typeof import('./src/composables/useBossSearch').buildSearchUrl
+  const applyJobListFilter: typeof import('./src/composables/useJobListFilter').applyJobListFilter
+  const autoSearchOnPanelOpen: typeof import('./src/composables/usePanelSearch').autoSearchOnPanelOpen
   const cityGroups: typeof import('./src/composables/useBossSearch').cityGroups
-  const cityNameOf: typeof import('./src/composables/useBossSearch').cityNameOf
   const cityOptions: typeof import('./src/composables/useBossSearch').cityOptions
   const cleanResumeText: typeof import('./src/composables/useBossResume').cleanResumeText
   const clearLogs: typeof import('./src/composables/useLogs').clearLogs
   const clearSearchResults: typeof import('./src/composables/useBossJobSearch').clearSearchResults
   const computed: typeof import('vue').computed
   const convertBossZpJobItemToJobData: typeof import('./src/composables/useBossJobSearch').convertBossZpJobItemToJobData
-  const countActiveConditions: typeof import('./src/composables/useBossSearch').countActiveConditions
   const createApp: typeof import('vue').createApp
   const customRef: typeof import('vue').customRef
   const defineAsyncComponent: typeof import('vue').defineAsyncComponent
@@ -45,10 +40,10 @@ declare global {
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
   const getCurrentWatcher: typeof import('vue').getCurrentWatcher
-  const getRootVue: typeof import('./src/composables/useVue').getRootVue
   const h: typeof import('vue').h
   const hotCities: typeof import('./src/composables/useBossSearch').hotCities
   const inject: typeof import('vue').inject
+  const isBossRiskControl: typeof import('./src/composables/useBossJobSearch').isBossRiskControl
   const isProxy: typeof import('vue').isProxy
   const isReactive: typeof import('vue').isReactive
   const isReadonly: typeof import('vue').isReadonly
@@ -56,12 +51,12 @@ declare global {
   const isShallow: typeof import('vue').isShallow
   const jobListFilterEnabled: typeof import('./src/composables/useJobListFilter').jobListFilterEnabled
   const lastBossResume: typeof import('./src/composables/useBossResume').lastBossResume
+  const loadJobDescription: typeof import('./src/composables/useBossJobSearch').loadJobDescription
   const loadSearchOptions: typeof import('./src/composables/useBossSearch').loadSearchOptions
   const logCounts: typeof import('./src/composables/useLogs').logCounts
   const logEntries: typeof import('./src/composables/useLogs').logEntries
   const markRaw: typeof import('vue').markRaw
   const matchJobByConfig: typeof import('./src/composables/useJobMatching').matchJobByConfig
-  const matchJobConditions: typeof import('./src/composables/useJobFilter').matchJobConditions
   const mergeResumeTexts: typeof import('./src/composables/useBossResume').mergeResumeTexts
   const nextTick: typeof import('vue').nextTick
   const onActivated: typeof import('vue').onActivated
@@ -86,23 +81,19 @@ declare global {
   const provide: typeof import('vue').provide
   const rawJobItems: typeof import('./src/composables/useBossJobSearch').rawJobItems
   const reactive: typeof import('vue').reactive
-  const readSearchConditions: typeof import('./src/composables/useBossSearch').readSearchConditions
   const readonly: typeof import('vue').readonly
   const ref: typeof import('vue').ref
   const resetPanelConditions: typeof import('./src/composables/useBossSearch').resetPanelConditions
-  const resolveCityCode: typeof import('./src/composables/useBossSearch').resolveCityCode
   const resolveComponent: typeof import('vue').resolveComponent
   const resumeToText: typeof import('./src/composables/useBossResume').resumeToText
-  const runBatchSearch: typeof import('./src/composables/useBatchSearch').runBatchSearch
+  const runPanelSearch: typeof import('./src/composables/usePanelSearch').runPanelSearch
   const saveSearchConditions: typeof import('./src/composables/useBossSearch').saveSearchConditions
   const searchJobs: typeof import('./src/composables/useBossJobSearch').searchJobs
   const searchMeta: typeof import('./src/composables/useBossJobSearch').searchMeta
   const shallowReactive: typeof import('vue').shallowReactive
   const shallowReadonly: typeof import('vue').shallowReadonly
   const shallowRef: typeof import('vue').shallowRef
-  const splitKeywords: typeof import('./src/composables/useBatchSearch').splitKeywords
   const statisticsKey: typeof import('./src/composables/useStatistics').statisticsKey
-  const stopBatchSearch: typeof import('./src/composables/useBatchSearch').stopBatchSearch
   const toRaw: typeof import('vue').toRaw
   const toRef: typeof import('vue').toRef
   const toRefs: typeof import('vue').toRefs
@@ -114,10 +105,7 @@ declare global {
   const useAttrs: typeof import('vue').useAttrs
   const useCssModule: typeof import('vue').useCssModule
   const useCssVars: typeof import('vue').useCssVars
-  const useHookVueData: typeof import('./src/composables/useVue').useHookVueData
-  const useHookVueFn: typeof import('./src/composables/useVue').useHookVueFn
   const useId: typeof import('vue').useId
-  const useJobFilter: typeof import('./src/composables/useJobFilter').useJobFilter
   const useModel: typeof import('vue').useModel
   const useScrollLock: typeof import('./src/composables/useScrollLock').useScrollLock
   const useSlots: typeof import('vue').useSlots
@@ -179,6 +167,9 @@ declare global {
     LogFilter,
   } from './src/composables/useLogs'
   import('./src/composables/useLogs')
+  // @ts-ignore
+  export type { PanelSearchOutcome, PanelSearchOptions } from './src/composables/usePanelSearch'
+  import('./src/composables/usePanelSearch')
   // @ts-ignore
   export type { PanelTab } from './src/composables/usePanelTab'
   import('./src/composables/usePanelTab')
