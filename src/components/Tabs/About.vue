@@ -5,7 +5,7 @@ import Alert from '@/components/ui/alert/Alert.vue'
 import AlertDescription from '@/components/ui/alert/AlertDescription.vue'
 import AlertTitle from '@/components/ui/alert/AlertTitle.vue'
 import Badge from '@/components/ui/badge/Badge.vue'
-import { VITE_VERSION } from '@/composables/useHelper'
+import { VITE_BUILD_TIME, VITE_VERSION } from '@/composables/useHelper'
 
 const linkClass =
   'group flex items-center gap-2 rounded-md border border-border px-2.5 py-2 text-sm transition-colors hover:bg-muted'
@@ -27,6 +27,9 @@ const acknowledge = [
       <div class="flex flex-wrap items-center gap-2">
         <div class="text-sm font-medium">当前项目</div>
         <Badge variant="secondary" class="text-[10px] tabular-nums">v{{ VITE_VERSION }}</Badge>
+        <span class="text-xs text-muted-foreground tabular-nums">
+          构建于 {{ VITE_BUILD_TIME }}
+        </span>
         <span class="ml-auto text-xs text-muted-foreground">boss-helper-plus</span>
       </div>
 

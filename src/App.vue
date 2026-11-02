@@ -26,7 +26,7 @@ import { activePanelTab, openPanelTab } from '@/composables/usePanelTab'
 import type { PanelTab } from '@/composables/usePanelTab'
 import { useScrollLock } from '@/composables/useScrollLock'
 
-import { useHelper, VITE_VERSION } from './composables/useHelper'
+import { useHelper, VITE_BUILD_TIME, VITE_VERSION } from './composables/useHelper'
 
 const model = useModel()
 const helper = useHelper()
@@ -135,8 +135,8 @@ function onRootDblClick(event: MouseEvent) {
 }
 
 watch(drawerOpen, (open) => {
-  // 打开抽屉时先把页面当前数据同步进来
-  if (open) void helper.refreshPageData()
+  if (!open) return
+  void helper.onPanelOpen()
 })
 
 onMounted(() => {
@@ -208,13 +208,15 @@ function onPointerMove(ev: PointerEvent) {
             boss-helper-plus
           </SheetTitle>
           <SheetDescription class="sr-only">boss-helper-plus 求职助手面板</SheetDescription>
-          <button
-            type="button"
-            class="shrink-0 cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground"
-            @click="openStore"
-          >
-            v{{ VITE_VERSION }}
-          </button>
+          <Hint :text="`构建时间 ${VITE_BUILD_TIME}`" side="bottom">
+            <button
+              type="button"
+              class="shrink-0 cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground"
+              @click="openStore"
+            >
+              v{{ VITE_VERSION }}
+            </button>
+          </Hint>
           <Hint v-if="isDot" text="有新版本">
             <span class="size-2 shrink-0 rounded-full bg-primary" />
           </Hint>

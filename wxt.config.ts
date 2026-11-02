@@ -9,6 +9,16 @@ import { version } from './package.json'
 
 const matches = ['*://zhipin.com/*', '*://*.zhipin.com/*']
 
+// sv-SE 的输出天然是 “2026-11-02 15:30”，省去手工补零拼接
+const buildTime = new Intl.DateTimeFormat('sv-SE', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+}).format(new Date())
+
 export default defineConfig({
   srcDir: 'src',
   outDirTemplate: '{{browser}}-mv{{manifestVersion}}',
@@ -18,6 +28,7 @@ export default defineConfig({
   vite: () => ({
     define: {
       __APP_VERSION__: JSON.stringify(version),
+      __BUILD_TIME__: JSON.stringify(buildTime),
     },
     ssr: {
       noExternal: ['@webext-core/storage', '@webext-core/messaging', '@webext-core/proxy-service'],

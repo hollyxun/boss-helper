@@ -8,6 +8,7 @@ export type { JobBaseData, JobData, LogData } from './type'
 export const HelperKey = Symbol() as InjectionKey<HelperContext<any, unknown, unknown>>
 
 export const VITE_VERSION = __APP_VERSION__
+export const VITE_BUILD_TIME = __BUILD_TIME__
 
 export const useHelper = () => {
   const ctx = inject(HelperKey)

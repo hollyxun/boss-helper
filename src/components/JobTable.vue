@@ -1,40 +1,29 @@
 <script lang="ts" setup>
-import { ChevronDown, CircleHelp, Clock, ExternalLink, MapPin, RefreshCw } from '@lucide/vue'
+import { ChevronDown, CircleHelp, Clock, RefreshCw } from '@lucide/vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import Hint from '@/components/Hint.vue'
-import Avatar from '@/components/ui/avatar/Avatar.vue'
-import AvatarFallback from '@/components/ui/avatar/AvatarFallback.vue'
-import AvatarImage from '@/components/ui/avatar/AvatarImage.vue'
-import Badge from '@/components/ui/badge/Badge.vue'
+import JobDetailDialog from '@/components/JobDetailDialog.vue'
 import Button from '@/components/ui/button/Button.vue'
-import Dialog from '@/components/ui/dialog/Dialog.vue'
-import DialogContent from '@/components/ui/dialog/DialogContent.vue'
-import DialogDescription from '@/components/ui/dialog/DialogDescription.vue'
-import DialogFooter from '@/components/ui/dialog/DialogFooter.vue'
-import DialogHeader from '@/components/ui/dialog/DialogHeader.vue'
-import DialogTitle from '@/components/ui/dialog/DialogTitle.vue'
-import Skeleton from '@/components/ui/skeleton/Skeleton.vue'
 import Switch from '@/components/ui/switch/Switch.vue'
-import { useConf } from '@/composables/conf'
 import type { JobStatus } from '@/composables/useApplying/type'
 import {
   clearSearchResults,
-  fetchJobDetail,
   isBossRiskControl,
   panelSearchResults,
   searchJobs,
   searchMeta,
 } from '@/composables/useBossJobSearch'
+import { panelConditions } from '@/composables/useBossSearch'
 import type { JobData } from '@/composables/useHelper'
 import { useHelper } from '@/composables/useHelper'
 import { jobListFilterEnabled } from '@/composables/useJobListFilter'
+import { runPanelSearch } from '@/composables/usePanelSearch'
 import { useToast } from '@/composables/useToast'
-import { delay, errorHandle } from '@/utils'
+import { errorHandle } from '@/utils'
 import { logger } from '@/utils/logger'
 
 const helper = useHelper()
-const conf = useConf()
 const toast = useToast()
 
 /** 虚拟列表参数：固定行高，只渲染可视区域 */
@@ -42,7 +31,7 @@ const ROW_HEIGHT = 54
 const VIEWPORT_HEIGHT = 420
 const OVERSCAN = 8
 
-const usingSearch = computed(() => panelSearchResults.value.length > 0)
+const hasResults = computed(() => panelSearchResults.value.length > 0)
 /** 绑在模块级 ref 上：这个开关既决定面板显示什么，也决定投递投什么 */
 const filterEnabled = jobListFilterEnabled
 /** 未过滤的全部岗位，只用来算「配置过滤掉几个」 */
@@ -69,8 +58,6 @@ const totalHeight = computed(() => jobs.value.length * ROW_HEIGHT)
 
 const detailOpen = ref(false)
 const detailJob = ref<JobData | null>(null)
-const detailLoading = ref(false)
-const refreshing = ref(false)
 const loadingMore = ref(false)
 
 const statusMap: Record<JobStatus, { label: string; class: string }> = {
@@ -93,26 +80,15 @@ function statusOf(key: string) {
   return { ...statusMap[status], reason: result?.reason ?? result?.msg }
 }
 
-async function refresh() {
-  refreshing.value = true
-  try {
-    await helper.refreshPageData()
-  } finally {
-    refreshing.value = false
-  }
+/** 按当前条件重搜一发：和「搜索岗位」同一个入口，同条件 60 秒内会被节流拦下 */
+async function research() {
+  await runPanelSearch(searchMeta.conditions ?? panelConditions.value)
 }
 
 /**
- * 翻页节奏参考旧版投递流程：
- * 旧代码是 `helper.loadMoreJob(delay(delayDeliveryPageNext, isStop))`，
- * 即翻页动作本身要等 `delayDeliveryPageNext` 秒（默认 60s）才对比结果，
- * 避免短时间内连续翻页被 Boss 风控。
- *
- * 面板里分两种：
- * - 页面模式：真的让 Boss 翻页，沿用 delayDeliveryPageNext，最低 5s；
- * - 搜索模式：只是调我们自己的搜索接口，8s + 0~100% 抖动。
+ * 翻页节奏：列表只剩搜索这一个来源，翻页就是调我们自己的搜索接口下一页。
+ * 8 秒 + 0~100% 抖动起步，失败按 8s → 20s 退避，再失败或命中风控就彻底停。
  */
-const PAGE_MIN_INTERVAL_SECONDS = 5
 const SEARCH_INTERVAL_SECONDS = 8
 /** 搜索连续失败时的退避档位，用完还没成功就彻底停掉自动加载 */
 const SEARCH_BACKOFF_SECONDS = [8, 20]
@@ -142,47 +118,27 @@ onBeforeUnmount(() => {
   if (cooldownTimer) clearInterval(cooldownTimer)
 })
 
-/** 滚到底部继续加载：搜索模式翻页，页面模式让 Boss 翻页 */
+/** 滚到底部继续拉下一页：追加进搜索结果，不动已经显示的那些 */
 async function loadMore() {
+  // 投递中不翻页：投递自己走 loadMoreActiveJobs，两边并发打同一接口且都拿 page + 1
+  if (helper.workflowRunning.value) return
   if (loadingMore.value || cooldownLeft.value > 0) return
   if (Date.now() - lastLoadAt < TRIGGER_GUARD_MS) return
+  if (!searchMeta.hasMore || !searchMeta.conditions) return
+
   loadingMore.value = true
   lastLoadAt = Date.now()
-  // 搜索分支的冷却放到 finally：原来写在 await 之后，一报错就整段跳过，
+  // 冷却放在 finally：写在 await 之后的话一报错就整段跳过，
   // 失败不降速反而被滚动事件继续驱动着打，风控越触发越实。
-  let searchCooldown = 0
+  let cooldown = SEARCH_INTERVAL_SECONDS
   try {
-    if (usingSearch.value) {
-      if (!searchMeta.hasMore || !searchMeta.conditions) return
-      searchCooldown = SEARCH_INTERVAL_SECONDS
-      try {
-        await searchJobs(searchMeta.conditions, searchMeta.page + 1, true)
-        searchFailStreak = 0
-      } catch (error) {
-        searchCooldown = onSearchPageFailed(error)
-      }
-    } else {
-      // 投递进行中不要翻页：Boss 的翻页方法会整个换掉列表，
-      // 正在跑的那一轮会连同快照一起消失，剩下的岗位就再也不投了。
-      if (helper.workflowRunning.value) return
-      // 和旧版投递一致：等待时间交给 loadMoreJob 内部的 delay
-      const pageDelay = Math.max(
-        PAGE_MIN_INTERVAL_SECONDS,
-        Number(conf.formData.delayDeliveryPageNext ?? 60),
-      )
-      startCooldown(pageDelay)
-      const hasMore = await helper.loadMoreJob(delay(pageDelay))
-      if (!hasMore) {
-        toast.add({ title: 'Boss 没有更多岗位了', color: 'warning' })
-        return
-      }
-      await helper.refreshPageData()
-    }
+    await searchJobs(searchMeta.conditions, searchMeta.page + 1, true)
+    searchFailStreak = 0
   } catch (error) {
-    logger.warn('JobTableLoadMoreError', error)
+    cooldown = onSearchPageFailed(error)
   } finally {
     loadingMore.value = false
-    if (searchCooldown > 0) startCooldown(searchCooldown, 1)
+    if (cooldown > 0) startCooldown(cooldown, 1)
   }
 }
 
@@ -225,50 +181,17 @@ function onScroll(event: Event) {
   }
 }
 
-watch(usingSearch, () => {
-  scrollTop.value = 0
-})
+// 新一批搜索结果（page 回到 1）时回到顶部；下拉追加翻页不动位置
+watch(
+  () => searchMeta.page,
+  (page) => {
+    if (page === 1) scrollTop.value = 0
+  },
+)
 
-async function openDetail(job: JobData) {
+function openDetail(job: JobData) {
   detailJob.value = job
   detailOpen.value = true
-  if (job.jobDescription) return
-
-  detailLoading.value = true
-  try {
-    // 先走详情接口：模拟点击会把页面换掉，只在接口失败时兜底
-    const detail = await fetchJobDetail(job)
-    const description = detail?.jobInfo?.postDescription
-    if (description) {
-      job.jobDescription = description
-      if (detail?.jobInfo?.locationName) job.city = detail.jobInfo.locationName
-      if (detail?.brandComInfo?.introduce) {
-        job.brand = { ...job.brand, introduce: detail.brandComInfo.introduce }
-      }
-      if (detail?.bossInfo?.activeTimeDesc) job.activeTimeStr = detail.bossInfo.activeTimeDesc
-      if (detailJob.value?.key === job.key) detailJob.value = { ...job }
-      return
-    }
-
-    // 接口没给描述，页面列表里的岗位还能点一次卡片补齐
-    if (helper.jobMaps.has(job.key)) {
-      await helper.onJobCardClick(job.key)
-      const fresh = helper.jobMaps.get(job.key)?.jobData
-      if (fresh && detailJob.value?.key === job.key) {
-        detailJob.value = fresh
-      }
-    }
-  } catch (error) {
-    logger.error('JobDetailLoadError', error)
-    toast.add({ title: `岗位详情加载失败: ${errorHandle(error)}`, color: 'error' })
-  } finally {
-    detailLoading.value = false
-  }
-}
-
-function openLink() {
-  const link = detailJob.value?.link
-  if (link) window.open(link, '_blank')
 }
 </script>
 
@@ -281,9 +204,6 @@ function openLink() {
       >
         <CircleHelp class="size-3.5 text-muted-foreground" />
       </Hint>
-      <Badge v-if="usingSearch" variant="secondary" class="text-[10px] text-sky-600">
-        Boss 搜索
-      </Badge>
       <span class="text-xs text-muted-foreground tabular-nums">
         共 {{ sourceJobs.length }} 个
         <template v-if="droppedCount > 0">· 配置过滤掉 {{ droppedCount }} 个</template>
@@ -301,13 +221,13 @@ function openLink() {
             <Switch v-model="filterEnabled" />
           </span>
         </Hint>
-        <Button v-if="usingSearch" variant="ghost" size="sm" @click="clearSearchResults">
-          清空搜索
+        <Button v-if="hasResults" variant="ghost" size="sm" @click="clearSearchResults">
+          清空列表
         </Button>
-        <Hint text="重新读取页面上的岗位">
-          <Button variant="ghost" size="sm" :disabled="refreshing" @click="refresh">
-            <RefreshCw class="size-3.5" :class="refreshing ? 'animate-spin' : ''" />
-            刷新
+        <Hint text="按当前条件重新搜一发；同条件 60 秒内会被节流拦下，只提示不重发">
+          <Button variant="ghost" size="sm" :disabled="searchMeta.loading" @click="research">
+            <RefreshCw class="size-3.5" :class="searchMeta.loading ? 'animate-spin' : ''" />
+            重搜
           </Button>
         </Hint>
       </div>
@@ -333,7 +253,9 @@ function openLink() {
             searchMeta.error ||
             (sourceJobs.length
               ? '配置过滤后没有岗位，放宽「配置 → 筛选配置」或关掉「按配置过滤」'
-              : '还没有岗位：按条件搜索，或点「刷新」读取当前页面')
+              : searchMeta.conditions
+                ? '这个条件 Boss 没返回岗位，换个关键词或放宽条件再搜'
+                : '还没有岗位：上方填条件搜一发，有上次条件时打开面板会自动搜')
           }}
         </div>
 
@@ -374,14 +296,17 @@ function openLink() {
         class="flex items-center justify-center gap-2 border-t border-border py-1.5 text-[11px] text-muted-foreground"
       >
         <template v-if="loadingMore">加载中…</template>
+        <template v-else-if="helper.workflowRunning.value && searchMeta.hasMore">
+          投递中，已暂停下拉加载（翻页由投递按「投递翻页」间隔自己走）
+        </template>
         <template v-else-if="cooldownLeft > 0">
           <Clock class="size-3" />
           翻页冷却 {{ cooldownLeft }}s（防止连续翻页被风控）
         </template>
-        <template v-else-if="usingSearch && searchMeta.error && !searchMeta.hasMore">
+        <template v-else-if="searchMeta.error && !searchMeta.hasMore">
           自动翻页已停止：{{ searchMeta.error }}
         </template>
-        <template v-else-if="usingSearch && !searchMeta.hasMore">没有更多了</template>
+        <template v-else-if="!searchMeta.hasMore">没有更多了</template>
         <template v-else>
           下拉到底部继续加载
           <ChevronDown class="size-3" />
@@ -389,106 +314,6 @@ function openLink() {
       </div>
     </div>
 
-    <Dialog v-model:open="detailOpen">
-      <DialogContent class="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle class="flex flex-wrap items-baseline gap-2 pr-6">
-            <span>{{ detailJob?.jobName }}</span>
-            <span class="text-sm font-normal text-destructive">{{ detailJob?.salary }}</span>
-          </DialogTitle>
-          <DialogDescription>{{ detailJob?.brand?.name }}</DialogDescription>
-        </DialogHeader>
-
-        <div
-          v-if="detailJob"
-          class="scroll-stable flex max-h-[62vh] flex-col gap-3 overflow-y-auto pr-1"
-        >
-          <div class="flex items-center gap-2">
-            <Avatar class="size-8 shrink-0 rounded-md">
-              <AvatarImage v-if="detailJob.brand?.logo" :src="detailJob.brand.logo" alt="" />
-              <AvatarFallback class="rounded-md">
-                {{ detailJob.brand?.name?.slice(0, 1) ?? '公' }}
-              </AvatarFallback>
-            </Avatar>
-            <div class="min-w-0">
-              <div class="truncate text-sm">{{ detailJob.brand?.name }}</div>
-              <div class="truncate text-xs text-muted-foreground">
-                {{ detailJob.brand?.industry }} · {{ detailJob.brand?.scale }} ·
-                {{ detailJob.brand?.stageName }}
-              </div>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <Badge variant="secondary">{{ detailJob.experienceName }}</Badge>
-            <Badge variant="secondary">{{ detailJob.degreeName }}</Badge>
-            <span class="flex items-center gap-1">
-              <MapPin class="size-3" />
-              {{ detailJob.city ?? '-' }} {{ detailJob.address ?? '' }}
-            </span>
-            <span v-if="detailJob.activeTimeStr">· {{ detailJob.activeTimeStr }}</span>
-          </div>
-
-          <div v-if="detailJob.skills?.length" class="flex flex-wrap gap-1">
-            <Badge
-              v-for="tag in detailJob.skills"
-              :key="tag"
-              variant="secondary"
-              class="text-amber-700"
-            >
-              {{ tag }}
-            </Badge>
-            <Badge
-              v-for="tag in detailJob.welfareList ?? []"
-              :key="tag"
-              variant="secondary"
-              class="text-emerald-700"
-            >
-              {{ tag }}
-            </Badge>
-          </div>
-
-          <div class="flex flex-col gap-1">
-            <div class="text-xs font-medium text-muted-foreground">岗位描述</div>
-            <div v-if="detailLoading" class="flex flex-col gap-1.5" aria-label="加载中">
-              <Skeleton class="h-3.5 w-full" />
-              <Skeleton class="h-3.5 w-11/12" />
-              <Skeleton class="h-3.5 w-4/5" />
-            </div>
-            <p v-else class="whitespace-pre-wrap text-sm leading-relaxed">
-              {{ detailJob.jobDescription || '暂无岗位描述，刷新后再试' }}
-            </p>
-          </div>
-
-          <div
-            v-if="detailJob.boss?.name"
-            class="flex items-center gap-2 border-t border-border pt-2"
-          >
-            <Avatar class="size-6">
-              <AvatarImage v-if="detailJob.boss.avatar" :src="detailJob.boss.avatar" alt="" />
-              <AvatarFallback>{{ detailJob.boss.name.slice(0, 1) }}</AvatarFallback>
-            </Avatar>
-            <span class="text-sm">{{ detailJob.boss.name }}</span>
-            <span class="text-xs text-muted-foreground">{{ detailJob.boss.title }}</span>
-            <Badge v-if="detailJob.boss.isFriend" variant="secondary" class="text-emerald-600">
-              已沟通
-            </Badge>
-            <Badge v-if="detailJob.boss.isHeadhunter" variant="secondary" class="text-amber-600">
-              猎头
-            </Badge>
-          </div>
-        </div>
-
-        <DialogFooter class="flex-row justify-between">
-          <Button v-if="detailJob?.link" variant="outline" @click="openLink">
-            <ExternalLink class="size-3.5" />
-            在 Boss 打开
-          </Button>
-          <div class="ml-auto flex items-center gap-1">
-            <Button variant="ghost" @click="detailOpen = false">关闭</Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <JobDetailDialog v-model:open="detailOpen" :job="detailJob" />
   </div>
 </template>

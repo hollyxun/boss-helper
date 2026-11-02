@@ -1,11 +1,4 @@
 interface Window {
-  ChatWebsocket?: {
-    send: (e: { toArrayBuffer: () => ArrayBuffer }) => void
-  }
-  EventBus?: {
-    publish: (e: string, ...data: any[]) => void
-    subscribe: (e: string, t: (...data: any[]) => void) => void
-  }
   _PAGE: {
     isGeekChat: boolean
     // zp_token: string; 7.18 寄！
@@ -46,3 +39,4 @@ declare module '*.svg?raw' {
 }
 
 declare const __APP_VERSION__: string
+declare const __BUILD_TIME__: string
