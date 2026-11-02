@@ -28,7 +28,6 @@ export abstract class HelperContext<C extends HelperContext<C, T, S>, T, S> {
   workflowRunning = computed(() => this.workflow?.status.value === 'running')
   jobResultMaps: Reactive<Map<string, TaskResult>>
 
-  abstract jobList: Ref<JobData[]>
   abstract jobMaps: Map<string, WorkflowData<T, S>>
 
   currentJob: Ref<string | null>
@@ -46,29 +45,22 @@ export abstract class HelperContext<C extends HelperContext<C, T, S>, T, S> {
     this.netConf = ref(null)
   }
 
-  abstract loadMoreJob(delay: Promise<any>): Promise<boolean>
+  /** 当前要展示 / 投递的岗位来源；各站点自己实现 */
+  abstract getActiveJobs(): JobData[]
   /**
-   * 当前要展示 / 投递的岗位来源。
-   * 默认是宿主页面上的岗位列表，面板搜索模式下由子类覆盖成搜索结果。
-   */
-  getActiveJobs(): JobData[] {
-    return this.jobList.value
-  }
-  /**
-   * 投递要跑的岗位 = 面板里展示的岗位。
+   * 投递要跑的岗位 = 面板里展示的岗位再过一道「筛选配置」。
    *
-   * 以插件自己的筛选口径为准：面板显示几个就投几个，页面列表之后怎么变都不影响这一轮。
+   * 口径和面板一致，从同一份来源出发；每个岗位之后还要过需要详情的管线筛选，
+   * 所以最终投出去的只会 ≤ 面板显示数。
    */
   getDeliveryJobs(): JobData[] {
     return applyJobListFilter(this.getActiveJobs(), this.conf.formData)
   }
-  /** 主动加载更多岗位：页面模式是翻页，搜索模式是拉搜索接口下一页 */
-  async loadMoreActiveJobs(delay: Promise<any>): Promise<boolean> {
-    return this.loadMoreJob(delay)
-  }
+  /** 主动加载更多岗位：拉下一页并追加进当前来源，返回是否真的拿到了新岗位 */
+  abstract loadMoreActiveJobs(delay: Promise<any>): Promise<boolean>
   abstract onMount(): Promise<void>
-  /** 打开面板时重新同步一次宿主页面数据；默认无操作 */
-  async refreshPageData(): Promise<void> {}
+  /** 抽屉打开时站点自己的动作（Boss 在这里自动补一发搜索）；默认无操作 */
+  async onPanelOpen(): Promise<void> {}
   abstract getConfigItems(): ComputedRef<[AlertItem[], (ConfigAccordionItem | false)[]]>
 
   abstract start(): Promise<void>
@@ -124,9 +116,5 @@ export abstract class HelperContext<C extends HelperContext<C, T, S>, T, S> {
       ...opt?.toast,
       title: msg,
     })
-  }
-
-  async onJobCardClick(_key: string) {
-    throw new Error('Method not implemented.')
   }
 }

@@ -1,10 +1,7 @@
-import { ref } from 'vue'
-
 import { defineUnlistedScript } from '#imports'
 import type { WorkflowData } from '@/composables/useApplying/type'
 import { createLazyObject, isInitialized } from '@/composables/useApplying/type'
 import {
-  convertBossZpJobItemToJobData,
   fetchJobDetail,
   panelSearchResults,
   rawJobItems,
@@ -14,8 +11,8 @@ import {
 import type { JobData } from '@/composables/useHelper'
 import { HelperContext } from '@/composables/useHelper'
 import type { AlertItem, ConfigAccordionItem } from '@/composables/useHelper/type'
+import { autoSearchOnPanelOpen } from '@/composables/usePanelSearch'
 import { useToast } from '@/composables/useToast'
-import { getRootVue, useHookVueData, useHookVueFn } from '@/composables/useVue'
 import { run } from '@/index'
 import { counter, initCounter } from '@/message'
 import type { FormDataInput } from '@/types/formData'
@@ -26,13 +23,7 @@ import { GeekChatClientManager } from './chat'
 import type { BoosJobData } from './delivery'
 import { bossWorkflow } from './delivery'
 import { uploadImage } from './requests'
-import type { BossZpDetailData, BossZpJobItemData } from './types'
-
-const initChange = useHookVueFn('#wrap .page-job-wrapper', 'pageChangeAction')
-const initSearch = useHookVueFn('#wrap .page-job-wrapper,.job-recommend-main,.page-jobs-main', [
-  'searchJobAction',
-  'onSearch',
-])
+import type { BossZpDetailData } from './types'
 
 export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}> {
   private static instance: HTMLElement | null = null
@@ -42,30 +33,14 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
   geek!: GeekChatClientManager
   autoReply?: AutoReplyService
 
-  _page = ref({ page: 1, pageSize: 15 })
-  _pageHasMore = ref(true)
-  _jobDetail = ref<BossZpDetailData>()
-  _pageChange = (_v: number) => {
-    throw new Error('pageChange is undefined')
-  }
-  _clickJobCardAction = (_: BossZpJobItemData) => {}
-  _jobList: Ref<BossZpJobItemData[]>
   _jobDataMap: Map<string, BoosJobData>
 
-  rootVue: any = null
   jobMaps: Map<string, WorkflowData<BoosJobData, {}>>
-  jobList: Ref<JobData[]>
 
   constructor() {
-    const jobList = ref<JobData[]>([])
-    const _jobList = ref<BossZpJobItemData[]>([])
-    const _jobListMap = new Map<string, BoosJobData>()
-
     super()
 
-    this.jobList = jobList
-    this._jobList = _jobList
-    this._jobDataMap = _jobListMap
+    this._jobDataMap = new Map()
 
     this.jobMaps = reactive(new Map())
   }
@@ -91,33 +66,8 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
 
   static async new() {
     const ctx = new BossHelperCtx()
-    ctx.rootVue = await getRootVue()
     ctx.workflow = await bossWorkflow(ctx)
     return ctx
-  }
-
-  async loadMoreJob(delay: Promise<any>): Promise<boolean> {
-    try {
-      const oldLen = this._jobList.value.length
-      const oldFirstJobId = this._jobList.value[0]?.encryptJobId ?? ''
-
-      this._pageChange(this._page.value.page + 1)
-      await delay
-      const currentFirstJobId = this._jobList.value[0]?.encryptJobId ?? ''
-      if (
-        (location.href.includes('/web/geek/job-recommend') ||
-          location.href.includes('/web/geek/jobs')) &&
-        oldLen === this._jobList.value.length &&
-        oldFirstJobId === currentFirstJobId
-      ) {
-        logger.error('翻页: 内容无变化')
-        return false
-      }
-    } catch (err) {
-      logger.error('翻页: 下一页错误', err)
-      return false
-    }
-    return true
   }
 
   async start() {
@@ -177,11 +127,8 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
   }
 
   async onMount() {
-    // 只在首次挂载时创建 UI 宿主。
-    // 页面内路由切换（应用搜索 / 翻页）会再次触发 onMount，此时复用现有元素，
-    // 避免把已经打开的抽屉整个卸载掉；只重新绑定页面数据钩子。
+    // 只创建一次 UI 宿主：run() 已经把宿主建在 body 里，这里只记录引用
     if (!BossHelperCtx.instance) {
-      // run() 已经把宿主建好在 body 里，这里只记录引用，避免 onMount 重复创建
       const existed = document.querySelector<HTMLElement>('[data-boss-helper-host]')
       if (existed) {
         BossHelperCtx.instance = existed
@@ -191,12 +138,6 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
         document.body.appendChild(appElement)
       }
     }
-
-    await this._initPage()
-    await this._initPageChange()
-    await this._initJobDetail()
-    await this._initClickJobCardAction()
-    await this._initJobList()
 
     this.initNetConf()
     if (!this.geek) {
@@ -209,9 +150,9 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     }
   }
 
-  /** 打开面板时先对齐一次页面数据，避免看到上次页面残留的岗位 */
-  override async refreshPageData() {
-    await Promise.allSettled([this._initPage(), this._initJobList(), this._initJobDetail()])
+  /** 抽屉首次打开时按上次的条件自动搜一发 */
+  override async onPanelOpen() {
+    await autoSearchOnPanelOpen()
   }
   getConfigItems() {
     return computed<[AlertItem[], (ConfigAccordionItem | false)[]]>(() => {
@@ -224,7 +165,7 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
             title: '首次配置前请先进入帮助模式查看说明',
             color: 'success',
             description:
-              '所有配置项均提供说明，获取岗位滚动至约 150 条会自动停止，刷新页面或修改求职期望后可重新获取；如遇 Bug 或帮助内容不清晰，欢迎反馈并提出改进建议。',
+              '所有配置项均提供说明，岗位列表只来自面板搜索：打开面板按上次条件自动搜一发，下拉到底继续翻页，Boss 没有更多就停；如遇 Bug 或帮助内容不清晰，欢迎反馈并提出改进建议。',
           },
         ],
         [
@@ -429,39 +370,8 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
       ]
     })
   }
-  override async onJobCardClick(key: string) {
-    // const detail = await requestDetail({
-    //   securityId: job.rawData.jobitem.securityId,
-    //   lid: job.rawData.jobitem.encryptJobId,
-    // }).then((r) => r.zpData)
-    const job = this.jobMaps.get(key)
-    if (!job) {
-      throw new Error('未找到job数据')
-    }
-    if (isInitialized(job.rawData.detail)) {
-      return
-    }
-    this._clickJobCardAction(job.rawData.jobitem)
-    const detail = await new Promise<BossZpDetailData>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        clearInterval(interval)
-        reject(new Error('bossZpDetailData获取超时'))
-      }, 1000 * 60)
-      const interval = setInterval(() => {
-        if (this._jobDetail.value && this._jobDetail.value.lid === job.rawData.jobitem.lid) {
-          clearTimeout(timeout)
-          clearInterval(interval)
-          resolve(this._jobDetail.value)
-        }
-      }, 100)
-    })
 
-    job.rawData.detail = detail
-    this.applyJobDetail(job.jobData, detail)
-    this.jobMaps.set(key, job)
-  }
-
-  /** 把接口 / 页面拿到的详情合并进岗位数据 */
+  /** 把接口拿到的详情合并进岗位数据 */
   applyJobDetail(targetJob: JobData, detail: BossZpDetailData) {
     targetJob.activeTime = detail.brandComInfo.activeTime
     targetJob.activeTimeStr = detail.bossInfo.activeTimeDesc
@@ -484,7 +394,7 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     }
   }
 
-  /** 拿岗位详情：一律先走详情接口，接口拿不到才退回模拟点击页面卡片 */
+  /** 拿岗位详情：只走详情接口 */
   async loadJobDetail(job: JobData) {
     const entry = this.jobMaps.get(job.key)
     if (!entry) {
@@ -492,32 +402,17 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     }
     if (isInitialized(entry.rawData.detail)) return
     const detail = await fetchJobDetail(entry.jobData)
-    if (detail) {
-      entry.rawData.detail = detail
-      this.applyJobDetail(entry.jobData, detail)
-      this.jobMaps.set(job.key, entry)
-      return
+    if (!detail) {
+      throw new Error('岗位详情获取失败')
     }
-    // 搜索结果不在宿主页面上，点不到卡片；只有页面上的岗位还能试一次
-    if (this.isPageJob(job.key)) {
-      await this.onJobCardClick(job.key)
-      return
-    }
-    throw new Error('岗位详情获取失败')
+    entry.rawData.detail = detail
+    this.applyJobDetail(entry.jobData, detail)
+    this.jobMaps.set(job.key, entry)
   }
 
-  /** 这个岗位是否存在于宿主页面的岗位列表里 */
-  isPageJob(key: string) {
-    return this.jobList.value.some((job) => job.key === key)
-  }
-
-  /**
-   * 要展示 / 投递的岗位来源。
-   * 面板搜索有结果时用搜索结果，否则用页面列表（保持旧版行为）。
-   */
+  /** 要展示 / 投递的岗位来源：只有面板搜索结果 */
   override getActiveJobs(): JobData[] {
     const panel = panelSearchResults.value
-    if (panel.length === 0) return this.jobList.value
 
     for (const job of panel) {
       if (this._jobDataMap.has(job.key)) continue
@@ -532,9 +427,8 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     return panel
   }
 
-  /** 搜索模式拉自己搜索接口的下一页；页面模式调页面的翻页方法继续下一页 */
+  /** 拉搜索接口的下一页；没有更多或条件丢失就不再翻 */
   override async loadMoreActiveJobs(delay: Promise<any>): Promise<boolean> {
-    if (panelSearchResults.value.length === 0) return this.loadMoreJob(delay)
     if (!searchMeta.hasMore || !searchMeta.conditions) return false
     const before = panelSearchResults.value.length
     await delay
@@ -546,144 +440,11 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     }
     return panelSearchResults.value.length > before
   }
-  async _initJobList() {
-    await useHookVueData(
-      '#wrap .page-job-wrapper,.job-recommend-main,.page-jobs-main',
-      'jobList',
-      this._jobList,
-      (v) => {
-        this.jobList.value = v.map((item) => {
-          // const jobData = convertBossZpJobItemToJobData(item)
-          // if (this.conf.formData.useCache.value) {
-          //   const cacheCheck = checkJobCache(jobData.key)
-          //   if (cacheCheck) {
-          //     jobData.status = {
-          //       status: cacheCheck.status,
-          //       msg: `${cacheCheck.message} (缓存)`,
-          //     }
-          //   }
-          // }
-          const job = convertBossZpJobItemToJobData(item)
-          // 页面岗位也进 rawJobItems，详情接口才认得出它的 key
-          rawJobItems.set(job.key, item)
-
-          let jobData = this._jobDataMap.get(job.key)
-          if (jobData) {
-            jobData = {
-              ...jobData,
-              jobitem: item,
-            }
-          } else {
-            jobData = {
-              jobitem: item,
-              detail: createLazyObject('岗位详情获取'),
-              boss: createLazyObject('Boss信息获取'),
-            }
-          }
-          this._jobDataMap.set(job.key, jobData)
-
-          return job
-        })
-        this.jobList.value.forEach((job) => {
-          this.jobMaps.set(job.key, {
-            jobData: job,
-            rawData: this._jobDataMap.get(job.key)!,
-            state: {},
-          })
-        })
-      },
-    )()
-  }
-
-  async _initPage() {
-    await useHookVueData(
-      '#wrap .page-job-wrapper,.job-recommend-main,.page-jobs-main',
-      'pageVo',
-      this._page,
-    )()
-    await useHookVueData(
-      '#wrap .page-job-wrapper,.job-recommend-main,.page-jobs-main',
-      'hasMore',
-      this._pageHasMore,
-    )()
-  }
-
-  async _initJobDetail() {
-    await useHookVueData(
-      '#wrap .page-job-wrapper,.job-recommend-main,.page-jobs-main',
-      'jobDetail',
-      this._jobDetail,
-    )()
-  }
-
-  async _initPageChange() {
-    let pc =
-      location.href.includes('/web/geek/job-recommend') || location.href.includes('/web/geek/jobs')
-        ? await initSearch()
-        : await initChange()
-    if (!pc) {
-      throw new Error('pageChange is undefined')
-    }
-    this._pageChange = pc
-  }
-
-  async _initClickJobCardAction() {
-    this._clickJobCardAction = await useHookVueFn(
-      '#wrap .page-job-wrapper,.job-recommend-main,.page-jobs-main',
-      'clickJobCardAction',
-    )()
-  }
 }
 
-// function shouldCaptureChatSocket(url: string | URL | undefined) {
-//   return url != null && url.toString().includes('chatws')
-// }
-
-// function hookChatSocket() {
-//   const NativeWebSocket = window.WebSocket
-//   const HOOK_SYMBOL = Symbol('__IS_HOOKED__')
-
-//   if (!(NativeWebSocket as any)[HOOK_SYMBOL]) {
-//     window.WebSocket = new Proxy(NativeWebSocket, {
-//       construct(target, args, newTarget) {
-//         const socket = Reflect.construct(target, args, newTarget)
-
-//         const [url] = args as [string | URL | undefined, string | string[] | undefined]
-
-//         if (!shouldCaptureChatSocket(url)) {
-//           return socket
-//         }
-//         BossHelperCtx.setSocket(socket)
-//         socket.addEventListener('open', () => {
-//           BossHelperCtx.setSocket(socket)
-//         })
-//         socket.addEventListener('close', () => {
-//           BossHelperCtx.setSocket(null)
-//         })
-
-//         return socket
-//       },
-//     }) as typeof WebSocket
-
-//     Object.defineProperty(window.WebSocket, HOOK_SYMBOL, {
-//       value: true,
-//       enumerable: false,
-//       writable: false,
-//       configurable: false,
-//     })
-//   }
-// }
-
 export default defineUnlistedScript(async () => {
-  // hookChatSocket()
-
   initCounter()
   const bossHelpCtx = await BossHelperCtx.new()
-
-  bossHelpCtx.rootVue.$router.afterHooks.push(() => {
-    // hookChatSocket()
-    void bossHelpCtx.onMount()
-  })
 
   await run(bossHelpCtx)
 })
