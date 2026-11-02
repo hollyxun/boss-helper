@@ -507,10 +507,14 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
       logger.error('投递未知错误', e)
       stepMsg = `未知错误: ${e instanceof Error ? e.message : JSON.stringify(e)}`
     } finally {
-      if (!stepMsg) {
+      // 手动暂停时 stepMsg 是空的，不能当成「投递结束」把状态盖回 pending：留在 stop，
+      // 按钮才显示「继续」，续投靠 jobResultMaps 跳过已投的岗位，列表变长也不会错位。
+      if (isStop()) {
+        if (!stepMsg) stepMsg = '已暂停，点「继续」从上次位置接着投'
+      } else if (!stepMsg) {
         stepMsg = '投递结束'
         status.value = 'pending'
-      } else if (status.value !== 'stop') {
+      } else {
         status.value = 'error'
         errorMessage.value = stepMsg
       }
