@@ -19,6 +19,7 @@ const props = withDefaults(
   defineProps<
     DialogContentProps & {
       class?: HTMLAttributes['class']
+      overlayClass?: HTMLAttributes['class']
       showCloseButton?: boolean
       to?: string | HTMLElement
     }
@@ -28,13 +29,13 @@ const props = withDefaults(
 const emits = defineEmits<DialogContentEmits>()
 const portalTarget = inject(PortalKey, ref<HTMLElement | undefined>())
 const target = computed(() => props.to ?? portalTarget.value)
-const delegatedProps = reactiveOmit(props, 'class', 'to', 'showCloseButton')
+const delegatedProps = reactiveOmit(props, 'class', 'overlayClass', 'to', 'showCloseButton')
 const forwarded = useForwardPropsEmits(delegatedProps, emits)
 </script>
 
 <template>
   <DialogPortal :to="target">
-    <DialogOverlay class="z-[1200]" />
+    <DialogOverlay :class="cn('z-[1200]', props.overlayClass)" />
     <DialogContent
       data-slot="dialog-content"
       v-bind="{ ...$attrs, ...forwarded }"

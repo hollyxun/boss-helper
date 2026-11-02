@@ -163,6 +163,20 @@ export async function fetchJobDetail(job: JobData): Promise<BossZpDetailData | n
   return json.zpData as BossZpDetailData
 }
 
+/** 拉详情接口并把描述等字段合并进岗位数据；接口没给描述时返回 false，由调用方决定怎么提示 */
+export async function loadJobDescription(job: JobData): Promise<boolean> {
+  const detail = await fetchJobDetail(job)
+  const description = detail?.jobInfo?.postDescription
+  if (!description) return false
+  job.jobDescription = description
+  if (detail?.jobInfo?.locationName) job.city = detail.jobInfo.locationName
+  if (detail?.brandComInfo?.introduce) {
+    job.brand = { ...job.brand, introduce: detail.brandComInfo.introduce }
+  }
+  if (detail?.bossInfo?.activeTimeDesc) job.activeTimeStr = detail.bossInfo.activeTimeDesc
+  return true
+}
+
 /**
  * 调用 Boss 自己的岗位搜索接口，把结果放进面板。
  *

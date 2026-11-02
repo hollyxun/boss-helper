@@ -3,7 +3,7 @@ import { ChevronDown, Loader2 } from '@lucide/vue'
 import { reactive, ref } from 'vue'
 
 import Hint from '@/components/Hint.vue'
-import JobCard from '@/components/JobCard.vue'
+import JobDetailDialog from '@/components/JobDetailDialog.vue'
 import Avatar from '@/components/ui/avatar/Avatar.vue'
 import AvatarFallback from '@/components/ui/avatar/AvatarFallback.vue'
 import AvatarImage from '@/components/ui/avatar/AvatarImage.vue'
@@ -17,9 +17,6 @@ import DialogHeader from '@/components/ui/dialog/DialogHeader.vue'
 import DialogTitle from '@/components/ui/dialog/DialogTitle.vue'
 import Input from '@/components/ui/input/Input.vue'
 import Label from '@/components/ui/label/Label.vue'
-import Popover from '@/components/ui/popover/Popover.vue'
-import PopoverContent from '@/components/ui/popover/PopoverContent.vue'
-import PopoverTrigger from '@/components/ui/popover/PopoverTrigger.vue'
 import Select from '@/components/ui/select/Select.vue'
 import SelectContent from '@/components/ui/select/SelectContent.vue'
 import SelectItem from '@/components/ui/select/SelectItem.vue'
@@ -40,6 +37,7 @@ import TableRow from '@/components/ui/table/TableRow.vue'
 import Textarea from '@/components/ui/textarea/Textarea.vue'
 import { defaultFormData, useConf } from '@/composables/conf'
 import { parseFiltering } from '@/composables/useApplying/utils'
+import { loadJobDescription } from '@/composables/useBossJobSearch'
 import { useHelper } from '@/composables/useHelper'
 import type { JobData } from '@/composables/useHelper'
 import { useModel } from '@/composables/useModel'
@@ -118,25 +116,18 @@ interface TestContent {
 
 const testData = reactive<Array<TestData>>([])
 const expanded = reactive<Record<string, boolean>>({})
-const hoverOpen = reactive<Record<string, boolean>>({})
 const testDataContent = reactive<Record<string, TestContent[]>>({})
 
-let hoverTimer: ReturnType<typeof setTimeout> | undefined
+const detailOpen = ref(false)
+const detailJob = ref<JobData | null>(null)
 
 function toggleExpanded(key: string) {
   expanded[key] = !expanded[key]
 }
 
-function showHover(key: string) {
-  if (hoverTimer) clearTimeout(hoverTimer)
-  hoverOpen[key] = true
-}
-
-function hideHover(key: string) {
-  if (hoverTimer) clearTimeout(hoverTimer)
-  hoverTimer = setTimeout(() => {
-    hoverOpen[key] = false
-  }, 150)
+function openJobDetail(job: JobData) {
+  detailJob.value = job
+  detailOpen.value = true
 }
 
 const testJobLoading = ref(false)
@@ -146,21 +137,29 @@ async function addTestJob(n: number) {
   testJobLoading.value = true
   try {
     let count = 0
-    for (let item of helper.jobList.value) {
-      if (testData.some((v) => v.job.key === item.key)) {
+    // 测试岗位和投递、面板显示同一个口径：都取岗位列表，不再单独读宿主页面上的岗位
+    for (const job of helper.getDeliveryJobs()) {
+      if (testData.some((v) => v.job.key === job.key)) {
         continue
       }
-      await helper.onJobCardClick(item.key) // 触发加载更多数据
-      const data = helper.jobMaps.get(item.key)
-      if (data) {
-        item = data.jobData
+      try {
+        await loadJobDescription(job)
+      } catch (error) {
+        logger.warn('TestJobDetailError', error)
       }
-      testData.push({ key: item.key, job: item, checked: false, loading: false })
-      testDataContent[item.key] = []
+      testData.push({ key: job.key, job, checked: false, loading: false })
+      testDataContent[job.key] = []
       count++
       if (count >= n) {
         break
       }
+    }
+    if (count === 0) {
+      toast.add({
+        title: '没有可添加的测试岗位',
+        color: 'warning',
+        description: '测试岗位取自岗位列表，先搜出岗位再添加；已经添加过的不会重复',
+      })
     }
   } finally {
     testJobLoading.value = false
@@ -424,22 +423,22 @@ async function savePrompt() {
     <SheetContent side="right" class="w-full sm:max-w-lg">
       <SheetHeader>
         <SheetTitle>Prompt 测试</SheetTitle>
-        <SheetDescription>从当前页面抽取岗位，验证提示词效果</SheetDescription>
+        <SheetDescription>从岗位列表抽取岗位，验证提示词效果</SheetDescription>
       </SheetHeader>
 
       <div class="min-h-0 flex-1 overflow-y-auto px-4">
         <div class="mb-4 flex flex-wrap gap-2">
           <Button variant="secondary" :disabled="testJobLoading" @click="addTestJob(1)">
             <Loader2 v-if="testJobLoading" class="animate-spin" />
-            从页面添加1个岗位
+            从岗位列表添加1个岗位
           </Button>
           <Button variant="secondary" :disabled="testJobLoading" @click="addTestJob(4)">
             <Loader2 v-if="testJobLoading" class="animate-spin" />
-            从页面添加4个岗位
+            从岗位列表添加4个岗位
           </Button>
           <Button variant="secondary" :disabled="testJobLoading" @click="addTestJob(10)">
             <Loader2 v-if="testJobLoading" class="animate-spin" />
-            从页面添加10个岗位
+            从岗位列表添加10个岗位
           </Button>
         </div>
 
@@ -469,27 +468,15 @@ async function savePrompt() {
                     </Button>
                   </TableCell>
                   <TableCell>
-                    <Popover v-model:open="hoverOpen[row.key]">
-                      <PopoverTrigger as-child>
-                        <span
-                          class="flex cursor-default items-center gap-1"
-                          @mouseenter="showHover(row.key)"
-                          @mouseleave="hideHover(row.key)"
-                        >
-                          <Badge v-if="row.loading" variant="secondary" class="size-4 p-0">
-                            <Loader2 class="size-3 animate-spin" />
-                          </Badge>
-                          <span>{{ row.job.jobName }}</span>
-                        </span>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        class="w-auto p-0"
-                        @mouseenter="showHover(row.key)"
-                        @mouseleave="hideHover(row.key)"
-                      >
-                        <JobCard :job="row.job" :hover="false" style="width: 300px" />
-                      </PopoverContent>
-                    </Popover>
+                    <span
+                      class="flex cursor-pointer items-center gap-1 hover:underline"
+                      @click="openJobDetail(row.job)"
+                    >
+                      <Badge v-if="row.loading" variant="secondary" class="size-4 p-0">
+                        <Loader2 class="size-3 animate-spin" />
+                      </Badge>
+                      <span>{{ row.job.jobName }}</span>
+                    </span>
                   </TableCell>
                   <Hint :text="row.job.jobDescription">
                     <TableCell class="max-w-[240px] truncate">
@@ -526,7 +513,7 @@ async function savePrompt() {
               </template>
               <TableRow v-if="testData.length === 0">
                 <TableCell colspan="3" class="text-muted-foreground py-6 text-center">
-                  还没有测试岗位，请先从页面添加
+                  还没有测试岗位，请先从岗位列表添加
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -542,4 +529,6 @@ async function savePrompt() {
       </SheetFooter>
     </SheetContent>
   </Sheet>
+
+  <JobDetailDialog v-model:open="detailOpen" :job="detailJob" />
 </template>
