@@ -207,7 +207,7 @@ export const defaultFormData: FormData = {
   </岗位信息>`,
       },
     ],
-    score: 10,
+    score: 60,
   },
   aiResume: {
     enable: true,
