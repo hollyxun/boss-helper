@@ -350,7 +350,7 @@ export class TaskRegistry<C extends HelperContext<C, T, S>, T, S = {}> {
       return async (ctx, data) => {
         const content = await ctx.helper.chatModel.chat('filtering', data).then((r) => r.text)
         const { message, rating } = parseFiltering(content)
-        const threshold = ctx.helper.conf.formData.aiFiltering.score ?? 10
+        const threshold = ctx.helper.conf.formData.aiFiltering.score ?? 60
         if (rating < threshold) {
           return taskResult.skip(
             `${message || 'AI 评分不达标'}（AI 评分 ${rating}，低于 ${threshold}）`,

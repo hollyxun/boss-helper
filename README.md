@@ -4,7 +4,7 @@
 > 使用该脚本有一定风险(如黑号,封号,权重降低等)，本项目不承担任何责任
 
 > [!IMPORTANT]
-> 本项目名为 **boss-helper-plus**，是基于 [Ocyss/boss-helper](https://github.com/Ocyss/boss-helper) 的衍生改造版本，当前版本 **0.0.3**，版本号从 0.0.1 重新开始。
+> 本项目名为 **boss-helper-plus**，是基于 [Ocyss/boss-helper](https://github.com/Ocyss/boss-helper) 的衍生改造版本，当前版本 **0.0.4**，版本号从 0.0.1 重新开始。
 >
 > 为避免与已安装的原版扩展冲突：包名/扩展名改为 `boss-helper-plus`，Chrome/Edge 不再复用上游 `key`，Firefox 使用新的 Gecko ID。
 >
@@ -26,11 +26,13 @@ boss-helper-plus 是基于 [Ocyss/boss-helper](https://github.com/Ocyss/boss-hel
 
 ## 更新日志
 
-### 未发布
+### 0.0.4
 
 - **不再劫持宿主页面**：删除页面 Vue 桥（`useVue.ts` 的 `jobList` / `jobDetail` / `clickJobCardAction` 钩子）、详情模拟点击兜底、`$router.afterHooks` 注入与 `refreshPageData`；岗位列表只来自面板搜索，详情只走 `job/detail.json`，页面仅用于读取 `_PAGE` / `Cookie` 登录信息
 - **AI 测试岗位**：改从岗位列表取（和投递同一口径），详情走接口；岗位名点击打开与岗位列表相同的详情弹窗（`JobDetailDialog.vue`）
 - **投递**：投递进行中下拉不再触发加载，暂停后恢复并按岗位状态从上次位置续投；暂停不再被改写成 `pending`
+- **AI 过滤**：评分改回 0-100 分制——`parseFiltering` 补上默认提示词里写明的基础分 60 并夹到 0-100（此前只算加减项净值，最高约 ±50），默认「过滤分数」由 10 提到 60，语义是「中性岗位刚好通过、≥80 建议投递」。不补基础分时 60 这个阈值永远达不到，开了 AI 过滤等于所有岗位被跳过
+- **图标**：换掉沿用上游的「B」字图标，改为「简历 + 放大镜」；`public/icons/logo.svg` 是矢量源，16 / 32 / 48 / 64 / 128 / 256 与 `logo.png` 七张全部由它按各自尺寸直接渲染导出
 - **清理**：删除未引用的上游 SDK 副本与 DOM 等待工具
 
 ### 0.0.3
@@ -97,8 +99,8 @@ boss-helper-plus 是基于 [Ocyss/boss-helper](https://github.com/Ocyss/boss-hel
 - 高级筛选
   - [x] 薪资,公司名,工作名,人数,内容简单筛选
   - 公司地址相关
-    > 使用高德api，需要自行申请，或者使用关键字筛选, 暂时只有驾车和步行
-    - [x] 驾车/步行距离
+    > 使用高德api，需要自行申请，或者使用关键字筛选；距离支持直线/驾车/步行，时间支持驾车/步行
+    - [x] 直线/驾车/步行距离
     - [x] 驾车/步行时间
   - [ ] 公司风险评控
   - [x] AI筛选

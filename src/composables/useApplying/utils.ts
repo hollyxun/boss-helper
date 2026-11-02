@@ -48,6 +48,9 @@ export function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+/** 与默认提示词里的「基础分 60 / totalScore 限制在 0-100」同一量纲，见 conf/info.ts 的 aiFiltering 提示词。 */
+const AI_FILTER_BASE_SCORE = 60
+
 export function parseFiltering(content: string) {
   interface Item {
     reason: string
@@ -67,7 +70,8 @@ export function parseFiltering(content: string) {
     positive: res?.positive?.reduce(hand, { score: 0, reason: '' }),
   }
 
-  const rating = (data?.positive?.score ?? 0) - (data?.negative?.score ?? 0)
+  const raw = AI_FILTER_BASE_SCORE + (data?.positive?.score ?? 0) - (data?.negative?.score ?? 0)
+  const rating = Math.min(100, Math.max(0, raw))
 
   const message = `分数${rating}\n消极:${data?.negative?.reason}\n\n积极:${data?.positive?.reason}`
 
