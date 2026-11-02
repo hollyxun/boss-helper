@@ -21,6 +21,7 @@ import type { JobStatus } from '@/composables/useApplying/type'
 import {
   clearSearchResults,
   fetchJobDetail,
+  isBossRiskControl,
   panelSearchResults,
   searchJobs,
   searchMeta,
@@ -30,7 +31,7 @@ import { useHelper } from '@/composables/useHelper'
 import { jobListFilterEnabled } from '@/composables/useJobListFilter'
 import { matchJobByConfig } from '@/composables/useJobMatching'
 import { useToast } from '@/composables/useToast'
-import { delay } from '@/utils'
+import { delay, errorHandle } from '@/utils'
 import { logger } from '@/utils/logger'
 
 const helper = useHelper()
@@ -116,19 +117,22 @@ async function refresh() {
  *
  * 面板里分两种：
  * - 页面模式：真的让 Boss 翻页，沿用 delayDeliveryPageNext，最低 5s；
- * - 搜索模式：只是调我们自己的搜索接口，用固定 2.5s + 随机抖动。
+ * - 搜索模式：只是调我们自己的搜索接口，8s + 0~100% 抖动。
  */
 const PAGE_MIN_INTERVAL_SECONDS = 5
-const SEARCH_INTERVAL_SECONDS = 2.5
+const SEARCH_INTERVAL_SECONDS = 8
+/** 搜索连续失败时的退避档位，用完还没成功就彻底停掉自动加载 */
+const SEARCH_BACKOFF_SECONDS = [8, 20]
 /** 两次触发之间的硬性间隔，防止滚动事件连发 */
 const TRIGGER_GUARD_MS = 1200
 
 let lastLoadAt = 0
+let searchFailStreak = 0
 const cooldownLeft = ref(0)
 let cooldownTimer: ReturnType<typeof setInterval> | null = null
 
-function startCooldown(seconds: number) {
-  const jittered = seconds * (1 + Math.random() * 0.3)
+function startCooldown(seconds: number, jitter = 0.3) {
+  const jittered = seconds * (1 + Math.random() * jitter)
   const until = Date.now() + jittered * 1000
   cooldownLeft.value = Math.ceil(jittered)
   if (cooldownTimer) clearInterval(cooldownTimer)
@@ -151,12 +155,19 @@ async function loadMore() {
   if (Date.now() - lastLoadAt < TRIGGER_GUARD_MS) return
   loadingMore.value = true
   lastLoadAt = Date.now()
+  // 搜索分支的冷却放到 finally：原来写在 await 之后，一报错就整段跳过，
+  // 失败不降速反而被滚动事件继续驱动着打，风控越触发越实。
+  let searchCooldown = 0
   try {
     if (usingSearch.value) {
       if (!searchMeta.hasMore || !searchMeta.conditions) return
-      await sleep(SEARCH_INTERVAL_SECONDS * 1000)
-      await searchJobs(searchMeta.conditions, searchMeta.page + 1, true)
-      startCooldown(SEARCH_INTERVAL_SECONDS)
+      searchCooldown = SEARCH_INTERVAL_SECONDS
+      try {
+        await searchJobs(searchMeta.conditions, searchMeta.page + 1, true)
+        searchFailStreak = 0
+      } catch (error) {
+        searchCooldown = onSearchPageFailed(error)
+      }
     } else {
       // 和旧版投递一致：等待时间交给 loadMoreJob 内部的 delay
       const pageDelay = Math.max(
@@ -175,11 +186,39 @@ async function loadMore() {
     logger.warn('JobTableLoadMoreError', error)
   } finally {
     loadingMore.value = false
+    if (searchCooldown > 0) startCooldown(searchCooldown, 1)
   }
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+/** 搜索翻页失败：返回下一次冷却秒数，返回 0 表示已彻底停掉自动加载 */
+function onSearchPageFailed(error: unknown) {
+  const message = errorHandle(error)
+  logger.warn('JobTableSearchPageError', message)
+
+  if (isBossRiskControl(message)) {
+    stopAutoLoad('Boss 已拦截搜索请求', message)
+    return 0
+  }
+  searchFailStreak += 1
+  const backoff = SEARCH_BACKOFF_SECONDS[searchFailStreak - 1]
+  if (!backoff) {
+    stopAutoLoad(`搜索连续失败 ${searchFailStreak} 次，已停止自动加载`, message)
+    return 0
+  }
+  return backoff
+}
+
+/**
+ * hasMore=false 同时停掉两处：面板下拉翻页，以及投递里的 searchJobs 翻页
+ * （loadMoreActiveJobs 也读这个标志），别再往风控上撞。
+ */
+function stopAutoLoad(title: string, reason: string) {
+  searchMeta.hasMore = false
+  toast.add({
+    color: 'error',
+    title,
+    description: `${reason}；请刷新页面完成验证，之后重新搜索才会继续翻页`,
+  })
 }
 
 function onScroll(event: Event) {
@@ -340,6 +379,9 @@ function openLink() {
         <template v-else-if="cooldownLeft > 0">
           <Clock class="size-3" />
           翻页冷却 {{ cooldownLeft }}s（防止连续翻页被风控）
+        </template>
+        <template v-else-if="usingSearch && searchMeta.error && !searchMeta.hasMore">
+          自动翻页已停止：{{ searchMeta.error }}
         </template>
         <template v-else-if="usingSearch && !searchMeta.hasMore">没有更多了</template>
         <template v-else>

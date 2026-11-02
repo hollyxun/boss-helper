@@ -9,6 +9,23 @@ const ALL_CITY_CODE = '100010000'
 const SEARCH_API = '/wapi/zpgeek/search/joblist.json'
 const PAGE_SIZE = 30
 
+/**
+ * Boss 的这批文案是风控判定（跟登录态无关），继续按原节奏重试只会加重，
+ * 需要和「未登录」区分开，否则提示会把用户引去查登录。
+ */
+const RISK_CONTROL_MESSAGE = /环境存在异常|操作过于频繁|行为异常|安全验证|滑块|人机/
+
+export function isBossRiskControl(message: string) {
+  return RISK_CONTROL_MESSAGE.test(message)
+}
+
+/** 没有 bst 就不要发请求：无凭证的 wapi 请求 Boss 一律回「环境存在异常」，看起来像没登录 */
+function requireZpToken() {
+  const token = window?.Cookie?.get?.('bst')
+  if (!token) throw new Error('未获取到 Boss 登录凭证（bst），请刷新页面后重试')
+  return token
+}
+
 /** 面板里展示的搜索结果（和页面上的岗位互不影响） */
 export const panelSearchResults = ref<JobData[]>([])
 
@@ -104,13 +121,13 @@ export interface JobPageResult {
 
 /** 只拉一页，不改面板状态，供批量搜索 / 分页加载复用 */
 export async function fetchJobPage(conditions: SearchConditions, page = 1): Promise<JobPageResult> {
-  const token = window?.Cookie?.get?.('bst')
+  const token = requireZpToken()
   const res = await fetch(SEARCH_API, {
     method: 'POST',
     credentials: 'include',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      ...(token ? { Zp_token: token } : {}),
+      Zp_token: token,
     },
     body: buildSearchBody(conditions, page).toString(),
   })
@@ -134,12 +151,12 @@ export async function fetchJobDetail(job: JobData): Promise<BossZpDetailData | n
   const securityId = raw?.securityId
   const lid = raw?.lid
   if (!securityId || !lid) return null
-  const token = window?.Cookie?.get?.('bst')
+  const token = requireZpToken()
   const url = new URL('/wapi/zpgeek/job/detail.json', location.origin)
   url.searchParams.set('securityId', securityId)
   url.searchParams.set('lid', lid)
   url.searchParams.set('_', String(Date.now()))
-  const res = await fetch(url.toString(), { headers: token ? { Zp_token: token } : {} })
+  const res = await fetch(url.toString(), { headers: { Zp_token: token } })
   const json = await res.json()
   if (json?.code !== 0) return null
   return json.zpData as BossZpDetailData
