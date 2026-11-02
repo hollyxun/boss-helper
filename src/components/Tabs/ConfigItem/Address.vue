@@ -87,22 +87,20 @@ function gotoAmapDevSetting() {
         </div>
       </AlertDescription>
     </Alert>
-    <div class="flex flex-wrap items-end gap-3">
-      <div
-        class="flex items-center gap-2 pb-2"
-        data-help="启用高德地图, 用于获取工作地址的距离和时间进行筛选，需要配置自己的key"
-      >
-        <Checkbox id="amap-enable" v-model="conf.formData.amap.enable" />
-        <Label for="amap-enable" class="cursor-pointer">启用</Label>
-      </div>
-      <Tips label="高德地图key" html-for="amap-key" help="高德地图key, 需要自己申请" class="flex-1">
-        <Input
-          id="amap-key"
-          :model-value="conf.formData.amap.key"
-          @update:model-value="(value) => (conf.formData.amap.key = String(value))"
-        />
-      </Tips>
+    <div
+      class="flex items-center gap-2"
+      data-help="启用高德地图, 用于获取工作地址的距离和时间进行筛选，需要配置自己的key"
+    >
+      <Checkbox id="amap-enable" v-model="conf.formData.amap.enable" />
+      <Label for="amap-enable" class="cursor-pointer">启用高德地图</Label>
     </div>
+    <Tips label="高德地图key" html-for="amap-key" help="高德地图key, 需要自己申请">
+      <Input
+        id="amap-key"
+        :model-value="conf.formData.amap.key"
+        @update:model-value="(value) => (conf.formData.amap.key = String(value))"
+      />
+    </Tips>
     <div class="grid grid-cols-2 gap-2">
       <Tips
         label="起点经纬度"

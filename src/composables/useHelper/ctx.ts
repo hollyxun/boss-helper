@@ -5,6 +5,7 @@ import type { Ref } from 'vue'
 import { useConf } from '@/composables/conf'
 import type { DeliveryWorkflow } from '@/composables/useApplying'
 import type { TaskResult, WorkflowData } from '@/composables/useApplying/type'
+import { applyJobListFilter } from '@/composables/useJobListFilter'
 import { useModel } from '@/composables/useModel'
 import { ChatModel } from '@/composables/useModel'
 import { useToast } from '@/composables/useToast'
@@ -52,6 +53,14 @@ export abstract class HelperContext<C extends HelperContext<C, T, S>, T, S> {
    */
   getActiveJobs(): JobData[] {
     return this.jobList.value
+  }
+  /**
+   * 投递要跑的岗位 = 面板里展示的岗位。
+   *
+   * 以插件自己的筛选口径为准：面板显示几个就投几个，页面列表之后怎么变都不影响这一轮。
+   */
+  getDeliveryJobs(): JobData[] {
+    return applyJobListFilter(this.getActiveJobs(), this.conf.formData)
   }
   /** 主动加载更多岗位：页面模式是翻页，搜索模式是拉搜索接口下一页 */
   async loadMoreActiveJobs(delay: Promise<any>): Promise<boolean> {

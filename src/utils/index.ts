@@ -54,11 +54,28 @@ export function animate({
   )
 }
 
-// 延迟
+/**
+ * 等待 s 秒。
+ *
+ * 传 `isStopped` 时它会每 100ms 被问一次，一旦返回 true 就立刻结束，
+ * 不再等满剩下的时间（原来 `isStopped` 只是传给了 loader，没人读，
+ * 点停止也得等满整个间隔才生效）。
+ */
 export async function delay(s: number, isStopped?: () => boolean) {
   return new Promise<void>((resolve) => {
-    loader({ ms: s * 1000, isStopped, onDone: resolve })
-    setTimeout(resolve, s * 1000)
+    let watch: ReturnType<typeof setInterval> | undefined
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const finish = () => {
+      if (timer) clearTimeout(timer)
+      if (watch) clearInterval(watch)
+      resolve()
+    }
+    timer = setTimeout(finish, s * 1000)
+    if (isStopped) {
+      watch = setInterval(() => {
+        if (isStopped()) finish()
+      }, 100)
+    }
   })
 }
 

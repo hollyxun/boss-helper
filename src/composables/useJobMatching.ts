@@ -112,7 +112,7 @@ export function matchJobByConfig(job: JobData, formData: FormData): MatchResult 
   if (!hr.ok) return hr
 
   const address = selectMatch(
-    { ...(formData.jobAddress ?? {}), include: true },
+    formData.jobAddress,
     `${job.address ?? ''} ${job.city ?? ''}`,
     '工作地址',
   )

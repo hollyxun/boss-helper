@@ -153,11 +153,7 @@ async function advancedGreetinSave() {
         <Checkbox id="custom-greeting-enable" v-model="conf.formData.customGreeting.enable" />
         <Label for="custom-greeting-enable" class="cursor-pointer">自定义招呼语</Label>
       </div>
-      <div
-        v-if="conf.configLevel.expert"
-        class="flex items-center gap-2"
-        data-help="使用mitem模板引擎来对招呼语进行渲染;"
-      >
+      <div class="flex items-center gap-2" data-help="使用mitem模板引擎来对招呼语进行渲染;">
         <Checkbox id="custom-greeting-variable" v-model="conf.formData.greetingVariable.value" />
         <Label for="custom-greeting-variable" class="cursor-pointer">招呼语变量</Label>
       </div>

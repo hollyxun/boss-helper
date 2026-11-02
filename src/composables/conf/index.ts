@@ -1,9 +1,9 @@
-import { reactiveComputed, watchThrottled } from '@vueuse/core'
+import { watchThrottled } from '@vueuse/core'
 import { reactive, ref, toRaw } from 'vue'
 
 import { useToast } from '@/composables/useToast'
 import { counter } from '@/message'
-import type { ConfigLevel, FormData } from '@/types/formData'
+import type { FormData } from '@/types/formData'
 import deepmerge, { jsonClone } from '@/utils/deepmerge'
 import { exportJson, importJson } from '@/utils/jsonImportExport'
 import { logger } from '@/utils/logger'
@@ -271,22 +271,6 @@ export const useConf = () => {
     })
   }
 
-  const order: Record<ConfigLevel, number> = {
-    beginner: 1,
-    intermediate: 2,
-    advanced: 3,
-    expert: 4,
-  }
-
-  const configLevel = reactiveComputed(() => {
-    const val = order[formData.configLevel]
-    return {
-      intermediate: order['intermediate'] <= val,
-      advanced: order['advanced'] <= val,
-      expert: order['expert'] <= val,
-    }
-  })
-
   async function createPreset(label: string) {
     isLoading.value = true
     try {
@@ -344,7 +328,6 @@ export const useConf = () => {
     formDataKey,
     defaultFormData,
     formData,
-    configLevel,
     formDataPreset,
     formDataPresets,
     createPreset,

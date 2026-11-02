@@ -83,7 +83,8 @@ export function convertBossZpJobItemToJobData(item: BossZpJobItemData): JobData 
       avatar: item.bossAvatar,
       certificated: item.bossCert > 0,
       isHeadhunter: item.goldHunter === 1,
-      isFriend: false,
+      // 列表项只有 contact（是否聊过）这一个信号，好友状态取它
+      isFriend: item.contact,
       isOnline: item.bossOnline ?? false,
     },
 

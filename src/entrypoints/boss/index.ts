@@ -1,7 +1,6 @@
 import { ref } from 'vue'
 
 import { defineUnlistedScript } from '#imports'
-import { useConf } from '@/composables/conf'
 import type { WorkflowData } from '@/composables/useApplying/type'
 import { createLazyObject, isInitialized } from '@/composables/useApplying/type'
 import {
@@ -215,7 +214,6 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     await Promise.allSettled([this._initPage(), this._initJobList(), this._initJobDetail()])
   }
   getConfigItems() {
-    const conf = useConf()
     return computed<[AlertItem[], (ConfigAccordionItem | false)[]]>(() => {
       return [
         [
@@ -271,11 +269,11 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                     label: 'HR职位',
                     help: 'HR职位一定包含/排除在集合中，精确匹配, 不在内置中可手动输入,能实现只向经理等进行投递，毕竟人事干的不一定是人事',
                   },
-                  conf.configLevel.intermediate && {
+                  {
                     type: 'select',
                     key: 'jobAddress',
                     label: '工作地址',
-                    help: '只能为包含模式, 即投递工作地址当中必须包含当前内容中的任意一项，否则排除',
+                    help: '包含模式：只投地址含任一项的岗位；排除模式：地址命中任一项就不投',
                   },
                 ],
               },
@@ -283,11 +281,11 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                 type: 'div',
                 class: 'flex gap-2',
                 items: [
-                  conf.configLevel.intermediate && {
+                  {
                     type: 'salaryRange',
                     key: 'salaryRange',
                   },
-                  conf.configLevel.intermediate && {
+                  {
                     type: 'companySizeRange',
                     key: 'companySizeRange',
                   },
@@ -297,7 +295,7 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                 type: 'div',
                 class: 'flex flex-wrap gap-2',
                 items: [
-                  conf.configLevel.intermediate && {
+                  {
                     type: 'checkbox',
                     key: 'activityFilter',
                     label: '活跃度过滤',
@@ -321,13 +319,13 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                     label: '过滤金牌面试官',
                     help: '通过头像框来判断是否是金牌面试官, 据小红书经验 金牌面试官多数是刷KPI, 并不靠谱',
                   },
-                  conf.configLevel.intermediate && {
+                  {
                     type: 'checkbox-expire',
                     key: 'sameCompanyFilter',
                     label: '相同公司过滤',
                     help: '投递过的公司ID存储到浏览器本地，避免多次向同公司投递，即使岗位不同HR不同',
                   },
-                  conf.configLevel.intermediate && {
+                  {
                     type: 'checkbox-expire',
                     key: 'sameHrFilter',
                     label: '相同HR过滤',
@@ -337,7 +335,7 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
               },
             ],
           },
-          conf.configLevel.intermediate && {
+          {
             label: '招呼语配置',
             value: 'greetings',
             items: [
@@ -364,12 +362,9 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
               { type: 'customGreeting', key: 'customGreeting' },
             ],
           },
-          conf.configLevel.advanced && {
-            label: '地址配置',
-            value: 'address',
-            items: [{ type: 'address', key: 'address' }],
-          },
-          conf.configLevel.intermediate && {
+          // 「地址配置」（高德）不在配置页展示：amap 字段、tasks.amap() 和 Address.vue 都保留，
+          // 但 amap.enable 默认 false，这条筛选不会进管线。恢复方式见 docs/05-配置系统.md。
+          {
             label: '延迟配置',
             value: 'delay',
             items: [
@@ -381,8 +376,8 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                     type: 'inputNumber',
                     key: 'delayDeliveryStarts',
                     fieldProps: {
-                      label: '投递开始',
-                      'data-help': '点击投递按钮会等待一段时间,默认值10s',
+                      label: '投递开始（秒）',
+                      'data-help': '点击投递按钮后、开始第一条之前等待的时间，默认 3 秒',
                     },
                     inputNumberProps: {
                       min: 1,
@@ -393,8 +388,8 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                     type: 'inputNumber',
                     key: 'delayDeliveryInterval',
                     fieldProps: {
-                      label: '投递间隔',
-                      'data-help': '每个投递的间隔,太快易风控,默认值2s',
+                      label: '投递间隔（秒）',
+                      'data-help': '每投完一条之后等待的间隔，太快易风控，默认 5 秒',
                     },
                     inputNumberProps: {
                       min: 1,
@@ -405,8 +400,8 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                     type: 'inputNumber',
                     key: 'delayDeliveryPageNext',
                     fieldProps: {
-                      label: '投递翻页',
-                      'data-help': '投递完下一页之后等待的间隔,太快易风控,默认值60s',
+                      label: '投递翻页（秒）',
+                      'data-help': '一页投完、翻到下一页之前等待的间隔，太快易风控，默认 60 秒',
                     },
                     inputNumberProps: {
                       min: 1,
@@ -417,8 +412,8 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                     type: 'inputNumber',
                     key: 'delayMessageSending',
                     fieldProps: {
-                      label: '消息发送',
-                      'data-help': '在发送消息前允许等待一定的时间让用户来修改或手动发送,默认值2s',
+                      label: '消息发送（秒）',
+                      'data-help': '发送消息前留给用户修改或手动发送的时间，默认 2 秒',
                     },
                     inputNumberProps: {
                       min: 1,
@@ -448,13 +443,15 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     }
     this._clickJobCardAction(job.rawData.jobitem)
     const detail = await new Promise<BossZpDetailData>((resolve, reject) => {
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
+        clearInterval(interval)
         reject(new Error('bossZpDetailData获取超时'))
       }, 1000 * 60)
       const interval = setInterval(() => {
         if (this._jobDetail.value && this._jobDetail.value.lid === job.rawData.jobitem.lid) {
-          resolve(this._jobDetail.value)
+          clearTimeout(timeout)
           clearInterval(interval)
+          resolve(this._jobDetail.value)
         }
       }, 100)
     })
@@ -487,20 +484,26 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     }
   }
 
-  /** 面板搜索结果里的岗位不在宿主页面上，详情只能走接口 */
-  async loadPanelDetail(job: JobData) {
+  /** 拿岗位详情：一律先走详情接口，接口拿不到才退回模拟点击页面卡片 */
+  async loadJobDetail(job: JobData) {
     const entry = this.jobMaps.get(job.key)
     if (!entry) {
       throw new Error('未找到job数据')
     }
     if (isInitialized(entry.rawData.detail)) return
     const detail = await fetchJobDetail(entry.jobData)
-    if (!detail) {
-      throw new Error('岗位详情获取失败')
+    if (detail) {
+      entry.rawData.detail = detail
+      this.applyJobDetail(entry.jobData, detail)
+      this.jobMaps.set(job.key, entry)
+      return
     }
-    entry.rawData.detail = detail
-    this.applyJobDetail(entry.jobData, detail)
-    this.jobMaps.set(job.key, entry)
+    // 搜索结果不在宿主页面上，点不到卡片；只有页面上的岗位还能试一次
+    if (this.isPageJob(job.key)) {
+      await this.onJobCardClick(job.key)
+      return
+    }
+    throw new Error('岗位详情获取失败')
   }
 
   /** 这个岗位是否存在于宿主页面的岗位列表里 */
@@ -529,7 +532,7 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     return panel
   }
 
-  /** 搜索模式下继续拉下一页搜索结果 */
+  /** 搜索模式拉自己搜索接口的下一页；页面模式调页面的翻页方法继续下一页 */
   override async loadMoreActiveJobs(delay: Promise<any>): Promise<boolean> {
     if (panelSearchResults.value.length === 0) return this.loadMoreJob(delay)
     if (!searchMeta.hasMore || !searchMeta.conditions) return false
@@ -561,6 +564,8 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
           //   }
           // }
           const job = convertBossZpJobItemToJobData(item)
+          // 页面岗位也进 rawJobItems，详情接口才认得出它的 key
+          rawJobItems.set(job.key, item)
 
           let jobData = this._jobDataMap.get(job.key)
           if (jobData) {

@@ -96,8 +96,8 @@ function setNumber(key: string, value: string | number) {
 }
 
 /**
- * 分组里当前配置级别下是否还有要展示的项。
- * 里面的项会按 configLevel 变成 false，整组都空的时候不能渲染外层 div，
+ * 分组里是否还有要展示的项。
+ * 项可以是 false（表示这一项不渲染），整组都空的时候不能渲染外层 div，
  * 否则它的 margin / gap 会变成一块空白。
  */
 function visibleItems(items?: (ConfigItem | false)[]) {
@@ -149,6 +149,7 @@ function visibleItems(items?: (ConfigItem | false)[]) {
       type="number"
       :min="item.inputNumberProps?.min"
       :max="item.inputNumberProps?.max"
+      :disabled="item.inputNumberProps?.disable"
       :model-value="conf.formData[item.key]"
       @update:model-value="(value) => setNumber((item as { key: string }).key, value)"
     />

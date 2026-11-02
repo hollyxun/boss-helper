@@ -1,7 +1,6 @@
 import type { FormData } from '@/types/formData'
 
 export const defaultFormData: FormData = {
-  configLevel: 'beginner',
   company: {
     include: false,
     value: [],
@@ -309,9 +308,6 @@ export const defaultFormData: FormData = {
     drivingDuration: 0,
     walkingDistance: 0,
     walkingDuration: 0,
-    enable: false,
-  },
-  record: {
     enable: false,
   },
   delayDeliveryStarts: 3,

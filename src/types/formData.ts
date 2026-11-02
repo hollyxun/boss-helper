@@ -9,9 +9,6 @@ export interface Statistics {
   }
 }
 
-const ConfigLevels = ['beginner', 'intermediate', 'advanced', 'expert'] as const
-export type ConfigLevel = (typeof ConfigLevels)[number]
-
 /** AI 根据简历给出的岗位推荐结果 */
 export interface ResumeAdvice {
   directions: { title: string; match: number; reason: string }[]
@@ -34,7 +31,6 @@ export interface FormDataResume {
 }
 
 export interface FormData {
-  configLevel: ConfigLevel
   company: FormDataSelect
   jobTitle: FormDataSelect
   jobContent: FormDataSelect
@@ -68,7 +64,6 @@ export interface FormData {
     walkingDuration: number
     enable: boolean
   }
-  record: { model?: string[]; enable: boolean }
   // animation?: "frame" | "card" | "together";
   delayDeliveryStarts: number
   delayDeliveryInterval: number

@@ -38,6 +38,16 @@ export function rangeMatch(rangeStr: string, form: FormDataRange): boolean {
   }
 }
 
+/**
+ * 把用户输入的关键词转义成正则字面量。
+ *
+ * 关键词里出现 `C++`、`(外包)`、`[前端]` 这类正则元字符时，
+ * 直接拼进 `new RegExp` 会抛 SyntaxError，整个岗位被标成执行出错。
+ */
+export function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 export function parseFiltering(content: string) {
   interface Item {
     reason: string

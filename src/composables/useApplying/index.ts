@@ -97,7 +97,7 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
 ) {
   const status = ref<'pending' | 'running' | 'stop' | 'error'>('pending')
   const current = ref(0)
-  const total = computed(() => helper.getActiveJobs().length)
+  const total = computed(() => helper.getDeliveryJobs().length)
   const errorMessage = ref<string | null>(null)
   const pipeline = shallowRef<Task<C, T, S>[]>([])
   const nodes = shallowRef<
@@ -408,8 +408,8 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
           status.value = 'stop'
           break
         }
-        // 面板搜索模式下来源是搜索结果，页面模式下是宿主页面岗位列表
-        const activeJobs = helper.getActiveJobs()
+        // 投递对象取面板列表（已按配置过滤），不直接读页面岗位列表
+        const activeJobs = helper.getDeliveryJobs()
         if (activeJobs.length === 0) {
           stepMsg = '没有职位可投递'
           break
@@ -499,7 +499,7 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
         )
         if (!hasMore) {
           status.value = 'stop'
-          stepMsg = '投递结束, 无法继续下一页'
+          stepMsg = '投递结束'
           break
         }
       }
@@ -535,7 +535,7 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
   const stop = () => (status.value = 'stop')
   const reset = () => {
     status.value = 'pending'
-    helper.getActiveJobs().forEach((job) => {
+    helper.getDeliveryJobs().forEach((job) => {
       const v = helper.jobResultMaps.get(job.key)
       if (!v || v.status === 'success') {
         return

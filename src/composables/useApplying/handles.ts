@@ -4,7 +4,14 @@ import type { HelperContext } from '~/composables/useHelper'
 import { sameCompanyKey, sameHrKey } from '../../entrypoints/boss/requests'
 import type { JobStatus, TaskContext, TaskResult } from './type'
 import { defineTaskHandler } from './type'
-import { loadSet, parseFiltering, rangeMatch, rangeMatchFormat, saveSet } from './utils'
+import {
+  escapeRegExp,
+  loadSet,
+  parseFiltering,
+  rangeMatch,
+  rangeMatchFormat,
+  saveSet,
+} from './utils'
 
 export class DependencyMissingError extends Error {
   constructor(public taskId: string) {
@@ -249,7 +256,9 @@ export class TaskRegistry<C extends HelperContext<C, T, S>, T, S = {}> {
         if (!x) {
           continue
         }
-        const re = new RegExp(`(?<!(不|无).{0,5})${x.toLowerCase()}(?!系统|软件|工具|服务)`)
+        const re = new RegExp(
+          `(?<!(不|无).{0,5})${escapeRegExp(x.toLowerCase())}(?!系统|软件|工具|服务)`,
+        )
         if (content != null && re.test(content)) {
           if (ctx.helper.conf.formData.jobContent.include) {
             return
@@ -306,7 +315,11 @@ export class TaskRegistry<C extends HelperContext<C, T, S>, T, S = {}> {
           return taskResult.skip(`工作地址含有排除关键词 [${x}]`)
         }
       }
-      return taskResult.skip(`工作地址不包含关键词: ${content}`)
+      // 只有包含模式才需要「一个都没命中就排除」；
+      // 排除模式没命中关键词时本来就该放行，原来这里无条件 skip 会把整批岗位过滤掉。
+      if (ctx.helper.conf.formData.jobAddress.include) {
+        return taskResult.skip(`工作地址不包含关键词: ${content}`)
+      }
     }
   })
 

@@ -11,13 +11,10 @@ import Button from '@/components/ui/button/Button.vue'
 import Checkbox from '@/components/ui/checkbox/Checkbox.vue'
 import Input from '@/components/ui/input/Input.vue'
 import Label from '@/components/ui/label/Label.vue'
-import RadioGroup from '@/components/ui/radio-group/RadioGroup.vue'
-import RadioGroupItem from '@/components/ui/radio-group/RadioGroupItem.vue'
 import { useConf } from '@/composables/conf'
 import { getCacheManager } from '@/composables/useApplying'
 import { useHelper } from '@/composables/useHelper'
 import type { ConfigAccordionItem } from '@/composables/useHelper/type'
-import type { ConfigLevel } from '@/types/formData'
 
 import ConfigItem from './ConfigItem/ConfigItem.vue'
 
@@ -25,21 +22,8 @@ const helper = useHelper()
 const conf = useConf()
 const configItems = helper.getConfigItems()
 
-const configLevelOptions: { value: ConfigLevel; label: string; hint: string }[] = [
-  { value: 'beginner', label: '新手', hint: '只显示最基础的配置' },
-  { value: 'intermediate', label: '初学者', hint: '显示常用配置' },
-  { value: 'advanced', label: '中级', hint: '显示进阶配置' },
-  { value: 'expert', label: '高级', hint: '显示全部配置' },
-]
-
 const accordionItems = computed(() =>
   configItems.value[1].filter((item): item is ConfigAccordionItem => !!item),
-)
-
-const currentLevel = computed(
-  () =>
-    configLevelOptions.find((item) => item.value === conf.formData.configLevel) ??
-    configLevelOptions[0]!,
 )
 
 const disabled = computed(() => helper.workflowRunning.value || conf.isLoading.value)
@@ -74,10 +58,6 @@ setTimeout(() => {
 onBeforeUnmount(() => {
   if (autoSaveTimer) clearTimeout(autoSaveTimer)
 })
-
-function setConfigLevel(value: unknown) {
-  conf.formData.configLevel = value as ConfigLevel
-}
 
 /** 清空岗位处理缓存，下次开始时重新跑筛选 / AI 过滤 */
 async function clearCache() {
@@ -127,35 +107,11 @@ async function onPresetChange() {
   <div class="flex flex-col gap-3">
     <div class="flex flex-col gap-2 rounded-md border border-border p-3">
       <div class="flex flex-wrap items-center gap-2">
-        <div class="text-sm font-medium">配置级别</div>
-        <Hint text="为不同人群展示不同的配置项，减少上手难度和配置过多带来的压力">
+        <div class="text-sm font-medium">运行设置</div>
+        <Hint text="通知、缓存与投递上限；下方分组依次是筛选配置、招呼语配置、地址配置、延迟配置">
           <CircleHelp class="size-3.5 text-muted-foreground" />
         </Hint>
-        <span class="text-xs text-muted-foreground">{{ currentLevel.hint }}</span>
-        <span class="ml-auto text-xs text-muted-foreground tabular-nums">
-          当前：{{ currentLevel.label }}
-        </span>
       </div>
-
-      <RadioGroup
-        class="flex flex-row flex-wrap items-center gap-4"
-        :model-value="conf.formData.configLevel"
-        :disabled="disabled"
-        @update:model-value="setConfigLevel"
-      >
-        <div
-          v-for="option in configLevelOptions"
-          :key="option.value"
-          class="flex items-center gap-1.5"
-        >
-          <RadioGroupItem :id="`config-level-${option.value}`" :value="option.value" />
-          <Label :for="`config-level-${option.value}`" class="cursor-pointer text-sm">
-            {{ option.label }}
-          </Label>
-        </div>
-      </RadioGroup>
-
-      <hr class="mt-1 border-t border-border" />
 
       <div class="flex flex-row flex-wrap items-center gap-4">
         <div
@@ -170,7 +126,6 @@ async function onPresetChange() {
           <Label for="config-notification" class="cursor-pointer">发送通知</Label>
         </div>
         <div
-          v-if="conf.configLevel.expert || conf.formData.useCache.value"
           class="flex items-center gap-2"
           data-help="开启后记录每个岗位的处理结果：普通筛选 3 天、AI 过滤 7 天、高德距离 5 天。命中的岗位会直接跳过，不再重复打招呼或调 AI，日志里标记为「缓存命中」。"
         >
@@ -194,7 +149,7 @@ async function onPresetChange() {
             清空缓存
           </Button>
         </Hint>
-        <div v-if="conf.configLevel.intermediate" class="flex items-center gap-2">
+        <div class="flex items-center gap-2">
           <Label for="config-delivery-limit" class="cursor-pointer">投递数量</Label>
           <Input
             id="config-delivery-limit"
@@ -249,24 +204,13 @@ async function onPresetChange() {
           使用推荐配置
         </Button>
         <div class="ml-auto flex flex-wrap items-center gap-2">
-          <Button
-            v-if="conf.configLevel.intermediate"
-            variant="outline"
-            data-help="互联网就是要分享"
-            @click="conf.confExport"
-          >
+          <Button variant="outline" data-help="互联网就是要分享" @click="conf.confExport">
             导出配置
           </Button>
-          <Button
-            v-if="conf.configLevel.intermediate"
-            variant="outline"
-            data-help="互联网就是要分享"
-            @click="conf.confImport"
-          >
+          <Button variant="outline" data-help="互联网就是要分享" @click="conf.confImport">
             导入配置
           </Button>
           <Button
-            v-if="conf.configLevel.advanced"
             variant="destructive"
             data-help="清空配置,不会帮你保存,可以重载恢复"
             @click="conf.confDelete"

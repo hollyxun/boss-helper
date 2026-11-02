@@ -29,7 +29,6 @@ import {
 import type { JobData } from '@/composables/useHelper'
 import { useHelper } from '@/composables/useHelper'
 import { jobListFilterEnabled } from '@/composables/useJobListFilter'
-import { matchJobByConfig } from '@/composables/useJobMatching'
 import { useToast } from '@/composables/useToast'
 import { delay, errorHandle } from '@/utils'
 import { logger } from '@/utils/logger'
@@ -44,19 +43,13 @@ const VIEWPORT_HEIGHT = 420
 const OVERSCAN = 8
 
 const usingSearch = computed(() => panelSearchResults.value.length > 0)
-/** 和投递流程同一个来源：搜索结果优先，没有搜索结果时用页面岗位 */
-const sourceJobs = computed(() => helper.getActiveJobs())
-
+/** 绑在模块级 ref 上：这个开关既决定面板显示什么，也决定投递投什么 */
 const filterEnabled = jobListFilterEnabled
-const matched = computed(() =>
-  sourceJobs.value.map((job) => {
-    if (!filterEnabled.value) return { job, ok: true as const }
-    const result = matchJobByConfig(job, conf.formData)
-    return { job, ok: result.ok, reason: result.reason }
-  }),
-)
-const jobs = computed(() => matched.value.filter((item) => item.ok).map((item) => item.job))
-const droppedCount = computed(() => matched.value.length - jobs.value.length)
+/** 未过滤的全部岗位，只用来算「配置过滤掉几个」 */
+const sourceJobs = computed(() => helper.getActiveJobs())
+/** 面板显示的就是投递要跑的，两边共用同一个筛选口径 */
+const jobs = computed(() => helper.getDeliveryJobs())
+const droppedCount = computed(() => sourceJobs.value.length - jobs.value.length)
 
 const scrollTop = ref(0)
 const startIndex = computed(() => Math.max(0, Math.floor(scrollTop.value / ROW_HEIGHT) - OVERSCAN))
@@ -169,6 +162,9 @@ async function loadMore() {
         searchCooldown = onSearchPageFailed(error)
       }
     } else {
+      // 投递进行中不要翻页：Boss 的翻页方法会整个换掉列表，
+      // 正在跑的那一轮会连同快照一起消失，剩下的岗位就再也不投了。
+      if (helper.workflowRunning.value) return
       // 和旧版投递一致：等待时间交给 loadMoreJob 内部的 delay
       const pageDelay = Math.max(
         PAGE_MIN_INTERVAL_SECONDS,
@@ -240,17 +236,7 @@ async function openDetail(job: JobData) {
 
   detailLoading.value = true
   try {
-    // 页面列表里的岗位走页面钩子，能顺带拿到完整详情
-    if (helper.jobMaps.has(job.key)) {
-      await helper.onJobCardClick(job.key)
-      const fresh = helper.jobMaps.get(job.key)?.jobData
-      if (fresh && detailJob.value?.key === job.key) {
-        detailJob.value = fresh
-        if (fresh.jobDescription) return
-      }
-    }
-
-    // 搜索结果不在页面列表里，直接调详情接口补岗位描述
+    // 先走详情接口：模拟点击会把页面换掉，只在接口失败时兜底
     const detail = await fetchJobDetail(job)
     const description = detail?.jobInfo?.postDescription
     if (description) {
@@ -261,6 +247,16 @@ async function openDetail(job: JobData) {
       }
       if (detail?.bossInfo?.activeTimeDesc) job.activeTimeStr = detail.bossInfo.activeTimeDesc
       if (detailJob.value?.key === job.key) detailJob.value = { ...job }
+      return
+    }
+
+    // 接口没给描述，页面列表里的岗位还能点一次卡片补齐
+    if (helper.jobMaps.has(job.key)) {
+      await helper.onJobCardClick(job.key)
+      const fresh = helper.jobMaps.get(job.key)?.jobData
+      if (fresh && detailJob.value?.key === job.key) {
+        detailJob.value = fresh
+      }
     }
   } catch (error) {
     logger.error('JobDetailLoadError', error)
@@ -297,7 +293,9 @@ function openLink() {
         加载中…
       </span>
       <div class="ml-auto flex items-center gap-2">
-        <Hint text="用「配置 → 筛选配置」的条件过滤这个列表">
+        <Hint
+          text="用「配置 → 筛选配置」过滤这个列表；投递从这里出发，还要再过一道需要岗位详情的筛选（金牌HR / 相同公司 / 相同HR / 高德距离 / AI 过滤）"
+        >
           <span class="flex items-center gap-1 text-xs text-muted-foreground">
             按配置过滤
             <Switch v-model="filterEnabled" />

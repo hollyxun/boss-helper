@@ -13,18 +13,13 @@ import DropdownMenuItem from '@/components/ui/dropdown-menu/DropdownMenuItem.vue
 import DropdownMenuTrigger from '@/components/ui/dropdown-menu/DropdownMenuTrigger.vue'
 import { useConf } from '@/composables/conf'
 import { useHelper } from '@/composables/useHelper'
-import { jobListFilterEnabled } from '@/composables/useJobListFilter'
-import { matchJobByConfig } from '@/composables/useJobMatching'
 
 const helper = useHelper()
 const conf = useConf()
 
-/** 和投递流程 / 岗位列表同一个来源：搜索结果优先，否则页面岗位 */
+/** 和岗位列表 / 投递同一个来源：搜索结果优先，否则页面岗位 */
 const allJobs = computed(() => helper.getActiveJobs())
-const filteredJobs = computed(() => {
-  if (!jobListFilterEnabled.value) return allJobs.value
-  return allJobs.value.filter((job) => matchJobByConfig(job, conf.formData).ok)
-})
+const filteredJobs = computed(() => helper.getDeliveryJobs())
 const droppedJobs = computed(() => allJobs.value.length - filteredJobs.value.length)
 
 const { todayData, statisticsData } = helper.statistics

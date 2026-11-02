@@ -47,7 +47,7 @@ function syncSalaryRange() {
     <FormRange :value="conf.formData.salaryRange.value" unit="K" :show="false">
       <Popover v-model:open="salaryRangeAdvanced">
         <PopoverTrigger as-child>
-          <Button v-if="conf.configLevel.advanced" variant="outline" size="sm">高级</Button>
+          <Button variant="outline" size="sm">高级</Button>
         </PopoverTrigger>
         <PopoverContent side="top" align="start" class="w-85 p-3">
           <div class="flex flex-col gap-3">
