@@ -17,7 +17,7 @@ import { useHelper } from '@/composables/useHelper'
 const helper = useHelper()
 const conf = useConf()
 
-/** 和岗位列表 / 投递同一个来源：搜索结果优先，否则页面岗位 */
+/** 和岗位列表 / 投递同一个来源：只有面板搜索结果 */
 const allJobs = computed(() => helper.getActiveJobs())
 const filteredJobs = computed(() => helper.getDeliveryJobs())
 const droppedJobs = computed(() => allJobs.value.length - filteredJobs.value.length)
@@ -178,9 +178,9 @@ onMounted(() => {
 
     <section class="flex flex-col gap-3 rounded-lg border border-border p-3">
       <div class="flex items-center gap-1.5">
-        <div class="text-sm font-medium">页面搜索条件</div>
+        <div class="text-sm font-medium">岗位搜索条件</div>
         <Hint
-          text="按这里的条件调用 Boss 搜索接口，结果只显示在面板的岗位列表里；不会跳转页面，也不会改页面上的筛选"
+          text="岗位列表只有这一个来源：按这里的条件调用 Boss 搜索接口，结果只显示在面板的岗位列表里；不会跳转页面，也不会改页面上的筛选"
         >
           <CircleHelp class="size-3.5 text-muted-foreground" />
         </Hint>
@@ -188,8 +188,8 @@ onMounted(() => {
       <SearchTab>
         <template #actions>
           <Button
-            data-help="开始工作：按当前配置逐个处理岗位列表里的职位"
-            :disabled="helper.workflow?.status.value === 'running'"
+            data-help="开始工作：按当前配置逐个处理岗位列表里的职位；列表为空先搜一发"
+            :disabled="helper.workflow?.status.value === 'running' || filteredJobs.length === 0"
             @click="helper.start()"
           >
             <LoaderCircle

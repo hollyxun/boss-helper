@@ -11,13 +11,14 @@ import Badge from '@/components/ui/badge/Badge.vue'
 import Button from '@/components/ui/button/Button.vue'
 import Textarea from '@/components/ui/textarea/Textarea.vue'
 import { useConf } from '@/composables/conf'
-import { searchJobs } from '@/composables/useBossJobSearch'
+import { panelSearchResults, searchMeta } from '@/composables/useBossJobSearch'
 import { fetchBossResume, lastBossResume, mergeResumeTexts } from '@/composables/useBossResume'
 import { emptyConditions, panelConditions } from '@/composables/useBossSearch'
 import { addAiLog } from '@/composables/useLogs'
 import { enabledModelData, useModel } from '@/composables/useModel'
 import { resolveModelAvatar } from '@/composables/useModel/icons'
 import { openai } from '@/composables/useModel/openai'
+import { runPanelSearch } from '@/composables/usePanelSearch'
 import { openPanelTab } from '@/composables/usePanelTab'
 import { useToast } from '@/composables/useToast'
 import type { ResumeAdvice } from '@/types/formData'
@@ -357,16 +358,26 @@ async function recommend() {
 async function searchKeyword(keyword: string) {
   panelConditions.value = { ...emptyConditions(), query: keyword }
   openPanelTab('statistics')
-  try {
-    const count = await searchJobs(panelConditions.value)
+  // 和「搜索岗位」同一条路，节流与记录才不会漏；提示自己说，用简历页的口径
+  const outcome = await runPanelSearch(panelConditions.value, { silent: true })
+  if (outcome === 'blocked') {
     toast.add({
-      title: count > 0 ? `已按「${keyword}」搜索到 ${count} 个岗位` : '没有搜到岗位',
-      description: '结果在「统计」页的岗位列表里，不会影响 Boss 页面',
-      color: count > 0 ? 'success' : 'warning',
+      title: '搜索太密，已跳过本次请求',
+      description: '稍等几秒再到「筛选」页搜；连续同参数请求容易被 Boss 判成环境异常',
+      color: 'warning',
     })
-  } catch (error) {
-    toast.add({ title: `搜索失败: ${errorHandle(error)}`, color: 'error' })
+    return
   }
+  if (outcome === 'error') {
+    toast.add({ title: `搜索失败: ${searchMeta.error || keyword}`, color: 'error' })
+    return
+  }
+  const count = panelSearchResults.value.length
+  toast.add({
+    title: count > 0 ? `已按「${keyword}」搜索到 ${count} 个岗位` : '没有搜到岗位',
+    description: '结果在「筛选」页的岗位列表里，不会影响 Boss 页面',
+    color: count > 0 ? 'success' : 'warning',
+  })
 }
 </script>
 

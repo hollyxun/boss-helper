@@ -16,7 +16,7 @@ import SelectItem from '@/components/ui/select/SelectItem.vue'
 import SelectTrigger from '@/components/ui/select/SelectTrigger.vue'
 import SelectValue from '@/components/ui/select/SelectValue.vue'
 import { useConf } from '@/composables/conf'
-import { clearSearchResults, isBossRiskControl, searchJobs } from '@/composables/useBossJobSearch'
+import { clearSearchResults, searchMeta } from '@/composables/useBossJobSearch'
 import type { SearchOption } from '@/composables/useBossSearch'
 import {
   cityGroups,
@@ -28,8 +28,8 @@ import {
   optionsLoading,
   panelConditions,
   resetPanelConditions,
-  saveSearchConditions,
 } from '@/composables/useBossSearch'
+import { runPanelSearch } from '@/composables/usePanelSearch'
 import { useToast } from '@/composables/useToast'
 
 const toast = useToast()
@@ -38,7 +38,6 @@ const conf = useConf()
 const conditions = panelConditions
 const cityDialogOpen = ref(false)
 const cityQuery = ref('')
-const applyLoading = ref(false)
 
 const chipClass =
   'rounded-md border px-2 py-1 text-sm transition-colors hover:bg-accent hover:text-accent-foreground'
@@ -109,100 +108,20 @@ function pickCity(code: string) {
 }
 
 /**
- * 连点「搜索岗位」每下都是一发 joblist.json，参数一模一样、期间没有任何页面交互，
- * 这正是 Boss 判「您的环境存在异常」的典型特征；而且新结果会直接覆盖上一批，
- * 同条件重复请求没有收益。所以同条件 60s 内不重发，换条件也留 8s 最小间隔。
- *
- * 节奏必须存 localStorage：刷新页面会重新执行一遍注入脚本，内存变量一刷新就归零，
- * 拦不住「刷新 → 点一次 → 被拦 → 再刷新 → 再点一次」这个循环。
+ * 搜索本身（该不该发、发完怎么记、给用户看什么）在 `usePanelSearch` 里，
+ * 和岗位列表的「重搜」共用一条路；这里只管表单和校验。
  */
-const SAME_CONDITIONS_TTL_MS = 60000
-const SEARCH_MIN_INTERVAL_MS = 8000
-const LAST_SEARCH_STORAGE_KEY = 'boss-helper:last-search'
-
-function secondsLeft(ms: number) {
-  return `${Math.ceil(ms / 1000)} 秒`
-}
-
-/** 上一次真正发过搜索的时刻；没有则 at=0 */
-function loadLastSearch(): { at: number; key: string } {
-  const empty = { at: 0, key: '' }
-  try {
-    if (typeof localStorage === 'undefined') return empty
-    const raw = localStorage.getItem(LAST_SEARCH_STORAGE_KEY)
-    if (!raw) return empty
-    const parsed: unknown = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object') return empty
-    const { at, key } = parsed as { at?: unknown; key?: unknown }
-    // 时间戳在未来说明本机时钟被改过，直接当作没有历史记录
-    if (typeof at !== 'number' || !Number.isFinite(at) || at > Date.now()) return empty
-    return { at, key: typeof key === 'string' ? key : '' }
-  } catch {
-    // 忽略隐私模式 / JSON 损坏等存储异常
-    return empty
-  }
-}
-
-function saveLastSearch(at: number, key: string) {
-  try {
-    if (typeof localStorage === 'undefined') return
-    localStorage.setItem(LAST_SEARCH_STORAGE_KEY, JSON.stringify({ at, key }))
-  } catch {
-    // 忽略隐私模式等存储异常
-  }
-}
-
-/** 返回拦下这次请求的原因，通过则返回 null */
-function searchThrottleReason(key: string) {
-  const last = loadLastSearch()
-  if (!last.at) return null
-  const since = Date.now() - last.at
-  if (key === last.key && since < SAME_CONDITIONS_TTL_MS) {
-    return `结果已在下方岗位列表里，要更多岗位往下拉翻页即可；${secondsLeft(SAME_CONDITIONS_TTL_MS - since)}后可按同条件重搜`
-  }
-  if (since < SEARCH_MIN_INTERVAL_MS) {
-    return `请再等 ${secondsLeft(SEARCH_MIN_INTERVAL_MS - since)}，连续请求容易被 Boss 判成环境异常`
-  }
-  return null
-}
-
 async function apply() {
+  // 回车不受按钮 disabled 约束，按住回车就是连发
+  if (searchMeta.loading) return
+
   const typed = conditions.value.city
   if (typed && !/^\d{6,9}$/.test(typed) && !cityOptions.value.some((city) => city.code === typed)) {
     toast.add({ color: 'error', title: '未识别的城市，请从城市列表中选择' })
     return
   }
 
-  const key = JSON.stringify(panelConditions.value)
-  const tooDense = searchThrottleReason(key)
-  if (tooDense) {
-    toast.add({ color: 'warning', title: '搜索太密，已跳过本次请求', description: tooDense })
-    return
-  }
-  saveLastSearch(Date.now(), key)
-
-  applyLoading.value = true
-  try {
-    const count = await searchJobs(panelConditions.value)
-    saveSearchConditions(panelConditions.value)
-    toast.add({
-      color: count > 0 ? 'success' : 'warning',
-      title: count > 0 ? '搜索完成' : '没有搜到岗位',
-      description:
-        count > 0 ? `Boss 返回 ${count} 个岗位，已显示在下方岗位列表` : '换个关键词或放宽条件再试',
-    })
-  } catch (error) {
-    const message = errorHandle(error)
-    toast.add({
-      color: 'error',
-      title: `搜索失败: ${message}`,
-      description: isBossRiskControl(message)
-        ? 'Boss 已判定当前环境异常，请刷新页面完成验证，稍后再试'
-        : '刷新页面后重试；连续失败会自动停止翻页',
-    })
-  } finally {
-    applyLoading.value = false
-  }
+  await runPanelSearch(panelConditions.value)
 }
 
 function reset() {
@@ -260,8 +179,8 @@ function setSelect(key: (typeof selectFields.value)[number]['key'], value: unkno
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
-      <Button :disabled="optionsLoading || applyLoading" @click="apply">
-        {{ applyLoading ? '搜索中…' : '搜索岗位' }}
+      <Button :disabled="optionsLoading || searchMeta.loading" @click="apply">
+        {{ searchMeta.loading ? '搜索中…' : '搜索岗位' }}
       </Button>
       <Button variant="ghost" @click="reset">清空</Button>
       <slot name="actions" />
