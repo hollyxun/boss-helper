@@ -1,3 +1,4 @@
+import { StaleJobItemError } from '@/composables/useApplying/deliverError'
 import { TaskRegistry, taskResult } from '@/composables/useApplying/handles'
 import { defineTaskHandler, defineTaskWorkflow } from '@/composables/useApplying/type'
 import { getFreshJobItem, rawJobItemProblem } from '@/composables/useBossJobSearch'
@@ -77,7 +78,7 @@ export const bossWorkflow = defineTaskWorkflow<BossHelperCtx, BoosJobData>(
     // 详情之后还隔着 AI 与节流，AI 慢的时候能拖到十几分钟；securityId 在这段时间里可能已经过期。
     // 这里再查一次，宁可直接报错，也不要拿旧 id 去撞 friend/add —— 那才是真正会触发风控的动作
     if (!getFreshJobItem(jobData.key)) {
-      throw new Error(`未投递：${rawJobItemProblem(jobData.key)}`)
+      throw new StaleJobItemError(`未投递：${rawJobItemProblem(jobData.key)}`)
     }
     await sendPublishReq({
       securityId: rawData.jobitem.securityId,

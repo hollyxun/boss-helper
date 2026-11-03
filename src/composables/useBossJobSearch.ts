@@ -1,6 +1,6 @@
 import { reactive, ref } from 'vue'
 
-import { RateLimitError } from '@/composables/useApplying/deliverError'
+import { RateLimitError, StaleJobItemError } from '@/composables/useApplying/deliverError'
 import type { SearchConditions } from '@/composables/useBossSearch'
 import type { JobData } from '@/composables/useHelper'
 import type { BossZpDetailData, BossZpJobItemData } from '@/entrypoints/boss/types'
@@ -183,7 +183,7 @@ function rememberJobItem(key: string, item: BossZpJobItemData) {
 /** 拉岗位详情（AI 过滤、打招呼都需要岗位描述）；拿不到就抛，原因要能直接看出是哪一步 */
 export async function fetchJobDetail(job: JobData): Promise<BossZpDetailData | null> {
   const raw = getFreshJobItem(job.key)
-  if (!raw) throw new Error(`无法获取岗位详情：${rawJobItemProblem(job.key)}`)
+  if (!raw) throw new StaleJobItemError(`无法获取岗位详情：${rawJobItemProblem(job.key)}`)
   if (!raw.securityId || !raw.lid) throw new Error('无法获取岗位详情：这条岗位缺 securityId / lid')
   const token = requireZpToken()
   const url = new URL('/wapi/zpgeek/job/detail.json', location.origin)

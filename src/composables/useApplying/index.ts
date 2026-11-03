@@ -8,7 +8,7 @@ import { delay, delayPaced, randRange } from '@/utils'
 import type { ContextLogger } from '@/utils/logger'
 
 import type { HelperContext } from '../useHelper'
-import { RateLimitError } from './deliverError'
+import { RateLimitError, StaleJobItemError } from './deliverError'
 import { DependencyMissingError } from './handles'
 import type {
   Handler,
@@ -331,6 +331,9 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
             status: 'error',
             reason: `任务${t.label ?? t.id}执行失败: ${text}`,
             msg: `报错/${t.label ?? t.id}`,
+            failedTask: t.id,
+            // securityId 过期这类只有用户重新搜索才会恢复，同一轮里排到队尾再试一次也是白打接口
+            retryable: !(e instanceof StaleJobItemError),
           }
           log.error(`任务${t.label ?? t.id}执行失败`, e)
           skipPipeline = true
@@ -466,9 +469,16 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
         // 间歇计数器：本轮随机决定「几个岗位之后歇一次」
         let sinceRest = 0
         let nextRest = Math.round(randRange(5, 9))
+        // 详情失败的岗位最多往后挪一次，避免偶发失败直接丢掉岗位，也避免反复失败打爆接口
+        const retried = new Set<string>()
+        let processed = 0
 
-        for (const [index, jobData] of activeJobs.entries()) {
-          current.value = index + 1
+        // 用下标而不是 for...of：详情失败的岗位会追加到 activeJobs 尾部，Array 迭代器的
+        // 实时 length 行为太隐晦，这里显式按长度取
+        for (let index = 0; index < activeJobs.length; index++) {
+          const jobData = activeJobs[index]!
+          // 追加队尾会让 processed 超过面板列表长度，进度显示成「13/10」就奇怪了
+          current.value = Math.min(++processed, total.value)
           if (isStop()) break
           const jobStatus = helper.jobResultMaps.get(jobData.key)?.status
           if (jobStatus === 'success' || jobStatus === 'warn') {
@@ -526,6 +536,25 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
             stepMsg = riskStopMsg
             status.value = 'stop'
             break
+          }
+          // 详情接口偶发失败（超时、被拒、返回空）时挪到队尾再试一次：
+          // 隔开的不是时间而是「别的工作」——队列跑一圈回来的间隔比原地重试更可能恢复，
+          // 同时这一轮的节流与间歇照常生效，不会变成连打
+          const result = helper.jobResultMaps.get(jobData.key)
+          if (
+            result?.status === 'error' &&
+            result.failedTask === '岗位详情获取' &&
+            result.retryable !== false &&
+            !retried.has(jobData.key) &&
+            !isStop()
+          ) {
+            retried.add(jobData.key)
+            helper.jobResultMaps.set(jobData.key, {
+              status: 'wait',
+              msg: '详情失败，排队尾重试',
+            })
+            activeJobs.push(jobData)
+            logger.info(`岗位详情获取失败，挪到队尾稍后重试: ${jobData.jobName}`)
           }
           if (
             helper.statistics.todayData.value.success >= helper.conf.formData.deliveryLimit.value

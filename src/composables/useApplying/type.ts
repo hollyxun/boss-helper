@@ -65,6 +65,10 @@ export type TaskResult = {
   msg?: string
   isCache?: boolean
   id?: string
+  /** 哪个任务把这个岗位判失败的，executeAll 据此决定要不要挪到队尾重试 */
+  failedTask?: string
+  /** false = 这一轮里重试也没用（如 securityId 已过期），不会再排一次 */
+  retryable?: boolean
 }
 
 export type Handler<C extends HelperContext<C, T, S>, T, S> = (
