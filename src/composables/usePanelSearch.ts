@@ -1,8 +1,14 @@
-import { isBossRiskControl, panelSearchResults, searchJobs } from '@/composables/useBossJobSearch'
+import {
+  bossErrorBrief,
+  bossRiskHint,
+  isBossRiskControl,
+} from '@/composables/useApplying/deliverError'
+import { panelSearchResults, searchJobs } from '@/composables/useBossJobSearch'
 import type { SearchConditions } from '@/composables/useBossSearch'
 import { panelConditions, saveSearchConditions } from '@/composables/useBossSearch'
 import { useToast } from '@/composables/useToast'
 import { errorHandle } from '@/utils'
+import { logger } from '@/utils/logger'
 
 const toast = useToast()
 
@@ -143,13 +149,15 @@ export async function runPanelSearch(
     return count > 0 ? 'ok' : 'empty'
   } catch (error) {
     const message = errorHandle(error)
+    // code 与 zpData 摘要只进日志，提示条放不下
+    logger.warn('PanelSearchFailed', message)
     saveLastSearch(Date.now(), key, isBossRiskControl(message) ? 'risk' : 'error')
     if (!opts.silent) {
       toast.add({
         color: 'error',
-        title: `搜索失败: ${message}`,
+        title: `搜索失败: ${bossErrorBrief(message)}`,
         description: isBossRiskControl(message)
-          ? 'Boss 已判定当前环境异常，请刷新页面完成验证，稍后再试'
+          ? bossRiskHint(error)
           : '刷新页面后重试；连续失败会自动停止翻页',
       })
     }

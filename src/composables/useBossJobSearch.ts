@@ -1,6 +1,6 @@
 import { reactive, ref } from 'vue'
 
-import { RateLimitError, StaleJobItemError } from '@/composables/useApplying/deliverError'
+import { bossApiError, StaleJobItemError } from '@/composables/useApplying/deliverError'
 import type { SearchConditions } from '@/composables/useBossSearch'
 import type { JobData } from '@/composables/useHelper'
 import type { BossZpDetailData, BossZpJobItemData } from '@/entrypoints/boss/types'
@@ -9,16 +9,6 @@ import { logger } from '@/utils/logger'
 const ALL_CITY_CODE = '100010000'
 const SEARCH_API = '/wapi/zpgeek/search/joblist.json'
 const PAGE_SIZE = 30
-
-/**
- * Boss 的这批文案是风控判定（跟登录态无关），继续按原节奏重试只会加重，
- * 需要和「未登录」区分开，否则提示会把用户引去查登录。
- */
-const RISK_CONTROL_MESSAGE = /环境存在异常|操作过于频繁|行为异常|安全验证|滑块|人机/
-
-export function isBossRiskControl(message: string) {
-  return RISK_CONTROL_MESSAGE.test(message)
-}
 
 /** 没有 bst 就不要发请求：无凭证的 wapi 请求 Boss 一律回「环境存在异常」，看起来像没登录 */
 function requireZpToken() {
@@ -136,7 +126,7 @@ export async function fetchJobPage(conditions: SearchConditions, page = 1): Prom
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const json = await res.json()
   logger.debug('BossJobSearchResponse', { page, code: json?.code, message: json?.message })
-  if (json?.code !== 0) throw new Error(String(json?.message ?? `code ${json?.code}`))
+  if (json?.code !== 0) throw bossApiError(json, '搜索接口')
 
   const zp = json?.zpData ?? {}
   const rawList = (zp.jobList ?? zp.list ?? []) as BossZpJobItemData[]
@@ -193,10 +183,8 @@ export async function fetchJobDetail(job: JobData): Promise<BossZpDetailData | n
   const res = await fetch(url.toString(), { headers: { Zp_token: token } })
   const json = await res.json()
   if (json?.code !== 0) {
-    const message = String(json?.message ?? `code ${json?.code}`)
-    // 风控文案原来会被压成一句「岗位详情获取失败」，整轮停的判据就在这条 message 里
-    if (isBossRiskControl(message)) throw new RateLimitError(`岗位详情接口：${message}`)
-    throw new Error(`岗位详情接口拒绝：${message}`)
+    // 37 会变成 SecurityCheckError、36 变成 AccountRiskError，其余仍按普通错误处理（可挪队尾重试）
+    throw bossApiError(json, '岗位详情接口', (text) => new Error(text))
   }
   return (json.zpData as BossZpDetailData) ?? null
 }

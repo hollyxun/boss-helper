@@ -1,13 +1,13 @@
 // import axios from 'axios'
 
 import {
-  GreetError,
   BossHelperError,
+  bossApiError,
+  GreetError,
   LimitError,
   PublishError,
   RateLimitError,
 } from '@/composables/useApplying/deliverError'
-import { isBossRiskControl } from '@/composables/useBossJobSearch'
 import { useToast } from '@/composables/useToast'
 import { delay, randRange } from '@/utils'
 import { calculateFileMD5 } from '@/utils/file'
@@ -38,13 +38,6 @@ async function backoffBeforeRetry(retriesLeft: number) {
   await delay(randRange(base * 0.8, base * 1.25))
 }
 
-/** 风控文案不能包成普通错误 —— 上层要靠它决定「整轮停止」而不是换个岗位继续撞 */
-function riskAwareError(message: unknown, wrap: (text: string) => Error) {
-  // Boss 的 message 正常是字符串；万一是对象，用 JSON 展开，不要 String() 成 '[object Object]' 再拿去匹配文案
-  const text =
-    typeof message === 'string' ? message : message == null ? '' : JSON.stringify(message)
-  return isBossRiskControl(text) ? new RateLimitError(text) : wrap(text)
-}
 export const sameCompanyKey = 'local:sameCompany'
 export const sameHrKey = 'local:sameHr'
 
@@ -132,7 +125,7 @@ export async function sendPublishReq(
 
       throw new PublishError(content)
     } else if (res.code !== 0) {
-      throw riskAwareError(res.message, (text) => new PublishError(`未知错误状态:${text}`))
+      throw bossApiError(res, '投递接口', (text) => new PublishError(text))
     }
     return res
   } catch (e: any) {
@@ -184,11 +177,12 @@ export async function getBossData(
         await backoffBeforeRetry(retries)
         return await getBossData(job, '非好友关系', retries - 1)
       }
-      throw riskAwareError(res.message, (text) => new GreetError(`状态错误:${text}`))
+      throw bossApiError(res, '打招呼接口', (text) => new GreetError(text))
     }
     return res.zpData
   } catch (e: any) {
-    if (e instanceof GreetError) {
+    // 风控类（37 安全校验 / 36 账号风控 / 频繁）重试只会加重，直接上抛让整轮停下
+    if (e instanceof GreetError || e instanceof BossHelperError) {
       throw e
     }
     await backoffBeforeRetry(retries)

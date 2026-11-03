@@ -1,6 +1,5 @@
 import { shallowRef, ref } from 'vue'
 
-import { isBossRiskControl } from '@/composables/useBossJobSearch'
 import { addJobLog } from '@/composables/useLogs'
 import { PipelineCacheManager } from '@/composables/usePipelineCache'
 import type { PipelineCacheItem, ProcessorType } from '@/types/pipelineCache'
@@ -8,7 +7,7 @@ import { delay, delayPaced, randRange } from '@/utils'
 import type { ContextLogger } from '@/utils/logger'
 
 import type { HelperContext } from '../useHelper'
-import { RateLimitError, StaleJobItemError } from './deliverError'
+import { bossRiskHint, isBossRiskError, StaleJobItemError } from './deliverError'
 import { DependencyMissingError } from './handles'
 import type {
   Handler,
@@ -319,10 +318,10 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
           if (isStop()) break
         } catch (e) {
           const text = e instanceof Error ? e.message : JSON.stringify(e)
-          if (e instanceof RateLimitError || isBossRiskControl(text)) {
+          if (isBossRiskError(e, text)) {
             // 命中风控还继续打下一个岗位，等于拿同一个已经可疑的会话反复撞接口，只会加重。
             // 整轮停在这里，原因交给 executeAll 写进 stepMsg；错误结果本来就不写缓存
-            riskStopMsg = `命中 Boss 风控（${t.label ?? t.id}）：${text}；已停止整轮投递，请刷新页面、隔一段时间再投`
+            riskStopMsg = `命中 Boss 风控（${t.label ?? t.id}）：${text}｜${bossRiskHint(e)}；已停止整轮投递`
             status.value = 'stop'
             log.warn(riskStopMsg)
           }

@@ -6,10 +6,14 @@ import Hint from '@/components/Hint.vue'
 import JobDetailDialog from '@/components/JobDetailDialog.vue'
 import Button from '@/components/ui/button/Button.vue'
 import Switch from '@/components/ui/switch/Switch.vue'
+import {
+  bossErrorBrief,
+  bossRiskHint,
+  isBossRiskControl,
+} from '@/composables/useApplying/deliverError'
 import type { JobStatus } from '@/composables/useApplying/type'
 import {
   clearSearchResults,
-  isBossRiskControl,
   panelSearchResults,
   searchJobs,
   searchMeta,
@@ -148,7 +152,7 @@ function onSearchPageFailed(error: unknown) {
   logger.warn('JobTableSearchPageError', message)
 
   if (isBossRiskControl(message)) {
-    stopAutoLoad('Boss 已拦截搜索请求', message)
+    stopAutoLoad('Boss 已拦截搜索请求', message, bossRiskHint(error))
     return 0
   }
   searchFailStreak += 1
@@ -164,12 +168,12 @@ function onSearchPageFailed(error: unknown) {
  * hasMore=false 同时停掉两处：面板下拉翻页，以及投递里的 searchJobs 翻页
  * （loadMoreActiveJobs 也读这个标志），别再往风控上撞。
  */
-function stopAutoLoad(title: string, reason: string) {
+function stopAutoLoad(title: string, reason: string, hint?: string) {
   searchMeta.hasMore = false
   toast.add({
     color: 'error',
     title,
-    description: `${reason}；请刷新页面完成验证，之后重新搜索才会继续翻页`,
+    description: `${bossErrorBrief(reason)}；${hint ?? '刷新重试，之后重新搜索才会继续翻页'}`,
   })
 }
 

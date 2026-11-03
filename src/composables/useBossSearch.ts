@@ -1,5 +1,7 @@
 import { ref } from 'vue'
 
+import { logger } from '@/utils/logger'
+
 /**
  * 面板内的岗位筛选条件。
  *
@@ -82,8 +84,13 @@ async function fetchZp<T>(url: string): Promise<T | null> {
   try {
     const res = await fetch(url, { credentials: 'include' })
     if (!res.ok) return null
-    const json = (await res.json()) as { code?: number; zpData?: T }
-    return json?.code === 0 ? (json.zpData ?? null) : null
+    const json = (await res.json()) as { code?: number; message?: string; zpData?: T }
+    if (json?.code !== 0) {
+      // 字典接口失败原来完全静默，「筛选选项加载不出来」查不到原因；带 code 才能分清是没登录还是被拦
+      logger.warn('BossSearchDictRejected', { url, code: json?.code, message: json?.message })
+      return null
+    }
+    return json.zpData ?? null
   } catch {
     return null
   }

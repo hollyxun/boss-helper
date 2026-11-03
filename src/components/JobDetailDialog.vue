@@ -14,6 +14,7 @@ import DialogFooter from '@/components/ui/dialog/DialogFooter.vue'
 import DialogHeader from '@/components/ui/dialog/DialogHeader.vue'
 import DialogTitle from '@/components/ui/dialog/DialogTitle.vue'
 import Skeleton from '@/components/ui/skeleton/Skeleton.vue'
+import { bossErrorBrief } from '@/composables/useApplying/deliverError'
 import { loadJobDescription } from '@/composables/useBossJobSearch'
 import type { JobData } from '@/composables/useHelper'
 import { useToast } from '@/composables/useToast'
@@ -39,7 +40,7 @@ async function load(job: JobData) {
     if (current.value?.key === job.key) current.value = { ...job }
   } catch (error) {
     logger.error('JobDetailLoadError', error)
-    toast.add({ title: `岗位详情加载失败: ${errorHandle(error)}`, color: 'error' })
+    toast.add({ title: `岗位详情加载失败: ${bossErrorBrief(errorHandle(error))}`, color: 'error' })
   } finally {
     loading.value = false
   }
