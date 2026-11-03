@@ -128,8 +128,11 @@ const aiFilterDimensionSchema = z.object({
 })
 
 /**
- * 顶层严格：`verdict` 是字符串、`hardFail` 是数组、`match` 六个维度一个都不能少，缺一项就判「无结论」。
- * 元素宽容：`hardFail` 单条允许写成字符串或只给 rule / reason；`match` 单维可以不给 reason。
+ * 核心两维严格：`verdict` 是字符串、`hardFail` 是数组、`match.skill` 与 `match.direction` 必给
+ * （两者合计 52 分，缺了就没法判断对口与否），缺任何一项判「无结论」。
+ * 其余四维缺失按 `mid` 计一半并标「未评估」——实测里模型会把「没东西可说」的维度直接省略字段，
+ * 六维全必填会连一份可用的判断一起作废；而按 mid 计意味着省略只会丢一半分，永远不会替岗位抬进 recommend。
+ * 元素宽容：`hardFail` 单条允许写成字符串或只给 rule / reason；维度可以不给 reason。
  */
 const aiFilteringSchema = z.object({
   verdict: z.string(),
@@ -137,24 +140,27 @@ const aiFilteringSchema = z.object({
   match: z.object({
     skill: aiFilterDimensionSchema,
     direction: aiFilterDimensionSchema,
-    experience: aiFilterDimensionSchema,
-    conditions: aiFilterDimensionSchema,
-    education: aiFilterDimensionSchema,
-    salary: aiFilterDimensionSchema,
+    experience: aiFilterDimensionSchema.optional(),
+    conditions: aiFilterDimensionSchema.optional(),
+    education: aiFilterDimensionSchema.optional(),
+    salary: aiFilterDimensionSchema.optional(),
   }),
 })
 
 /** zod 的 issue 是给开发者看的，这里压成一句能直接写进过滤原因的话。 */
 function describeIssues(error: z.ZodError): string {
-  return error.issues
-    .slice(0, 3)
-    .map((issue) => {
-      const key = issue.path.join('.') || '根对象'
-      const expected = 'expected' in issue ? String(issue.expected) : issue.code
-      const received = 'received' in issue ? String(issue.received) : '缺失'
-      return `${key} 应为 ${expected}，实际 ${received}`
-    })
-    .join('；')
+  const rest = error.issues.length - 4
+  return (
+    error.issues
+      .slice(0, 4)
+      .map((issue) => {
+        const key = issue.path.join('.') || '根对象'
+        const expected = 'expected' in issue ? String(issue.expected) : issue.code
+        const received = 'received' in issue ? String(issue.received) : '缺失'
+        return `${key} 应为 ${expected}，实际 ${received}`
+      })
+      .join('；') + (rest > 0 ? `；另有 ${rest} 项` : '')
+  )
 }
 
 /** 单条 hardFail 允许写成字符串，也允许 rule 和 reason 只给一个 */
@@ -189,6 +195,8 @@ export interface AiFilterDimensionResult {
   got: number
   weight: number
   reason: string
+  /** false = 模型省略了这一维，按 mid 计了一半 */
+  assessed: boolean
 }
 
 export function parseFiltering(content: string) {
@@ -210,33 +218,41 @@ export function parseFiltering(content: string) {
     if (!checked.success) {
       issue = describeIssues(checked.error)
     } else {
-      // 模型自报的 verdict 只作对照，最终档位由六维权重算出来
+      // 模型自报的 verdict 只作对照，最终档位由权重算出来
       modelVerdict = VERDICT_ALIASES[checked.data.verdict.trim().toLowerCase()] ?? null
       for (const dimension of AI_FILTER_DIMENSIONS) {
         const item = checked.data.match[dimension.key as AiFilterDimensionKey]
-        const level = LEVEL_ALIASES[item.level.trim().toLowerCase()]
-        if (!level) {
+        const level = item ? LEVEL_ALIASES[item.level.trim().toLowerCase()] : undefined
+        if (item && !level) {
           issue = `match.${dimension.key} 的 level 不在约定值里：${item.level}`
           break
         }
-        const got = dimension.weight * AI_FILTER_LEVEL_RATIO[level]
+        // 省略的非核心维度按 mid 计一半：省略只能丢一半分，永远不会替岗位抬进 recommend
+        const effective: AiFilterLevel = level ?? 'mid'
+        const got = dimension.weight * AI_FILTER_LEVEL_RATIO[effective]
         score += got
         dimensions.push({
           label: dimension.label,
-          level,
+          level: effective,
           got,
           weight: dimension.weight,
-          reason: item.reason?.trim() ?? '',
+          reason: level ? (item?.reason?.trim() ?? '') : '未评估',
+          assessed: !!level,
         })
       }
-      // 硬性门槛一票否决，压过权重得分和模型自报档位
-      if (!issue) verdict = hardFail.length > 0 ? 'reject' : scoreToVerdict(score)
+      if (!issue) verdict = scoreToVerdict(score)
     }
   }
 
+  // 硬性门槛一票否决：独立于顶层校验结果，也压过权重得分和模型自报档位
+  if (hardFail.length > 0) verdict = 'reject'
+
   const sections = [
     // 带「AI」字样：投递缓存按消息文本推断处理器类型，见 usePipelineCache 的 inferProcessorType
-    `AI 结论：${AI_FILTER_VERDICT_LABELS[verdict]}（匹配度 ${formatScore(score)}/100）`,
+    // 校验没过时不写匹配度：那时 score 是没算完的半截值，写出来会被当成一个真实结论
+    `AI 结论：${AI_FILTER_VERDICT_LABELS[verdict]}${
+      issue ? '' : `（匹配度 ${formatScore(score)}/100）`
+    }`,
     issue ? `格式问题：${issue}` : '',
     hardFail.length ? `硬伤：${hardFail.join('；')}` : '',
     ...dimensions.map(

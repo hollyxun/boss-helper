@@ -160,6 +160,39 @@ const FROM_VERSION: [string, (from: Partial<FormData>) => Partial<FormData>][] =
       return from
     },
   ],
+  [
+    // 0.0.5 的默认提示词要求六维必填，实测会把可用判断整份作废；改成只必填核心两维
+    // FROM_VERSION 只跑最新一条迁移，所以这条要自带 20261103 的全部逻辑（停在更早版本的配置不会先经过它）
+    '20261104',
+    (from) => {
+      interface LegacyAiFiltering {
+        prompt?: unknown
+        score?: number
+        skipReject?: boolean
+        skipWatch?: boolean
+      }
+      const ai = from.aiFiltering as LegacyAiFiltering | undefined
+      if (!ai) return from
+
+      if (typeof ai.score === 'number') {
+        // score <= 0 等于原来的「不拦任何岗位」；> 60 说明中性岗位也要扣分才过，对应连「谨慎投递」一起拦
+        ai.skipReject = ai.score > 0
+        ai.skipWatch = ai.score > 60
+        delete ai.score
+      }
+
+      // 只换「没改过」的默认提示词：0.0.5 那版、0.0.4 的六维前一代、以及更早没有 {{ resume }} 的初版
+      const text = JSON.stringify(ai.prompt ?? '')
+      const isLegacyDefault =
+        text.includes('match 的六个维度必须全部给齐') ||
+        text.includes('interface aiFilteringItem') ||
+        (text.includes('求职评委') && !text.includes('{{ resume }}'))
+      if (isLegacyDefault) {
+        ai.prompt = jsonClone(defaultFormData.aiFiltering.prompt)
+      }
+      return from
+    },
+  ],
 ]
 
 export const useConf = () => {

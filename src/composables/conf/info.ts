@@ -139,14 +139,15 @@ export const defaultFormData: FormData = {
   2. 岗位信息：见用户消息。
 
   ## 六个匹配维度（match）
-  逐维度对比「简历」与「岗位描述」，六个维度都必须给出 level 和一句话 reason：
-  - skill 技能：岗位要求的技能栈，简历里有没有实际使用经验
-  - direction 方向：岗位性质与简历方向是否一致（是否转行、外包、纯销售、纯客服）
+  逐维度对比「简历」与「岗位描述」，每个维度给出 level 和一句话 reason：
+  - skill 技能：岗位要求的技能栈，简历里有没有实际使用经验（必填）
+  - direction 方向：岗位性质与简历方向是否一致，是否转行、外包、纯销售、纯客服（必填）
   - experience 经验：岗位年限要求与简历实际年限
   - education 学历：岗位学历要求与简历学历
   - conditions 工作条件：地点与通勤、作息（双休 / 单休 / 996）、是否需要上门·外勤·应酬·推销·频繁出差
   - salary 薪资：岗位薪资与简历对应职级的市场水平
   level 只能是 high（匹配）/ mid（一般，或信息不足以判断）/ low（不匹配）。拿不准选 mid，不要硬猜。
+  skill 和 direction 一定要给。其余四维确实没信息可判断时，给 mid 并在 reason 里写「岗位未写明」，**不要直接省略字段**。
   reason 必须引用简历或岗位描述里的具体证据，不超过 40 字，不得编造。
 
   ## 权重（插件按这套权重本地核算，不要你算分）
@@ -196,7 +197,7 @@ export const defaultFormData: FormData = {
   }
 
   ## 注意
-- 字段一个都不能少：verdict 取三个约定值之一，hardFail 是数组（没有也要给空数组），match 的六个维度必须全部给齐。
+- 必填四项：verdict 取三个约定值之一、hardFail 是数组（没有也要给空数组）、match.skill、match.direction。其余四维省略会按「一般」计一半分，但尽量给全。
 - 简历为空时无法判断匹配：六个 level 全填 mid、reason 写「简历未填写」，hardFail 留空。
 - 岗位描述缺失时只按岗位名、技能、福利等已有字段判断，并在 reason 里注明依据。
 - 不要输出年龄、性别、婚育等敏感或人格化评价。  `,
@@ -330,5 +331,5 @@ export const defaultFormData: FormData = {
   delayDeliveryInterval: 5,
   delayDeliveryPageNext: 60,
   delayMessageSending: 2,
-  version: '20261103',
+  version: '20261104',
 }

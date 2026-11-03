@@ -354,7 +354,7 @@ export class TaskRegistry<C extends HelperContext<C, T, S>, T, S = {}> {
 
         if (verdict === 'unknown') {
           return taskResult.skip(
-            `${message}\n（提示词需要输出 verdict / hardFail / match 六个维度）`,
+            `${message}\n（提示词需要输出 verdict / hardFail / match.skill / match.direction）`,
           )
         }
         if (verdict === 'reject' && skipReject) {
