@@ -9,6 +9,8 @@ import type { RiskDecision, RiskPolicy, RiskState } from './types'
 const SECURITY_CHECK_GIVEUP = 3
 /** 连续几次「操作频繁」才停轮 */
 const RATE_LIMIT_GIVEUP = 2
+/** 同一次失效里最多重签几次：两次都救不回来，说明不是令牌的问题 */
+const MAX_RESIGN = 2
 
 const SECURITY_CHECK_HINT = '安全校验没被接受（code 37），刷新页面让站点重签令牌后通常会恢复'
 const ACCOUNT_RISK_HINT = '这是账号级风控（code 36），需要到 Boss 页面手动过一次验证才会解除'
@@ -19,7 +21,7 @@ function streakOf(state: RiskState, kind: RiskDecision['kind']): number {
   return state.streak[kind] ?? 0
 }
 
-/** 37：可以重试，但连续三次说明令牌已经不可用，整轮停 */
+/** 37：先去重签安全令牌，连续三次说明这条路也不通，整轮停 */
 export const securityCheckPolicy: RiskPolicy = {
   name: 'security-check',
   match: (kind) => kind === 'security-check',
@@ -33,6 +35,8 @@ export const securityCheckPolicy: RiskPolicy = {
       streak,
       cooldownSeconds: stop ? 5 * 60 : 15,
       hint: SECURITY_CHECK_HINT,
+      // 还没到停轮、且这次失效里重签次数没用完 → 让流程去重签
+      action: !stop && state.resigned < MAX_RESIGN ? 'resign' : undefined,
     }
   },
 }

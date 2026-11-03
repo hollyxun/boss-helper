@@ -32,7 +32,7 @@ function classify(error: unknown, text: string): RiskKind {
  */
 export class RiskControl {
   private policies: RiskPolicy[] = []
-  private state: RiskState = { streak: {}, lastAt: 0 }
+  private state: RiskState = { streak: {}, resigned: 0, lastAt: 0 }
 
   use(policy: RiskPolicy) {
     this.policies.push(policy)
@@ -61,6 +61,13 @@ export class RiskControl {
   /** 一次成功就清零：能打通说明会话是好的，别让历史计数把后面的正常请求拖成「连续命中」 */
   success() {
     this.state.streak = {}
+    this.state.resigned = 0
+    this.state.lastAt = Date.now()
+  }
+
+  /** 重签成功时由流程登记一次，策略据此限制「同一次失效里最多重签几次」 */
+  markResigned() {
+    this.state.resigned += 1
     this.state.lastAt = Date.now()
   }
 }

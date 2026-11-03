@@ -7,6 +7,12 @@ export type RiskScope = 'task' | 'search' | 'search-page'
  */
 export type RiskKind = 'security-check' | 'account-risk' | 'rate-limit' | 'other'
 
+/**
+ * 策略建议流程执行的下一步动作。策略自己是纯函数、不做 IO，
+ * 真正去重签由流程调 `resignBossToken()` 完成。
+ */
+export type RiskAction = 'resign'
+
 export interface RiskSignal {
   kind: RiskKind
   /** 原始错误文本（已带 code / zpData 摘要） */
@@ -30,11 +36,15 @@ export interface RiskDecision {
   cooldownSeconds: number
   /** 给人看的一句话处置建议 */
   hint: string
+  /** 建议流程执行的下一步（目前只有「重签安全令牌」） */
+  action?: RiskAction
 }
 
 export interface RiskState {
   /** 每类风控的连续命中次数；换一类就清零 */
   streak: Partial<Record<RiskKind, number>>
+  /** 上一次成功以来重签过几次，防止同一次失效里反复开标签页 */
+  resigned: number
   lastAt: number
 }
 

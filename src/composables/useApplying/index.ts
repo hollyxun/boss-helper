@@ -1,5 +1,6 @@
 import { shallowRef, ref } from 'vue'
 
+import { resignBossToken } from '@/composables/useBossStoken'
 import { addJobLog } from '@/composables/useLogs'
 import { PipelineCacheManager } from '@/composables/usePipelineCache'
 import { riskControl } from '@/composables/useRiskControl'
@@ -324,12 +325,25 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
           if (risk.kind !== 'other') {
             log.warn(`风控信号（${risk.kind}，连续第 ${risk.streak} 次）：${risk.hint}`)
           }
+          let resigned = false
           if (risk.stop) {
             // 命中风控还继续打下一个岗位，等于拿同一个已经可疑的会话反复撞接口，只会加重。
             // 原因交给 executeAll 写进 stepMsg；错误结果本来就不写缓存
             riskStopMsg = `命中 Boss 风控（${t.label ?? t.id}）：${text}｜${risk.hint}；已停止整轮投递（连续 ${risk.streak} 次，建议 ${Math.round(risk.cooldownSeconds / 60)} 分钟后再试）`
             status.value = 'stop'
             log.warn(riskStopMsg)
+          } else if (risk.action === 'resign') {
+            // 37 的根因是缺 `__zp_stoken__`：开一个自有后台标签页让站点重算一枚
+            helper.jobResultMaps.set(data.jobData.key, {
+              status: 'running',
+              msg: '重签安全令牌中',
+            })
+            resigned = await resignBossToken()
+            if (!resigned) {
+              riskStopMsg = `安全校验失败且重签 __zp_stoken__ 没成功：${text}｜请刷新 Boss 页面后稍后再投`
+              status.value = 'stop'
+              log.warn(riskStopMsg)
+            }
           }
           res = {
             isSkip: true,
@@ -337,8 +351,9 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
             reason: `任务${t.label ?? t.id}执行失败: ${text}`,
             msg: `报错/${t.label ?? t.id}`,
             failedTask: t.id,
-            // securityId 过期这类只有用户重新搜索才会恢复，同一轮里排到队尾再试一次也是白打接口
-            retryable: !(e instanceof StaleJobItemError) && risk.retryable,
+            // 重签成功时允许这个岗位按「详情失败挪队尾」的既有路径再试一次；
+            // securityId 过期这类只有用户重新搜索才会恢复，同一轮里重试也是白打接口
+            retryable: resigned || (!(e instanceof StaleJobItemError) && risk.retryable),
           }
           log.error(`任务${t.label ?? t.id}执行失败`, e)
           skipPipeline = true

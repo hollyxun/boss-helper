@@ -28,6 +28,14 @@ export class ContentCounter implements BackgroundCounter {
     return this.background.backgroundTest(...args)
   }
 
+  async resignStoken(...args: Parameters<BackgroundCounter['resignStoken']>) {
+    return this.background.resignStoken(...args)
+  }
+
+  async reportResign(...args: Parameters<BackgroundCounter['reportResign']>) {
+    return this.background.reportResign(...args)
+  }
+
   async fetch(...args: Parameters<typeof fetch>) {
     return this.background.fetch(...args)
   }

@@ -85,6 +85,7 @@ declare global {
   const readonly: typeof import('vue').readonly
   const ref: typeof import('vue').ref
   const resetPanelConditions: typeof import('./src/composables/useBossSearch').resetPanelConditions
+  const resignBossToken: typeof import('./src/composables/useBossStoken').resignBossToken
   const resolveComponent: typeof import('vue').resolveComponent
   const resumeToText: typeof import('./src/composables/useBossResume').resumeToText
   const runPanelSearch: typeof import('./src/composables/usePanelSearch').runPanelSearch

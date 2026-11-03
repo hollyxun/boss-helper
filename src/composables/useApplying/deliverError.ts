@@ -97,6 +97,20 @@ export const BOSS_CODE_ACCOUNT_RISK = 36
 /** zpData 里带着一次性挑战和限额弹窗文案，出问题时是唯一线索，但可能很大 —— 截断后再进日志 */
 const ZP_DATA_LOG_LIMIT = 400
 
+/**
+ * code 37 的 zpData 是一次性挑战（name / seed / ts）。seed 动辄几百字符，
+ * 截断后会把 name 和 ts 挤掉 —— 而这两个才是判断「服务端到底要什么」的线索，
+ * 所以单独排出来；seed 只留前 12 字符和长度，够定位、也不算把挑战内容抄进日志。
+ */
+function describeChallenge(record: Record<string, unknown>): string | null {
+  const seed = record.seed
+  const name = record.name
+  if (typeof seed !== 'string' || typeof name !== 'string') return null
+  const ts = Number(record.ts)
+  const when = Number.isFinite(ts) ? new Date(ts).toISOString() : (JSON.stringify(record.ts) ?? '?')
+  return `challenge: name=${name} ts=${when} seed=${seed.slice(0, 12)}…(len ${seed.length})`
+}
+
 function summarizeZpData(zpData: unknown): string {
   if (zpData == null) return '无'
   let json: string
@@ -107,6 +121,8 @@ function summarizeZpData(zpData: unknown): string {
   }
   // 原始值没有键名可报，直接给截断后的值
   if (typeof zpData !== 'object') return json.slice(0, ZP_DATA_LOG_LIMIT)
+  const challenge = describeChallenge(zpData as Record<string, unknown>)
+  if (challenge) return challenge
   const keys = Object.keys(zpData)
   const cut = json.length > ZP_DATA_LOG_LIMIT ? `${json.slice(0, ZP_DATA_LOG_LIMIT)}…` : json
   return `${keys.length ? keys.join('/') : '空对象'} ${cut}`
