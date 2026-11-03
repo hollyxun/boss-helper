@@ -51,7 +51,12 @@ export interface FormData {
   useCache: FormDataCheckbox
   resume: FormDataResume
   aiGreeting: FormDataAi
-  aiFiltering: FormDataAi & { score: number }
+  aiFiltering: FormDataAi & {
+    /** AI 结论为「不建议投递」时拦下来，不投递 */
+    skipReject: boolean
+    /** AI 结论为「谨慎投递」时拦下来，不投递 */
+    skipWatch: boolean
+  }
   aiResume: FormDataAi
   aiReply: FormDataAi
   amap: {

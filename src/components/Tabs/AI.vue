@@ -37,7 +37,7 @@ const features: Feature[] = [
   {
     key: 'aiFiltering',
     label: 'AI 过滤',
-    help: '根据简历 + 岗位内容让 AI 打分，低于「过滤分数」的岗位直接跳过。有候选人摘要时自动用摘要，省 token。',
+    help: '让 AI 逐维度对比简历与岗位描述（技能 / 方向 / 经验 / 条件 / 学历 / 薪资），插件按权重算出匹配度并定档（建议投递 / 谨慎投递 / 不建议投递），命中拦截档的岗位直接跳过。有候选人摘要时自动用摘要，省 token。',
   },
   {
     key: 'aiReply',
@@ -179,7 +179,7 @@ function openPrompt(key: FeatureKey) {
       </div>
 
       <p class="text-xs leading-snug text-muted-foreground">
-        AI 过滤会读取「简历」里的内容做匹配打分，简历为空时只按岗位本身打分；提示词里用
+        AI 过滤会读取「简历」里的内容做匹配判断，简历为空时只按岗位本身的通用优劣判断；提示词里用
         <code class="rounded bg-muted px-1">&#123;&#123; resume &#125;&#125;</code> 引用简历。
       </p>
     </div>

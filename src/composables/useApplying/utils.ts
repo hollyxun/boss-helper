@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import { counter } from '@/message'
 import type { FormDataRange } from '@/types/formData'
 import { parseGptJson } from '@/utils/ai'
@@ -48,34 +50,216 @@ export function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-/** 与默认提示词里的「基础分 60 / totalScore 限制在 0-100」同一量纲，见 conf/info.ts 的 aiFiltering 提示词。 */
-const AI_FILTER_BASE_SCORE = 60
+/** 六个匹配维度里单档的判断结果 */
+type AiFilterLevel = 'high' | 'mid' | 'low'
+
+/**
+ * AI 过滤的结论档位。
+ * `unknown` 只表示拿不到可用的结构化结果（JSON 解析失败或顶层校验没过），
+ * 不能当成「及格」放行，也不能替模型猜一个档位。
+ */
+export type AiFilterVerdict = 'recommend' | 'watch' | 'reject' | 'unknown'
+
+export const AI_FILTER_VERDICT_LABELS: Record<AiFilterVerdict, string> = {
+  recommend: '建议投递',
+  watch: '谨慎投递',
+  reject: '不建议投递',
+  unknown: '无结论',
+}
+
+const AI_FILTER_LEVEL_LABELS: Record<AiFilterLevel, string> = {
+  high: '匹配',
+  mid: '一般',
+  low: '不匹配',
+}
+
+/**
+ * 六个维度与各自权重，合计 100。
+ * 改这里要同步 `conf/info.ts` 里默认提示词的「权重」一节，否则提示词与实际算分不一致。
+ */
+const AI_FILTER_DIMENSIONS = [
+  { key: 'skill', label: '技能', weight: 30 },
+  { key: 'direction', label: '方向', weight: 22 },
+  { key: 'experience', label: '经验', weight: 14 },
+  { key: 'education', label: '学历', weight: 10 },
+  { key: 'conditions', label: '条件', weight: 16 },
+  { key: 'salary', label: '薪资', weight: 8 },
+] as const
+
+type AiFilterDimensionKey = (typeof AI_FILTER_DIMENSIONS)[number]['key']
+
+/** high 计满权重、mid 计一半、low 计 0 */
+const AI_FILTER_LEVEL_RATIO: Record<AiFilterLevel, number> = { high: 1, mid: 0.5, low: 0 }
+
+/** 总分档位：>= 70 建议投递、>= 50 谨慎投递、其余不建议投递 */
+const AI_FILTER_RECOMMEND_SCORE = 70
+const AI_FILTER_WATCH_SCORE = 50
+
+/** 用户自定义提示词时可能让模型输出中文档位，这里一并认。 */
+const VERDICT_ALIASES: Record<string, AiFilterVerdict> = {
+  recommend: 'recommend',
+  watch: 'watch',
+  reject: 'reject',
+  建议投递: 'recommend',
+  谨慎投递: 'watch',
+  不建议投递: 'reject',
+}
+
+const LEVEL_ALIASES: Record<string, AiFilterLevel> = {
+  high: 'high',
+  mid: 'mid',
+  low: 'low',
+  高: 'high',
+  中: 'mid',
+  低: 'low',
+  匹配: 'high',
+  一般: 'mid',
+  不匹配: 'low',
+}
+
+interface AiFilterHardFailItem {
+  rule?: string
+  reason?: string
+}
+
+const aiFilterDimensionSchema = z.object({
+  level: z.string(),
+  reason: z.string().optional(),
+})
+
+/**
+ * 顶层严格：`verdict` 是字符串、`hardFail` 是数组、`match` 六个维度一个都不能少，缺一项就判「无结论」。
+ * 元素宽容：`hardFail` 单条允许写成字符串或只给 rule / reason；`match` 单维可以不给 reason。
+ */
+const aiFilteringSchema = z.object({
+  verdict: z.string(),
+  hardFail: z.array(z.unknown()),
+  match: z.object({
+    skill: aiFilterDimensionSchema,
+    direction: aiFilterDimensionSchema,
+    experience: aiFilterDimensionSchema,
+    conditions: aiFilterDimensionSchema,
+    education: aiFilterDimensionSchema,
+    salary: aiFilterDimensionSchema,
+  }),
+})
+
+/** zod 的 issue 是给开发者看的，这里压成一句能直接写进过滤原因的话。 */
+function describeIssues(error: z.ZodError): string {
+  return error.issues
+    .slice(0, 3)
+    .map((issue) => {
+      const key = issue.path.join('.') || '根对象'
+      const expected = 'expected' in issue ? String(issue.expected) : issue.code
+      const received = 'received' in issue ? String(issue.received) : '缺失'
+      return `${key} 应为 ${expected}，实际 ${received}`
+    })
+    .join('；')
+}
+
+/** 单条 hardFail 允许写成字符串，也允许 rule 和 reason 只给一个 */
+function toHardFailList(list?: unknown): string[] {
+  if (!Array.isArray(list)) return []
+  return list
+    .map((item) => {
+      if (typeof item === 'string') return item.trim()
+      if (item && typeof item === 'object') {
+        const { rule, reason } = item as AiFilterHardFailItem
+        return [rule?.trim(), reason?.trim()].filter(Boolean).join('：')
+      }
+      return ''
+    })
+    .filter(Boolean)
+}
+
+function scoreToVerdict(score: number): AiFilterVerdict {
+  if (score >= AI_FILTER_RECOMMEND_SCORE) return 'recommend'
+  if (score >= AI_FILTER_WATCH_SCORE) return 'watch'
+  return 'reject'
+}
+
+/** 权重的一半会出现 12.5，整数就别带小数点 */
+function formatScore(value: number): string {
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(1)))
+}
+
+export interface AiFilterDimensionResult {
+  label: string
+  level: AiFilterLevel
+  got: number
+  weight: number
+  reason: string
+}
 
 export function parseFiltering(content: string) {
-  interface Item {
-    reason: string
-    score: number
+  const raw = parseGptJson<Record<string, unknown>>(content)
+
+  // 校验不过也照常把能用的部分捞出来：日志里既看得到缺什么字段，也看得到模型说了什么
+  const hardFail = toHardFailList(raw?.hardFail)
+  const dimensions: AiFilterDimensionResult[] = []
+
+  let verdict: AiFilterVerdict = 'unknown'
+  let modelVerdict: AiFilterVerdict | null = null
+  let score = 0
+  let issue: string | null = null
+
+  if (!raw || typeof raw !== 'object') {
+    issue = '返回的不是可解析的 JSON 对象'
+  } else {
+    const checked = aiFilteringSchema.safeParse(raw)
+    if (!checked.success) {
+      issue = describeIssues(checked.error)
+    } else {
+      // 模型自报的 verdict 只作对照，最终档位由六维权重算出来
+      modelVerdict = VERDICT_ALIASES[checked.data.verdict.trim().toLowerCase()] ?? null
+      for (const dimension of AI_FILTER_DIMENSIONS) {
+        const item = checked.data.match[dimension.key as AiFilterDimensionKey]
+        const level = LEVEL_ALIASES[item.level.trim().toLowerCase()]
+        if (!level) {
+          issue = `match.${dimension.key} 的 level 不在约定值里：${item.level}`
+          break
+        }
+        const got = dimension.weight * AI_FILTER_LEVEL_RATIO[level]
+        score += got
+        dimensions.push({
+          label: dimension.label,
+          level,
+          got,
+          weight: dimension.weight,
+          reason: item.reason?.trim() ?? '',
+        })
+      }
+      // 硬性门槛一票否决，压过权重得分和模型自报档位
+      if (!issue) verdict = hardFail.length > 0 ? 'reject' : scoreToVerdict(score)
+    }
   }
-  const res = parseGptJson<{
-    negative: Item[]
-    positive: Item[]
-  }>(content)
 
-  const hand = (acc: { score: number; reason: string }, curr: Item) => ({
-    score: acc.score + Math.abs(curr.score),
-    reason: `${acc.reason}\n${curr.reason}/(${Math.abs(curr.score)}分)`,
-  })
-  const data = {
-    negative: res?.negative?.reduce(hand, { score: 0, reason: '' }),
-    positive: res?.positive?.reduce(hand, { score: 0, reason: '' }),
+  const sections = [
+    // 带「AI」字样：投递缓存按消息文本推断处理器类型，见 usePipelineCache 的 inferProcessorType
+    `AI 结论：${AI_FILTER_VERDICT_LABELS[verdict]}（匹配度 ${formatScore(score)}/100）`,
+    issue ? `格式问题：${issue}` : '',
+    hardFail.length ? `硬伤：${hardFail.join('；')}` : '',
+    ...dimensions.map(
+      (d) =>
+        `${d.label} ${formatScore(d.got)}/${d.weight} ${AI_FILTER_LEVEL_LABELS[d.level]}${
+          d.reason ? '：' + d.reason : ''
+        }`,
+    ),
+    modelVerdict && modelVerdict !== verdict
+      ? `（模型自评：${AI_FILTER_VERDICT_LABELS[modelVerdict]}，与本地核算不一致，以本地为准）`
+      : '',
+  ].filter(Boolean)
+
+  return {
+    res: raw,
+    verdict,
+    modelVerdict,
+    score,
+    dimensions,
+    hardFail,
+    issue,
+    message: sections.join('\n'),
   }
-
-  const raw = AI_FILTER_BASE_SCORE + (data?.positive?.score ?? 0) - (data?.negative?.score ?? 0)
-  const rating = Math.min(100, Math.max(0, raw))
-
-  const message = `分数${rating}\n消极:${data?.negative?.reason}\n\n积极:${data?.positive?.reason}`
-
-  return { res, message, rating, data }
 }
 
 export async function loadSet(key: string, uid: string): Promise<Map<string, number>> {

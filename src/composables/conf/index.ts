@@ -129,6 +129,37 @@ const FROM_VERSION: [string, (from: Partial<FormData>) => Partial<FormData>][] =
       return from
     },
   ],
+  [
+    // AI 过滤改为六维匹配度：旧阈值越高越严，据此推导拦截档位；只替换「没改过」的旧默认提示词
+    '20261103',
+    (from) => {
+      interface LegacyAiFiltering {
+        prompt?: unknown
+        score?: number
+        skipReject?: boolean
+        skipWatch?: boolean
+      }
+      const ai = from.aiFiltering as LegacyAiFiltering | undefined
+      if (!ai) return from
+
+      const score = typeof ai.score === 'number' ? ai.score : 60
+      // score <= 0 等于原来的「不拦任何岗位」；> 60 说明中性岗位也要扣分才过，对应连「谨慎投递」一起拦
+      ai.skipReject = score > 0
+      ai.skipWatch = score > 60
+      delete ai.score
+
+      // 只换「没改过」的默认提示词。两代默认都要认：FROM_VERSION 只跑最新一条迁移，
+      // 停在 20261029 之前的配置不会先经过上一代迁移
+      const text = JSON.stringify(ai.prompt ?? '')
+      const isLegacyDefault =
+        text.includes('interface aiFilteringItem') ||
+        (text.includes('求职评委') && !text.includes('{{ resume }}'))
+      if (isLegacyDefault) {
+        ai.prompt = jsonClone(defaultFormData.aiFiltering.prompt)
+      }
+      return from
+    },
+  ],
 ]
 
 export const useConf = () => {

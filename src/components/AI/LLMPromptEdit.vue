@@ -15,8 +15,6 @@ import DialogDescription from '@/components/ui/dialog/DialogDescription.vue'
 import DialogFooter from '@/components/ui/dialog/DialogFooter.vue'
 import DialogHeader from '@/components/ui/dialog/DialogHeader.vue'
 import DialogTitle from '@/components/ui/dialog/DialogTitle.vue'
-import Input from '@/components/ui/input/Input.vue'
-import Label from '@/components/ui/label/Label.vue'
 import Select from '@/components/ui/select/Select.vue'
 import SelectContent from '@/components/ui/select/SelectContent.vue'
 import SelectItem from '@/components/ui/select/SelectItem.vue'
@@ -28,6 +26,7 @@ import SheetDescription from '@/components/ui/sheet/SheetDescription.vue'
 import SheetFooter from '@/components/ui/sheet/SheetFooter.vue'
 import SheetHeader from '@/components/ui/sheet/SheetHeader.vue'
 import SheetTitle from '@/components/ui/sheet/SheetTitle.vue'
+import Switch from '@/components/ui/switch/Switch.vue'
 import Table from '@/components/ui/table/Table.vue'
 import TableBody from '@/components/ui/table/TableBody.vue'
 import TableCell from '@/components/ui/table/TableCell.vue'
@@ -65,7 +64,13 @@ const currentModelData = computed(() =>
   model.modelData.value.find((v) => v.key === currentModel.value),
 )
 
-const score = ref(props.data === 'aiFiltering' ? (conf.formData[props.data].score ?? 60) : 60)
+/** AI 过滤按六维匹配度定档后，这里只关心「哪一档拦下来不投递」。 */
+const skipReject = ref(true)
+const skipWatch = ref(false)
+if (props.data === 'aiFiltering') {
+  skipReject.value = conf.formData.aiFiltering.skipReject
+  skipWatch.value = conf.formData.aiFiltering.skipWatch
+}
 
 /** 不同能力对应到 chatModel 里的 agent */
 const agentName = computed(() => {
@@ -266,7 +271,8 @@ async function savePrompt() {
   conf.formData[props.data].prompt = message.value
 
   if (props.data === 'aiFiltering') {
-    conf.formData[props.data].score = score.value
+    conf.formData.aiFiltering.skipReject = skipReject.value
+    conf.formData.aiFiltering.skipWatch = skipWatch.value
   }
   await conf.confSaving()
   show.value = false
@@ -287,17 +293,26 @@ async function savePrompt() {
       </DialogHeader>
 
       <div class="scroll-stable flex max-h-[62vh] flex-col gap-4 overflow-y-auto pr-1">
-        <div v-if="data === 'aiFiltering'" class="flex items-center gap-2">
-          <Label for="prompt-score" class="w-20 shrink-0"> 过滤分数 </Label>
-          <Input
-            id="prompt-score"
-            type="number"
-            :min="-100"
-            :max="100"
-            :model-value="score"
-            placeholder="请输入分数"
-            @update:model-value="(value) => (score = value === '' ? 0 : Number(value))"
-          />
+        <div v-if="data === 'aiFiltering'" class="flex flex-col gap-2">
+          <div class="text-muted-foreground text-sm">
+            AI 结论命中下面哪些档位时拦下不投递；「建议投递」始终放行，「无结论」始终拦下。
+          </div>
+          <div class="flex items-center gap-2">
+            <Switch
+              :model-value="skipReject"
+              aria-label="拦下不建议投递"
+              @update:model-value="(value) => (skipReject = !!value)"
+            />
+            <span class="text-sm">拦下「不建议投递」</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <Switch
+              :model-value="skipWatch"
+              aria-label="拦下谨慎投递"
+              @update:model-value="(value) => (skipWatch = !!value)"
+            />
+            <span class="text-sm">连「谨慎投递」一起拦下</span>
+          </div>
         </div>
 
         <div class="flex w-full items-center justify-between gap-2">

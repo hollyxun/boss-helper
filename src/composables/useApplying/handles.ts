@@ -349,12 +349,19 @@ export class TaskRegistry<C extends HelperContext<C, T, S>, T, S = {}> {
       }
       return async (ctx, data) => {
         const content = await ctx.helper.chatModel.chat('filtering', data).then((r) => r.text)
-        const { message, rating } = parseFiltering(content)
-        const threshold = ctx.helper.conf.formData.aiFiltering.score ?? 60
-        if (rating < threshold) {
+        const { verdict, message } = parseFiltering(content)
+        const { skipReject, skipWatch } = ctx.helper.conf.formData.aiFiltering
+
+        if (verdict === 'unknown') {
           return taskResult.skip(
-            `${message || 'AI 评分不达标'}（AI 评分 ${rating}，低于 ${threshold}）`,
+            `${message}\n（提示词需要输出 verdict / hardFail / match 六个维度）`,
           )
+        }
+        if (verdict === 'reject' && skipReject) {
+          return taskResult.skip(`${message}\n（命中「不建议投递」拦截）`)
+        }
+        if (verdict === 'watch' && skipWatch) {
+          return taskResult.skip(`${message}\n（命中「谨慎投递」拦截）`)
         }
       }
     },

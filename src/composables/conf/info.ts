@@ -138,58 +138,67 @@ export const defaultFormData: FormData = {
   </简历>
   2. 岗位信息：见用户消息。
 
-  ## 评分规则
-  每条命中固定 10 分。positive 和 negative 各最多输出 5 条，不要重复输出同一类问题。理由必须一句话，并引用简历中的具体经历、技能、年限、学历或明确偏好；不得空泛评价，不得编造简历未提供的信息。岗位信息或简历信息不足、无法判断的条目不要输出，不要臆测。
+  ## 六个匹配维度（match）
+  逐维度对比「简历」与「岗位描述」，六个维度都必须给出 level 和一句话 reason：
+  - skill 技能：岗位要求的技能栈，简历里有没有实际使用经验
+  - direction 方向：岗位性质与简历方向是否一致（是否转行、外包、纯销售、纯客服）
+  - experience 经验：岗位年限要求与简历实际年限
+  - education 学历：岗位学历要求与简历学历
+  - conditions 工作条件：地点与通勤、作息（双休 / 单休 / 996）、是否需要上门·外勤·应酬·推销·频繁出差
+  - salary 薪资：岗位薪资与简历对应职级的市场水平
+  level 只能是 high（匹配）/ mid（一般，或信息不足以判断）/ low（不匹配）。拿不准选 mid，不要硬猜。
+  reason 必须引用简历或岗位描述里的具体证据，不超过 40 字，不得编造。
 
-  加分（positive）：
-  - 岗位核心职责与简历中的项目/工作经历对口
-  - 岗位要求的技能，简历里有实际使用经验
-  - 行业、业务方向与简历一致
-  - 薪资与简历对应职级的市场水平相符
-  - 经验年限、学历满足要求且不过度超出
-  - 工作地点、工作方式（远程/坐班）符合简历期望
-  - 符合求职偏好：双休、早九晚五、技术栈新、成长空间大
+  ## 权重（插件按这套权重本地核算，不要你算分）
+  skill 30、direction 22、experience 14、education 10、conditions 16、salary 8，合计 100。
+  high 计满权重、mid 计一半、low 计 0。总分 >= 70 建议投递、>= 50 谨慎投递、< 50 不建议投递。
 
-
-  扣分（negative）：
-  - 岗位关键技能在简历中完全没有
-  - 经验年限明显不匹配（如要求 5 年，简历只有 1 年）
-  - 学历不满足硬性要求
-  - 岗位方向偏离简历（转行、外包、纯销售、纯客服等）
-  - 简历中明确排斥的内容（上门/外勤、客户沟通、推销、频繁出差）
-  - 明显不合理的薪资或工作强度（单休、996）
-  - 不符合求职偏好：需要上门、需要和客户应酬、需要推销
-
+  ## 硬性门槛（hardFail）
+  只有「不满足就进不去」的条件才算硬性门槛，命中一条记一项：
+  - 学历低于岗位硬性要求
+  - 工作经验年限明显不够（如要求 5 年，简历只有 1 年）
+  - 岗位核心职责要求的技能，简历里完全没有
+  - 岗位写明的证书、语言、驻场、出差等硬条件，简历里没有且明确不满足
+  rule 填类别（学历 / 经验 / 技能 / 证书 / 其他），reason 一句话并引用简历中的证据。岗位要求没说死、或信息不足无法判断的，不算命中，不要臆测。
+  命中任一 hardFail，插件会直接判成不建议投递，不论你的 verdict 写什么。
 
   ## 求职偏好（可自行修改）
-  - 加分：双休、早九晚五、技术栈新、成长空间大
-  - 扣分：需要上门、需要和客户应酬、需要推销
+  - 偏好：双休、早九晚五、技术栈新、成长空间大
+  - 排斥：需要上门、需要和客户应酬、需要推销
+  这些主要落在 conditions 和 direction 两个维度里。
 
-## 总分与结论
-- 基础分 60。
-- totalScore = 60 + positive 条数 × 10 - negative 条数 × 10。
-- totalScore 限制在 0-100 的整数。
-- verdict 规则：
-  - totalScore >= 80：建议投递
-  - 60 <= totalScore < 80：谨慎投递
-  - totalScore < 60：不建议投递
+  ## 结论（verdict）三选一
+  这是你自己的整体判断；和上面的本地核算不一致时，以本地核算为准，两个都会显示出来。
+  - reject：命中任一硬性门槛，或多个维度是 low，投了也大概率没回应
+  - watch：没有硬性门槛，但有维度明显勉强
+  - recommend：核心维度都是 high，且没有硬性门槛
+  拿不准就选 watch，不要为了二选一硬猜。
 
   ## 输出格式
   只返回下面格式的 JSON，不要有任何其他字符
 
-  interface aiFilteringItem {
-    reason: string; // 扣分或加分的理由，一句话，引用简历中的证据
-    score: number; // 分数变化，正整数，不需要正负号
+  interface aiFilteringDimension {
+    level: "high" | "mid" | "low";
+    reason: string; // 一句话，引用简历或岗位描述里的具体证据
   }
 
   interface aiFiltering {
-    negative: aiFilteringItem[]; // 扣分项
-    positive: aiFilteringItem[]; // 加分项
+    verdict: "recommend" | "watch" | "reject";
+    hardFail: { rule: string; reason: string }[]; // 命中的硬性门槛，没有则空数组
+    match: {
+      skill: aiFilteringDimension;
+      direction: aiFilteringDimension;
+      experience: aiFilteringDimension;
+      education: aiFilteringDimension;
+      conditions: aiFilteringDimension;
+      salary: aiFilteringDimension;
+    };
   }
 
   ## 注意
-- 简历为空时，只按岗位本身的通用优劣输出 positive/negative，各最多 3 条，并在每条 reason 开头注明「简历未填写」；totalScore 仍按公式计算。
-- 岗位信息未提供时，不要输出匹配类加减分项；只输出能根据简历偏好判断的通用项，并在 reason 中注明依据。
+- 字段一个都不能少：verdict 取三个约定值之一，hardFail 是数组（没有也要给空数组），match 的六个维度必须全部给齐。
+- 简历为空时无法判断匹配：六个 level 全填 mid、reason 写「简历未填写」，hardFail 留空。
+- 岗位描述缺失时只按岗位名、技能、福利等已有字段判断，并在 reason 里注明依据。
 - 不要输出年龄、性别、婚育等敏感或人格化评价。  `,
       },
       {
@@ -198,16 +207,23 @@ export const defaultFormData: FormData = {
   <岗位信息>
   岗位名:{{ jobData.jobName }}   薪资: {{ jobData.salary }}
   学历要求: {{ jobData.degreeName }}    工作经验要求: {{ jobData.experienceName }}
+  工作城市: {{ jobData.city }}    工作地址: {{ jobData.address }}
   福利列表: {{ jobData.welfareList }}
   技能要求: {{ jobData.skills }}
   岗位标签:{{ jobData.jobLabels }}
+  <公司信息与招聘者>
+  公司名: {{ jobData.brand.name }}   行业: {{ jobData.brand.industry }}
+  规模: {{ jobData.brand.scale }}   融资阶段: {{ jobData.brand.stageName }}
+  招聘者: {{ jobData.boss.name }}（{{ jobData.boss.title }}）   是否猎头: {{ jobData.boss.isHeadhunter }}
+  </公司信息与招聘者>
     <岗位描述>
     {{ jobData.jobDescription }}
     <岗位描述/>
   </岗位信息>`,
       },
     ],
-    score: 60,
+    skipReject: true,
+    skipWatch: false,
   },
   aiResume: {
     enable: true,
@@ -314,5 +330,5 @@ export const defaultFormData: FormData = {
   delayDeliveryInterval: 5,
   delayDeliveryPageNext: 60,
   delayMessageSending: 2,
-  version: '20261029',
+  version: '20261103',
 }

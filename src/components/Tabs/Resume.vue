@@ -412,13 +412,13 @@ async function searchKeyword(keyword: string) {
       <Textarea
         :model-value="conf.formData.resume.text"
         class="h-56 field-sizing-fixed text-xs leading-relaxed"
-        placeholder="把简历正文粘贴到这里：个人信息、求职意向、工作经历、项目经历、技能栈...&#10;&#10;AI 筛选会拿它和岗位要求做匹配打分；简历越完整，过滤越准。"
+        placeholder="把简历正文粘贴到这里：个人信息、求职意向、工作经历、项目经历、技能栈...&#10;&#10;AI 筛选会拿它和岗位要求做匹配判断；简历越完整，过滤越准。"
         @update:model-value="onResumeInput"
       />
       <p class="text-xs leading-snug text-muted-foreground">
         在 AI 过滤的提示词里可以用
         <code class="rounded bg-muted px-1">&#123;&#123; resume &#125;&#125;</code>
-        引用这份简历；留空时 AI 只按岗位本身打分。
+        引用这份简历；留空时 AI 只按岗位本身的通用优劣判断。
       </p>
     </div>
 
