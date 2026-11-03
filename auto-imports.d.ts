@@ -45,7 +45,6 @@ declare global {
   const h: typeof import('vue').h
   const hotCities: typeof import('./src/composables/useBossSearch').hotCities
   const inject: typeof import('vue').inject
-  const isBossRiskControl: typeof import('./src/composables/useBossJobSearch').isBossRiskControl
   const isProxy: typeof import('vue').isProxy
   const isReactive: typeof import('vue').isReactive
   const isReadonly: typeof import('vue').isReadonly
@@ -82,7 +81,6 @@ declare global {
   const panelSearchResults: typeof import('./src/composables/useBossJobSearch').panelSearchResults
   const provide: typeof import('vue').provide
   const rawJobItemProblem: typeof import('./src/composables/useBossJobSearch').rawJobItemProblem
-  const rawJobItems: typeof import('./src/composables/useBossJobSearch').rawJobItems
   const reactive: typeof import('vue').reactive
   const readonly: typeof import('vue').readonly
   const ref: typeof import('vue').ref

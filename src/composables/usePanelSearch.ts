@@ -1,11 +1,8 @@
-import {
-  bossErrorBrief,
-  bossRiskHint,
-  isBossRiskControl,
-} from '@/composables/useApplying/deliverError'
+import { bossErrorBrief } from '@/composables/useApplying/deliverError'
 import { panelSearchResults, searchJobs } from '@/composables/useBossJobSearch'
 import type { SearchConditions } from '@/composables/useBossSearch'
 import { panelConditions, saveSearchConditions } from '@/composables/useBossSearch'
+import { riskControl } from '@/composables/useRiskControl'
 import { useToast } from '@/composables/useToast'
 import { errorHandle } from '@/utils'
 import { logger } from '@/utils/logger'
@@ -134,6 +131,8 @@ export async function runPanelSearch(
     const count = await searchJobs(conditions)
     // 记录要等结果出来再写：写早了，失败或 0 结果也会武装 60s 闸门，
     // 提示却说「结果已在列表里」，而列表是空的
+    // 搜到结果说明会话正常，风控连续计数清零
+    if (count > 0) riskControl.success()
     saveLastSearch(Date.now(), key, count > 0 ? 'ok' : 'empty')
     saveSearchConditions(conditions)
     if (!opts.silent) {
@@ -149,16 +148,16 @@ export async function runPanelSearch(
     return count > 0 ? 'ok' : 'empty'
   } catch (error) {
     const message = errorHandle(error)
+    // 判定与处置都在 useRiskControl 里；这里只把结论映射成搜索结果状态和提示
+    const risk = riskControl.onError(error, 'search')
     // code 与 zpData 摘要只进日志，提示条放不下
     logger.warn('PanelSearchFailed', message)
-    saveLastSearch(Date.now(), key, isBossRiskControl(message) ? 'risk' : 'error')
+    saveLastSearch(Date.now(), key, risk.kind === 'other' ? 'error' : 'risk')
     if (!opts.silent) {
       toast.add({
         color: 'error',
         title: `搜索失败: ${bossErrorBrief(message)}`,
-        description: isBossRiskControl(message)
-          ? bossRiskHint(error)
-          : '刷新页面后重试；连续失败会自动停止翻页',
+        description: risk.kind === 'other' ? '刷新页面后重试；连续失败会自动停止翻页' : risk.hint,
       })
     }
     return 'error'

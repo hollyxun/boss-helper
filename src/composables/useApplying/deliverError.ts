@@ -149,33 +149,6 @@ export function bossApiError(
 }
 
 /**
- * 该不该停整轮：能按 code 分类的 36 / 37 / 限速，加上只认得出文案的老路径。
- * Boss 偶尔回空 message，那时只有 code 可用，所以两类都要判。
- */
-export function isBossRiskError(e: unknown, text: string): boolean {
-  return (
-    e instanceof RateLimitError ||
-    e instanceof SecurityCheckError ||
-    e instanceof AccountRiskError ||
-    isBossRiskControl(text)
-  )
-}
-
-/**
- * 37 与 36 的恢复方式不同，提示要分开说：一个刷新页面即可，一个必须人到页面上过验证。
- * 只靠文案匹配识别的风控（读不到 code 的路径）走通用提示。
- */
-export function bossRiskHint(e: unknown): string {
-  if (e instanceof AccountRiskError) {
-    return '这是账号级风控（code 36），需要到 Boss 页面手动过一次验证才会解除'
-  }
-  if (e instanceof SecurityCheckError) {
-    return '安全校验没被接受（code 37），刷新页面让站点重签令牌后通常会恢复'
-  }
-  return '请刷新页面完成验证，稍后再试'
-}
-
-/**
  * 提示条只放得下一句话：错误消息里 code 后面还挂着 zpData 摘要，那是给日志看的，
  * 这里截到第一个分隔符之前，完整文本仍能在日志里查到。
  */

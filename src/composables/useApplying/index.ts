@@ -2,12 +2,13 @@ import { shallowRef, ref } from 'vue'
 
 import { addJobLog } from '@/composables/useLogs'
 import { PipelineCacheManager } from '@/composables/usePipelineCache'
+import { riskControl } from '@/composables/useRiskControl'
 import type { PipelineCacheItem, ProcessorType } from '@/types/pipelineCache'
 import { delay, delayPaced, randRange } from '@/utils'
 import type { ContextLogger } from '@/utils/logger'
 
 import type { HelperContext } from '../useHelper'
-import { bossRiskHint, isBossRiskError, StaleJobItemError } from './deliverError'
+import { StaleJobItemError } from './deliverError'
 import { DependencyMissingError } from './handles'
 import type {
   Handler,
@@ -318,10 +319,15 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
           if (isStop()) break
         } catch (e) {
           const text = e instanceof Error ? e.message : JSON.stringify(e)
-          if (isBossRiskError(e, text)) {
+          // 判类型、累计连续次数、决定停不停轮，全在 useRiskControl 里；这里只消费结论
+          const risk = riskControl.onError(e, 'task')
+          if (risk.kind !== 'other') {
+            log.warn(`风控信号（${risk.kind}，连续第 ${risk.streak} 次）：${risk.hint}`)
+          }
+          if (risk.stop) {
             // 命中风控还继续打下一个岗位，等于拿同一个已经可疑的会话反复撞接口，只会加重。
-            // 整轮停在这里，原因交给 executeAll 写进 stepMsg；错误结果本来就不写缓存
-            riskStopMsg = `命中 Boss 风控（${t.label ?? t.id}）：${text}｜${bossRiskHint(e)}；已停止整轮投递`
+            // 原因交给 executeAll 写进 stepMsg；错误结果本来就不写缓存
+            riskStopMsg = `命中 Boss 风控（${t.label ?? t.id}）：${text}｜${risk.hint}；已停止整轮投递（连续 ${risk.streak} 次，建议 ${Math.round(risk.cooldownSeconds / 60)} 分钟后再试）`
             status.value = 'stop'
             log.warn(riskStopMsg)
           }
@@ -332,7 +338,7 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
             msg: `报错/${t.label ?? t.id}`,
             failedTask: t.id,
             // securityId 过期这类只有用户重新搜索才会恢复，同一轮里排到队尾再试一次也是白打接口
-            retryable: !(e instanceof StaleJobItemError),
+            retryable: !(e instanceof StaleJobItemError) && risk.retryable,
           }
           log.error(`任务${t.label ?? t.id}执行失败`, e)
           skipPipeline = true
@@ -353,6 +359,8 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
           }
         }
       }
+      // 这个岗位没抛错（投出去或被过滤掉）就说明会话是通的，风控连续计数清零
+      if (!errorLog) riskControl.success()
       if (!skipPipeline) {
         helper.jobResultMaps.set(data.jobData.key, {
           status: 'success',

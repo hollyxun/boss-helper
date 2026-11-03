@@ -6,11 +6,7 @@ import Hint from '@/components/Hint.vue'
 import JobDetailDialog from '@/components/JobDetailDialog.vue'
 import Button from '@/components/ui/button/Button.vue'
 import Switch from '@/components/ui/switch/Switch.vue'
-import {
-  bossErrorBrief,
-  bossRiskHint,
-  isBossRiskControl,
-} from '@/composables/useApplying/deliverError'
+import { bossErrorBrief } from '@/composables/useApplying/deliverError'
 import type { JobStatus } from '@/composables/useApplying/type'
 import {
   clearSearchResults,
@@ -23,6 +19,7 @@ import type { JobData } from '@/composables/useHelper'
 import { useHelper } from '@/composables/useHelper'
 import { jobListFilterEnabled } from '@/composables/useJobListFilter'
 import { runPanelSearch } from '@/composables/usePanelSearch'
+import { riskControl } from '@/composables/useRiskControl'
 import { useToast } from '@/composables/useToast'
 import { errorHandle } from '@/utils'
 import { logger } from '@/utils/logger'
@@ -138,6 +135,7 @@ async function loadMore() {
   try {
     await searchJobs(searchMeta.conditions, searchMeta.page + 1, true)
     searchFailStreak = 0
+    riskControl.success()
   } catch (error) {
     cooldown = onSearchPageFailed(error)
   } finally {
@@ -151,8 +149,9 @@ function onSearchPageFailed(error: unknown) {
   const message = errorHandle(error)
   logger.warn('JobTableSearchPageError', message)
 
-  if (isBossRiskControl(message)) {
-    stopAutoLoad('Boss 已拦截搜索请求', message, bossRiskHint(error))
+  const risk = riskControl.onError(error, 'search-page')
+  if (risk.kind !== 'other') {
+    stopAutoLoad('Boss 已拦截搜索请求', message, risk.hint)
     return 0
   }
   searchFailStreak += 1
