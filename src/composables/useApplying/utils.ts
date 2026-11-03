@@ -30,7 +30,7 @@ export function rangeMatch(rangeStr: string, form: FormDataRange): boolean {
   //     inputStart,inputEnd,start,end
   // })
   if (mode) {
-    // 严格：职位范围(input) 完全覆盖 目标范围(form)
+    // 严格：目标范围(form) 完全覆盖 职位范围(input)
     return start <= inputStart && inputEnd <= end
   } else {
     // 宽松：任意重叠（闭区间）

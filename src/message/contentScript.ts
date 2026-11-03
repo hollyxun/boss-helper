@@ -11,24 +11,9 @@ function genKey(key: string): StorageItemKey {
 
 export class ContentCounter implements BackgroundCounter {
   public background: BackgroundCounter
-  public routerHooks: Array<(path: string) => void> = []
 
   constructor(background: BackgroundCounter) {
     this.background = background
-  }
-
-  _addRouterHook(hook: (path: string) => void) {
-    this.routerHooks.push(hook)
-  }
-
-  async callRouterHooks(path: string) {
-    for (const hook of this.routerHooks) {
-      try {
-        hook(path)
-      } catch (e) {
-        console.error('调用路由hook失败', e)
-      }
-    }
   }
 
   async request(...args: Parameters<BackgroundCounter['request']>) {

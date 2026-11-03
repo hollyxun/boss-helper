@@ -59,7 +59,8 @@ function syncSalaryRange() {
             </Alert>
             <Alert>
               <AlertDescription>
-                严格匹配: 目标薪资需完全在职位范围内, 如10-20K: 10-15K 和15-20K 满足, 15-21k 不满足
+                严格匹配: 职位薪资需完全落在设定区间内, 如10-20K: 10-20K, 8-22K 满足, 10-15K
+                和15-25K 不满足
               </AlertDescription>
             </Alert>
             <FormRange :value="conf.formData.salaryRange.value" unit="K" :show="true" />
