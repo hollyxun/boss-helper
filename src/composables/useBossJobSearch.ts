@@ -1,5 +1,6 @@
 import { reactive, ref } from 'vue'
 
+import { RateLimitError } from '@/composables/useApplying/deliverError'
 import type { SearchConditions } from '@/composables/useBossSearch'
 import type { JobData } from '@/composables/useHelper'
 import type { BossZpDetailData, BossZpJobItemData } from '@/entrypoints/boss/types'
@@ -143,24 +144,61 @@ export async function fetchJobPage(conditions: SearchConditions, page = 1): Prom
   return { jobs, hasMore: Boolean(zp.hasMore) }
 }
 
-/** 搜索结果 key → 原始接口字段（详情接口、投递接口都要用到） */
-export const rawJobItems = new Map<string, BossZpJobItemData>()
+/**
+ * Boss 的 securityId / lid 绑的是那一次搜索会话。跨小时、跨天拿来调详情或投递会被判异常，
+ * 而且**与频率无关，节流救不了**（docs/11 的已知限制里记着这条）。
+ * 面板列表又能一直留着，所以必须有 TTL：超时宁可让岗位报错停下，也不要拿旧 id 去撞接口。
+ */
+export const RAW_JOB_TTL_MS = 30 * 60 * 1000
 
-/** 拉岗位详情（AI 过滤、打招呼都需要岗位描述） */
+/** 搜索结果 key → 原始接口字段 + 抓取时间 */
+const rawJobItems = new Map<string, { item: BossZpJobItemData; at: number }>()
+
+/** 只把没过期、且来自最近一轮搜索的条目当数据源 */
+export function getFreshJobItem(key: string): BossZpJobItemData | undefined {
+  const entry = rawJobItems.get(key)
+  if (!entry) return undefined
+  if (Date.now() - entry.at > RAW_JOB_TTL_MS) return undefined
+  return entry.item
+}
+
+/** 取不到原始字段时的人话原因，直接进投递日志，别只留一句「详情获取失败」 */
+export function rawJobItemProblem(key: string): string {
+  const entry = rawJobItems.get(key)
+  if (!entry) {
+    return '面板里没有这条岗位的搜索原始数据（列表可能来自刷新之前），重新搜索后再投'
+  }
+  const minutes = Math.round((Date.now() - entry.at) / 60000)
+  return `securityId 已过期（搜到它是 ${minutes} 分钟前，上限 ${Math.round(RAW_JOB_TTL_MS / 60000)} 分钟），重新搜索后再投`
+}
+
+function rememberJobItem(key: string, item: BossZpJobItemData) {
+  const deadline = Date.now() - RAW_JOB_TTL_MS
+  for (const [stored, entry] of rawJobItems) {
+    if (entry.at < deadline) rawJobItems.delete(stored)
+  }
+  rawJobItems.set(key, { item, at: Date.now() })
+}
+
+/** 拉岗位详情（AI 过滤、打招呼都需要岗位描述）；拿不到就抛，原因要能直接看出是哪一步 */
 export async function fetchJobDetail(job: JobData): Promise<BossZpDetailData | null> {
-  const raw = rawJobItems.get(job.key)
-  const securityId = raw?.securityId
-  const lid = raw?.lid
-  if (!securityId || !lid) return null
+  const raw = getFreshJobItem(job.key)
+  if (!raw) throw new Error(`无法获取岗位详情：${rawJobItemProblem(job.key)}`)
+  if (!raw.securityId || !raw.lid) throw new Error('无法获取岗位详情：这条岗位缺 securityId / lid')
   const token = requireZpToken()
   const url = new URL('/wapi/zpgeek/job/detail.json', location.origin)
-  url.searchParams.set('securityId', securityId)
-  url.searchParams.set('lid', lid)
+  url.searchParams.set('securityId', raw.securityId)
+  url.searchParams.set('lid', raw.lid)
   url.searchParams.set('_', String(Date.now()))
   const res = await fetch(url.toString(), { headers: { Zp_token: token } })
   const json = await res.json()
-  if (json?.code !== 0) return null
-  return json.zpData as BossZpDetailData
+  if (json?.code !== 0) {
+    const message = String(json?.message ?? `code ${json?.code}`)
+    // 风控文案原来会被压成一句「岗位详情获取失败」，整轮停的判据就在这条 message 里
+    if (isBossRiskControl(message)) throw new RateLimitError(`岗位详情接口：${message}`)
+    throw new Error(`岗位详情接口拒绝：${message}`)
+  }
+  return (json.zpData as BossZpDetailData) ?? null
 }
 
 /** 拉详情接口并把描述等字段合并进岗位数据；接口没给描述时返回 false，由调用方决定怎么提示 */
@@ -204,7 +242,7 @@ export async function searchJobs(conditions: SearchConditions, page = 1, append 
 function convertJobSafe(item: BossZpJobItemData) {
   try {
     const job = convertBossZpJobItemToJobData(item)
-    rawJobItems.set(job.key, item)
+    rememberJobItem(job.key, item)
     return job
   } catch (error) {
     logger.warn('BossJobConvertError', error)
@@ -214,6 +252,8 @@ function convertJobSafe(item: BossZpJobItemData) {
 
 export function clearSearchResults() {
   panelSearchResults.value = []
+  // 列表清了，原始条目就没有再用的理由了；留着就是下一次拿过期 securityId 撞接口的入口
+  rawJobItems.clear()
   searchMeta.page = 1
   searchMeta.hasMore = false
   searchMeta.error = ''

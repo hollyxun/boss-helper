@@ -1,5 +1,6 @@
 import { TaskRegistry, taskResult } from '@/composables/useApplying/handles'
 import { defineTaskHandler, defineTaskWorkflow } from '@/composables/useApplying/type'
+import { getFreshJobItem, rawJobItemProblem } from '@/composables/useBossJobSearch'
 
 import type { BossHelperCtx } from '.'
 import { getBossData, sendPublishReq } from './requests'
@@ -72,7 +73,12 @@ export const bossWorkflow = defineTaskWorkflow<BossHelperCtx, BoosJobData>(
   tasks.amap({ deps: ['岗位详情获取'] }), // 高德地图
   tasks.aiFiltering({ deps: ['岗位详情获取'] }), // AI过滤
 
-  defineTaskHandler('岗位投递', () => async (_, { rawData }) => {
+  defineTaskHandler('岗位投递', () => async (_, { jobData, rawData }) => {
+    // 详情之后还隔着 AI 与节流，AI 慢的时候能拖到十几分钟；securityId 在这段时间里可能已经过期。
+    // 这里再查一次，宁可直接报错，也不要拿旧 id 去撞 friend/add —— 那才是真正会触发风控的动作
+    if (!getFreshJobItem(jobData.key)) {
+      throw new Error(`未投递：${rawJobItemProblem(jobData.key)}`)
+    }
     await sendPublishReq({
       securityId: rawData.jobitem.securityId,
       encryptJobId: rawData.jobitem.encryptJobId,

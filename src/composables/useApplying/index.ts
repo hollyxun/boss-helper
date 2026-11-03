@@ -1,5 +1,6 @@
 import { shallowRef, ref } from 'vue'
 
+import { isBossRiskControl } from '@/composables/useBossJobSearch'
 import { addJobLog } from '@/composables/useLogs'
 import { PipelineCacheManager } from '@/composables/usePipelineCache'
 import type { PipelineCacheItem, ProcessorType } from '@/types/pipelineCache'
@@ -7,6 +8,7 @@ import { delay, delayPaced, randRange } from '@/utils'
 import type { ContextLogger } from '@/utils/logger'
 
 import type { HelperContext } from '../useHelper'
+import { RateLimitError } from './deliverError'
 import { DependencyMissingError } from './handles'
 import type {
   Handler,
@@ -281,6 +283,9 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
     return res
   }
 
+  /** 命中风控时由 execute() 写入，executeAll 负责落到 stepMsg 并结束整轮 */
+  let riskStopMsg = ''
+
   const execute = async (data: WorkflowData<T, S>, index = 0) => {
     const isStop = () => status.value === 'stop'
     helper.statistics.todayData.value.total++
@@ -313,10 +318,18 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
           }
           if (isStop()) break
         } catch (e) {
+          const text = e instanceof Error ? e.message : JSON.stringify(e)
+          if (e instanceof RateLimitError || isBossRiskControl(text)) {
+            // 命中风控还继续打下一个岗位，等于拿同一个已经可疑的会话反复撞接口，只会加重。
+            // 整轮停在这里，原因交给 executeAll 写进 stepMsg；错误结果本来就不写缓存
+            riskStopMsg = `命中 Boss 风控（${t.label ?? t.id}）：${text}；已停止整轮投递，请刷新页面、隔一段时间再投`
+            status.value = 'stop'
+            log.warn(riskStopMsg)
+          }
           res = {
             isSkip: true,
             status: 'error',
-            reason: `任务${t.label ?? t.id}执行失败: ${e instanceof Error ? e.message : JSON.stringify(e)}`,
+            reason: `任务${t.label ?? t.id}执行失败: ${text}`,
             msg: `报错/${t.label ?? t.id}`,
           }
           log.error(`任务${t.label ?? t.id}执行失败`, e)
@@ -414,6 +427,7 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
 
   const executeAll = async (rawDataMap: Map<string, T>) => {
     await rebuild()
+    riskStopMsg = ''
 
     let stepMsg = ''
     errorMessage.value = null
@@ -508,6 +522,11 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
           helper.jobMaps.set(jobData.key, data)
           helper.currentJob.value = jobData.key
           await execute(data, index)
+          if (riskStopMsg) {
+            stepMsg = riskStopMsg
+            status.value = 'stop'
+            break
+          }
           if (
             helper.statistics.todayData.value.success >= helper.conf.formData.deliveryLimit.value
           ) {

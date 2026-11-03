@@ -7,7 +7,9 @@ import {
   PublishError,
   RateLimitError,
 } from '@/composables/useApplying/deliverError'
+import { isBossRiskControl } from '@/composables/useBossJobSearch'
 import { useToast } from '@/composables/useToast'
+import { delay, randRange } from '@/utils'
 import { calculateFileMD5 } from '@/utils/file'
 import { logger } from '@/utils/logger'
 
@@ -15,6 +17,34 @@ import type { BossZpBossData, BossZpDetailData } from './types'
 
 // const { userInfo } = useStore()
 const toast = useToast()
+
+/**
+ * 重试前的退避秒数。
+ *
+ * 原来 `retries - 1` 是直接递归调自己、中间没有任何等待：一次失败会在毫秒级
+ * 变成三次相同的 POST，正好把「操作过于频繁」坐实。这里按第几次重试递增，再加抖动。
+ * 两个投递类接口的默认 retries 都是 3，所以用剩余次数就能算出当前是第几次。
+ */
+const RETRY_BACKOFF_SECONDS = [6, 15]
+
+/** 第几次重试该退避多少秒（两个接口的默认 retries 都是 3，所以剩余次数就能算出当前是第几次） */
+export function retryBackoffSeconds(retriesLeft: number): number {
+  const index = Math.min(Math.max(3 - retriesLeft, 0), RETRY_BACKOFF_SECONDS.length - 1)
+  return RETRY_BACKOFF_SECONDS[index] ?? 6
+}
+
+async function backoffBeforeRetry(retriesLeft: number) {
+  const base = retryBackoffSeconds(retriesLeft)
+  await delay(randRange(base * 0.8, base * 1.25))
+}
+
+/** 风控文案不能包成普通错误 —— 上层要靠它决定「整轮停止」而不是换个岗位继续撞 */
+function riskAwareError(message: unknown, wrap: (text: string) => Error) {
+  // Boss 的 message 正常是字符串；万一是对象，用 JSON 展开，不要 String() 成 '[object Object]' 再拿去匹配文案
+  const text =
+    typeof message === 'string' ? message : message == null ? '' : JSON.stringify(message)
+  return isBossRiskControl(text) ? new RateLimitError(text) : wrap(text)
+}
 export const sameCompanyKey = 'local:sameCompany'
 export const sameHrKey = 'local:sameHr'
 
@@ -102,13 +132,14 @@ export async function sendPublishReq(
 
       throw new PublishError(content)
     } else if (res.code !== 0) {
-      throw new PublishError(`未知错误状态:${res.message}`)
+      throw riskAwareError(res.message, (text) => new PublishError(`未知错误状态:${text}`))
     }
     return res
   } catch (e: any) {
     if (e instanceof BossHelperError) {
       throw e
     }
+    await backoffBeforeRetry(retries)
     return sendPublishReq(data, e?.message as string, retries - 1)
   }
 }
@@ -149,15 +180,18 @@ export async function getBossData(
 
     if (res.code !== 0) {
       if (res.message === '非好友关系') {
+        // 刚加上好友，关系同步要时间：这一下等完再问，别立刻重发同一个 POST
+        await backoffBeforeRetry(retries)
         return await getBossData(job, '非好友关系', retries - 1)
       }
-      throw new GreetError(`状态错误:${res.message}`)
+      throw riskAwareError(res.message, (text) => new GreetError(`状态错误:${text}`))
     }
     return res.zpData
   } catch (e: any) {
     if (e instanceof GreetError) {
       throw e
     }
+    await backoffBeforeRetry(retries)
     return getBossData(job, e?.message as string, retries - 1)
   }
 }

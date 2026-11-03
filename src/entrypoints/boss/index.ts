@@ -3,8 +3,8 @@ import type { WorkflowData } from '@/composables/useApplying/type'
 import { createLazyObject, isInitialized } from '@/composables/useApplying/type'
 import {
   fetchJobDetail,
+  getFreshJobItem,
   panelSearchResults,
-  rawJobItems,
   searchJobs,
   searchMeta,
 } from '@/composables/useBossJobSearch'
@@ -406,7 +406,9 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
     if (isInitialized(entry.rawData.detail)) return
     const detail = await fetchJobDetail(entry.jobData)
     if (!detail) {
-      throw new Error('岗位详情获取失败')
+      // 接口拒绝、securityId 过期这些情况现在都从 fetchJobDetail 抛出来了，
+      // 走到这里只剩「接口成功返回但 body 里没有 zpData」这一种
+      throw new Error('岗位详情接口没有返回数据（zpData 为空）')
     }
     entry.rawData.detail = detail
     this.applyJobDetail(entry.jobData, detail)
@@ -419,7 +421,7 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
 
     for (const job of panel) {
       if (this._jobDataMap.has(job.key)) continue
-      const item = rawJobItems.get(job.key)
+      const item = getFreshJobItem(job.key)
       if (!item) continue
       this._jobDataMap.set(job.key, {
         jobitem: item,
