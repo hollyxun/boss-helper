@@ -10,6 +10,7 @@ export {}
 declare global {
   const EffectScope: typeof import('vue').EffectScope
   const PipelineCacheManager: typeof import('./src/composables/usePipelineCache').PipelineCacheManager
+  const RAW_JOB_TTL_MS: typeof import('./src/composables/useBossJobSearch').RAW_JOB_TTL_MS
   const activePanelTab: typeof import('./src/composables/usePanelTab').activePanelTab
   const addAiLog: typeof import('./src/composables/useLogs').addAiLog
   const addFoldedLog: typeof import('./src/composables/useLogs').addFoldedLog
@@ -40,6 +41,7 @@ declare global {
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
   const getCurrentWatcher: typeof import('vue').getCurrentWatcher
+  const getFreshJobItem: typeof import('./src/composables/useBossJobSearch').getFreshJobItem
   const h: typeof import('vue').h
   const hotCities: typeof import('./src/composables/useBossSearch').hotCities
   const inject: typeof import('vue').inject
@@ -79,6 +81,7 @@ declare global {
   const panelConditions: typeof import('./src/composables/useBossSearch').panelConditions
   const panelSearchResults: typeof import('./src/composables/useBossJobSearch').panelSearchResults
   const provide: typeof import('vue').provide
+  const rawJobItemProblem: typeof import('./src/composables/useBossJobSearch').rawJobItemProblem
   const rawJobItems: typeof import('./src/composables/useBossJobSearch').rawJobItems
   const reactive: typeof import('vue').reactive
   const readonly: typeof import('vue').readonly
