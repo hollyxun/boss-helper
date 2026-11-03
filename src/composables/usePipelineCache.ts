@@ -66,28 +66,23 @@ export class PipelineCacheManager {
   }
 
   /**
-   * 根据消息内容推断处理器类型
-   */
-  private inferProcessorType(message: string): ProcessorType {
-    if (message.includes('AI') || message.includes('分数')) {
-      return 'aiFiltering'
-    }
-    if (message.includes('地址') || message.includes('距离') || message.includes('地图')) {
-      return 'amap'
-    }
-    return 'basic'
-  }
-
-  /**
    * 检查缓存是否有效
+   *
+   * AI 过滤分组额外比对判断依据指纹：改了提示词 / 模型 / 拦截开关 / 简历 / 权重之后，
+   * 旧的 AI 结论不能再用（否则改了没效果，最长要等 7 天）。
    */
-  isValidCache(encryptJobId: string): boolean {
+  isValidCache(encryptJobId: string, fingerprint?: string): boolean {
     const item = this.cache.value.data[encryptJobId]
     if (!item) return false
 
     // 检查是否过期
     if (Date.now() > item.expireAt) {
       logger.debug('缓存已过期', { encryptJobId })
+      return false
+    }
+
+    if (item.processorType === 'aiFiltering' && item.fingerprint !== fingerprint) {
+      logger.debug('AI 判断依据已变化，缓存失效', { encryptJobId })
       return false
     }
 
@@ -122,6 +117,10 @@ export class PipelineCacheManager {
 
   /**
    * 设置缓存结果
+   *
+   * `processorType` 由调用方按「哪个任务拦下的」显式传入，不再从提示文案猜——
+   * 以前靠 `message.includes('AI')` 判断分组，任何人改一句日志文案就会把
+   * AI 结论（7 天）悄悄降级成普通筛选（3 天）。
    */
   async setCacheResult(
     encryptJobId: string,
@@ -129,7 +128,8 @@ export class PipelineCacheManager {
     brandName: string,
     status: JobStatus,
     message: string,
-    processorType?: ProcessorType,
+    processorType: ProcessorType = 'basic',
+    fingerprint?: string,
   ): Promise<void> {
     if (status === 'error') {
       // 不缓存错误
@@ -137,8 +137,7 @@ export class PipelineCacheManager {
     }
     try {
       const now = Date.now()
-      const inferredProcessorType = processorType || this.inferProcessorType(message)
-      const processorConfig = this.config.processorConfigs[inferredProcessorType]
+      const processorConfig = this.config.processorConfigs[processorType]
       const expireAt = now + processorConfig.expireTime
 
       const cacheItem: PipelineCacheItem = {
@@ -151,7 +150,8 @@ export class PipelineCacheManager {
         createdAt: now,
         lastAccessed: now,
         hitCount: 0,
-        processorType: inferredProcessorType,
+        processorType,
+        fingerprint,
       }
 
       this.cache.value.data[encryptJobId] = jsonClone(cacheItem)

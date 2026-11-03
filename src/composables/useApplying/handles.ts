@@ -353,8 +353,11 @@ export class TaskRegistry<C extends HelperContext<C, T, S>, T, S = {}> {
         const { skipReject, skipWatch } = ctx.helper.conf.formData.aiFiltering
 
         if (verdict === 'unknown') {
+          // 用 error 而不是 warn：AI 没给出结论不是「过滤决定」，不该进 7 天缓存，
+          // 否则用户修好提示词之后，这个岗位还会按旧结论被跳过
           return taskResult.skip(
             `${message}\n（提示词需要输出 verdict / hardFail / match.skill / match.direction）`,
+            'error',
           )
         }
         if (verdict === 'reject' && skipReject) {
@@ -368,6 +371,7 @@ export class TaskRegistry<C extends HelperContext<C, T, S>, T, S = {}> {
     {
       state: 'ai',
       stateMsg: 'AI 过滤中',
+      cacheGroup: 'aiFiltering',
     },
   )
 
@@ -461,48 +465,54 @@ export class TaskRegistry<C extends HelperContext<C, T, S>, T, S = {}> {
     { label: 'AI招呼语', state: 'ai', stateMsg: '生成招呼语中' },
   )
 
-  amap = defineTaskHandler<C, T, S>('高德地图', (ctx) => {
-    if (!ctx.helper.conf.formData.amap.enable) {
-      return
-    }
-    return async (ctx, { jobData, state }) => {
-      state.amap ??= {}
+  amap = defineTaskHandler<C, T, S>(
+    '高德地图',
+    (ctx) => {
+      if (!ctx.helper.conf.formData.amap.enable) {
+        return
+      }
+      return async (ctx, { jobData, state }) => {
+        state.amap ??= {}
 
-      if (!jobData.address) {
-        return taskResult.skip('地址信息为空')
-      }
-      state.amap.geocode = await amapGeocode(jobData.address) // TODO: 直接使用经纬度
-      if (!state.amap.geocode?.location) {
-        return taskResult.skip('未获取到地址经纬度')
-      }
-      state.amap.distance = await amapDistance(state.amap.geocode.location)
+        if (!jobData.address) {
+          return taskResult.skip('地址信息为空')
+        }
+        state.amap.geocode = await amapGeocode(jobData.address) // TODO: 直接使用经纬度
+        if (!state.amap.geocode?.location) {
+          return taskResult.skip('未获取到地址经纬度')
+        }
+        state.amap.distance = await amapDistance(state.amap.geocode.location)
 
-      if (state.amap == null || state.amap.distance == null) {
-        return taskResult.skip('api数据异常')
+        if (state.amap == null || state.amap.distance == null) {
+          return taskResult.skip('api数据异常')
+        }
+        return [
+          amapHandler(
+            ctx,
+            '直线',
+            ctx.helper.conf.formData.amap.straightDistance,
+            0,
+            state.amap.distance.straight,
+          ),
+          amapHandler(
+            ctx,
+            '驾车',
+            ctx.helper.conf.formData.amap.drivingDistance,
+            ctx.helper.conf.formData.amap.drivingDuration,
+            state.amap.distance.driving,
+          ),
+          amapHandler(
+            ctx,
+            '步行',
+            ctx.helper.conf.formData.amap.walkingDistance,
+            ctx.helper.conf.formData.amap.walkingDuration,
+            state.amap.distance.walking,
+          ),
+        ]
       }
-      return [
-        amapHandler(
-          ctx,
-          '直线',
-          ctx.helper.conf.formData.amap.straightDistance,
-          0,
-          state.amap.distance.straight,
-        ),
-        amapHandler(
-          ctx,
-          '驾车',
-          ctx.helper.conf.formData.amap.drivingDistance,
-          ctx.helper.conf.formData.amap.drivingDuration,
-          state.amap.distance.driving,
-        ),
-        amapHandler(
-          ctx,
-          '步行',
-          ctx.helper.conf.formData.amap.walkingDistance,
-          ctx.helper.conf.formData.amap.walkingDuration,
-          state.amap.distance.walking,
-        ),
-      ]
-    }
-  })
+    },
+    {
+      cacheGroup: 'amap',
+    },
+  )
 }

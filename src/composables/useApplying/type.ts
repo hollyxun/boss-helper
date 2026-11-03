@@ -1,4 +1,5 @@
 import type { HelperContext, JobData } from '@/composables/useHelper'
+import type { ProcessorType } from '@/types/pipelineCache'
 import type { ContextLogger } from '@/utils/logger'
 
 import type { DeliveryWorkflow } from '.'
@@ -15,6 +16,8 @@ export type Task<C extends HelperContext<C, T, S>, T, S> = {
   desc?: string
   state?: JobStatus
   stateMsg?: string
+  /** 这个任务拦下的岗位写进投递缓存时归到哪一组，决定缓存存活多久 */
+  cacheGroup?: ProcessorType
   onEnd?: (ctx: TaskContext<C, T, S>) => void | Promise<void>
 }
 
@@ -96,6 +99,7 @@ export function defineTaskHandler<C extends HelperContext<C, T, S>, T, S>(
     desc?: string
     state?: JobStatus
     stateMsg?: string
+    cacheGroup?: ProcessorType
     onEnd?: (ctx: TaskContext<C, T, S>) => void | Promise<void>
   },
 ): (options?: {
@@ -107,6 +111,7 @@ export function defineTaskHandler<C extends HelperContext<C, T, S>, T, S>(
   desc?: string
   state?: JobStatus
   stateMsg?: string
+  cacheGroup?: ProcessorType
   onEnd?: (ctx: TaskContext<C, T, S>) => void | Promise<void>
 }) => Task<C, T, S> {
   return (options) => {
@@ -119,6 +124,7 @@ export function defineTaskHandler<C extends HelperContext<C, T, S>, T, S>(
       desc: s = opt?.desc,
       state: st = opt?.state,
       stateMsg: sm = opt?.stateMsg,
+      cacheGroup: cg = opt?.cacheGroup,
       onEnd: oe = opt?.onEnd,
     } = options || {}
     return {
@@ -131,6 +137,7 @@ export function defineTaskHandler<C extends HelperContext<C, T, S>, T, S>(
       desc: s,
       state: st,
       stateMsg: sm,
+      cacheGroup: cg,
       onEnd: oe,
     }
   }

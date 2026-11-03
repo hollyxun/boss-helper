@@ -29,6 +29,11 @@ export interface PipelineCacheItem {
   hitCount: number
   /** 缓存分组 */
   processorType: ProcessorType
+  /**
+   * 判断依据指纹（仅 AI 过滤分组写入）：提示词、模型、拦截开关、简历、权重任一变化即失效。
+   * 旧版本没有这个字段，读取时按「不匹配」处理，让 0.0.5 之前算出的结论自然作废。
+   */
+  fingerprint?: string
 }
 
 /**

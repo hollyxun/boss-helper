@@ -136,7 +136,7 @@ async function onPresetChange() {
           />
           <Label for="config-use-cache" class="cursor-pointer">启用缓存</Label>
           <Hint
-            text="缓存按岗位记录处理结果：普通筛选 3 天 / AI 过滤 7 天 / 高德距离 5 天。命中后直接跳过该岗位，省时间也省 AI token；规则改了想重新跑，点「清空缓存」即可。"
+            text="缓存按岗位记录处理结果：普通筛选 3 天 / AI 过滤 7 天 / 高德距离 5 天。命中后直接跳过该岗位，省时间也省 AI token。AI 过滤的结论带判断依据指纹：改了提示词、模型、拦截档位或简历会自动重算，报错与「无结论」也不会被缓存；改普通筛选或高德规则想重新跑，仍需点「清空缓存」。"
           >
             <CircleHelp class="size-3.5 text-muted-foreground" />
           </Hint>

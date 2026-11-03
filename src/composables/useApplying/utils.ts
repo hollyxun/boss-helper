@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { counter } from '@/message'
-import type { FormDataRange } from '@/types/formData'
+import type { FormData, FormDataRange } from '@/types/formData'
 import { parseGptJson } from '@/utils/ai'
 
 export function rangeMatchFormat(v: FormDataRange, unit: string): string {
@@ -199,6 +199,33 @@ export interface AiFilterDimensionResult {
   assessed: boolean
 }
 
+/** 权重与档位阈值也参与缓存指纹：改了算分规则，旧的 AI 结论同样不能复用 */
+const AI_FILTER_RULES_VERSION = `${AI_FILTER_DIMENSIONS.map((d) => `${d.key}${d.weight}`).join(',')}|${AI_FILTER_RECOMMEND_SCORE}|${AI_FILTER_WATCH_SCORE}`
+
+/**
+ * AI 结论的缓存指纹。提示词、模型、拦截档位、简历（正文与摘要的修改时间）、算分规则
+ * 任一项变化都要让旧的 AI 结论作废 —— 缓存按岗位存 7 天，不做失效的话改了提示词最长要等一周才见效。
+ */
+export function aiFilterFingerprint(conf: Pick<FormData, 'aiFiltering' | 'resume'>): string {
+  const { model, prompt, skipReject, skipWatch } = conf.aiFiltering
+  const source = JSON.stringify([
+    AI_FILTER_RULES_VERSION,
+    model ?? '',
+    prompt,
+    skipReject,
+    skipWatch,
+    conf.resume?.updatedAt ?? 0,
+    conf.resume?.summaryAt ?? 0,
+  ])
+  // FNV-1a：只需要「变没变」这个信号，不需要密码学强度
+  let hash = 0x811c9dc5
+  for (let i = 0; i < source.length; i++) {
+    hash ^= source.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return `${source.length.toString(36)}-${hash.toString(36)}`
+}
+
 export function parseFiltering(content: string) {
   const raw = parseGptJson<Record<string, unknown>>(content)
 
@@ -248,7 +275,6 @@ export function parseFiltering(content: string) {
   if (hardFail.length > 0) verdict = 'reject'
 
   const sections = [
-    // 带「AI」字样：投递缓存按消息文本推断处理器类型，见 usePipelineCache 的 inferProcessorType
     // 校验没过时不写匹配度：那时 score 是没算完的半截值，写出来会被当成一个真实结论
     `AI 结论：${AI_FILTER_VERDICT_LABELS[verdict]}${
       issue ? '' : `（匹配度 ${formatScore(score)}/100）`

@@ -18,6 +18,7 @@ import type {
   WorkflowData,
 } from './type'
 import { jobStatusList } from './type'
+import { aiFilterFingerprint } from './utils'
 
 // 全局缓存管理器实例
 let cacheManager: PipelineCacheManager | null = null
@@ -42,18 +43,29 @@ export async function cachePipelineResult(
   status: JobStatus,
   message: string,
   processorType?: ProcessorType,
+  fingerprint?: string,
 ): Promise<void> {
   const cacheManager = getCacheManager()
-  await cacheManager.setCacheResult(key, jobName, brandName, status, message, processorType)
+  await cacheManager.setCacheResult(
+    key,
+    jobName,
+    brandName,
+    status,
+    message,
+    processorType,
+    fingerprint,
+  )
 }
 
 /**
  * 检查职位是否有有效缓存
+ *
+ * `fingerprint` 只在 AI 过滤分组的条目上参与比对，见 PipelineCacheItem.fingerprint。
  */
-export function checkJobCache(key: string): PipelineCacheItem | null {
+export function checkJobCache(key: string, fingerprint?: string): PipelineCacheItem | null {
   const cacheManager = getCacheManager()
 
-  if (cacheManager.isValidCache(key)) {
+  if (cacheManager.isValidCache(key, fingerprint)) {
     const cached = cacheManager.getCachedResult(key)
     return cached
   }
@@ -276,6 +288,7 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
       job_key: data.jobData.key,
       job_name: data.jobData.jobName,
     })
+    let skipGroup: ProcessorType | undefined
     try {
       let skipPipeline = false
       let errorLog = false
@@ -293,6 +306,7 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
             res.status ??= res.isSkip ? 'warn' : undefined
             if (res.isSkip) {
               skipPipeline = true
+              skipGroup = t.cacheGroup
               break
             }
           }
@@ -307,6 +321,7 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
           log.error(`任务${t.label ?? t.id}执行失败`, e)
           skipPipeline = true
           errorLog = true
+          skipGroup = t.cacheGroup
           break
         } finally {
           if (res != null) {
@@ -384,8 +399,12 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
             data.jobData.key,
             data.jobData.jobName,
             data.jobData.brand?.name ?? '',
-            result.isSkip ? 'warn' : (result.status ?? 'success'),
+            // 原来固定写 'warn'，把「任务报错」也当成正常拦下缓存了 3-7 天，下次不再重试；
+            // 这里保留真实状态，error 由 setCacheResult 拒绝入库
+            result.status ?? (result.isSkip ? 'warn' : 'success'),
             result.reason ?? result.msg ?? '',
+            skipGroup,
+            skipGroup === 'aiFiltering' ? aiFilterFingerprint(helper.conf.formData) : undefined,
           )
         }
       }
@@ -439,7 +458,7 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
 
           // 缓存命中：之前处理过的岗位直接跳过，不再重复打招呼 / AI 筛选
           if (helper.conf.formData.useCache.value) {
-            const cached = checkJobCache(jobData.key)
+            const cached = checkJobCache(jobData.key, aiFilterFingerprint(helper.conf.formData))
             if (cached) {
               helper.jobResultMaps.set(jobData.key, {
                 status: cached.status,
