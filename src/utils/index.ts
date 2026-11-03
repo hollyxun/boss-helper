@@ -79,6 +79,26 @@ export async function delay(s: number, isStopped?: () => boolean) {
   })
 }
 
+/** 随机取 [min, max) 秒 */
+export function randRange(min: number, max: number): number {
+  return min + Math.random() * (max - min)
+}
+
+/** 把配置的平均秒数换算成这一次的随机秒数：0.7×–1.9×，下限 2 秒 */
+export function pacedSeconds(baseSeconds: number): number {
+  return randRange(Math.max(2, baseSeconds * 0.7), baseSeconds * 1.9)
+}
+
+/**
+ * 投递节流用的「像人」等待：把配置值当**平均**时长，实际随机落在 `pacedSeconds()` 的区间。
+ *
+ * 每隔正好 5.000 秒点一次投递本身就是机器特征，Boss 风控对节奏很敏感；
+ * 抖动去掉周期，同时把均值抬高约 30%（原来投递既固定又快）。
+ */
+export async function delayPaced(baseSeconds: number, isStopped?: () => boolean) {
+  return delay(pacedSeconds(baseSeconds), isStopped)
+}
+
 // 加载进度：保留计时语义，但不修改宿主页面 DOM
 export function loader({
   ms = 10000,

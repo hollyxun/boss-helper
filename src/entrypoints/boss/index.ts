@@ -318,7 +318,8 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                     key: 'delayDeliveryStarts',
                     fieldProps: {
                       label: '投递开始（秒）',
-                      'data-help': '点击投递按钮后、开始第一条之前等待的时间，默认 3 秒',
+                      'data-help':
+                        '点击投递按钮后、开始第一条之前等待的时间。这里是平均时长，实际随机取 0.7-1.9 倍，避免恒定节奏被风控识别；默认 3 秒',
                     },
                     inputNumberProps: {
                       min: 1,
@@ -330,7 +331,8 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                     key: 'delayDeliveryInterval',
                     fieldProps: {
                       label: '投递间隔（秒）',
-                      'data-help': '每投完一条之后等待的间隔，太快易风控，默认 5 秒',
+                      'data-help':
+                        '每投完一条之后等待的间隔（平均时长，实际随机取 0.7-1.9 倍）。此外每 5-9 个岗位会随机歇 25-70 秒。太快易风控，默认 8 秒',
                     },
                     inputNumberProps: {
                       min: 1,
@@ -342,7 +344,8 @@ export class BossHelperCtx extends HelperContext<BossHelperCtx, BoosJobData, {}>
                     key: 'delayDeliveryPageNext',
                     fieldProps: {
                       label: '投递翻页（秒）',
-                      'data-help': '一页投完、翻到下一页之前等待的间隔，太快易风控，默认 60 秒',
+                      'data-help':
+                        '一页投完、翻到下一页之前等待的间隔（平均时长，实际随机取 0.7-1.9 倍），太快易风控，默认 60 秒',
                     },
                     inputNumberProps: {
                       min: 1,

@@ -3,6 +3,7 @@ import { shallowRef, ref } from 'vue'
 import { addJobLog } from '@/composables/useLogs'
 import { PipelineCacheManager } from '@/composables/usePipelineCache'
 import type { PipelineCacheItem, ProcessorType } from '@/types/pipelineCache'
+import { delay, delayPaced, randRange } from '@/utils'
 import type { ContextLogger } from '@/utils/logger'
 
 import type { HelperContext } from '../useHelper'
@@ -446,7 +447,11 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
           helper.jobResultMaps.set(job.key, v)
         })
 
-        await delay(helper.conf.formData.delayDeliveryStarts, isStop)
+        await delayPaced(helper.conf.formData.delayDeliveryStarts, isStop)
+
+        // 间歇计数器：本轮随机决定「几个岗位之后歇一次」
+        let sinceRest = 0
+        let nextRest = Math.round(randRange(5, 9))
 
         for (const [index, jobData] of activeJobs.entries()) {
           current.value = index + 1
@@ -510,11 +515,21 @@ export async function useDeliveryWorkflow<C extends HelperContext<C, T, S>, T, S
             status.value = 'stop'
             break
           }
-          await delay(helper.conf.formData.delayDeliveryInterval, isStop)
+          await delayPaced(helper.conf.formData.delayDeliveryInterval, isStop)
+          // 每 5-9 个岗位随机歇 25-70 秒：恒定节奏是最容易被识别的机器特征，
+          // 真人投着投着会停下来看两眼
+          if (++sinceRest >= nextRest) {
+            sinceRest = 0
+            nextRest = Math.round(randRange(5, 9))
+            if (isStop()) break
+            const restSeconds = Math.round(randRange(25, 70))
+            logger.info(`投递间歇 ${restSeconds} 秒`)
+            await delay(restSeconds, isStop)
+          }
         }
         if (isStop()) break
         const hasMore = await helper.loadMoreActiveJobs(
-          delay(helper.conf.formData.delayDeliveryPageNext, isStop),
+          delayPaced(helper.conf.formData.delayDeliveryPageNext, isStop),
         )
         if (!hasMore) {
           status.value = 'stop'
