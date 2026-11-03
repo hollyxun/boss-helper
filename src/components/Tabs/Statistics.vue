@@ -99,7 +99,7 @@ const filterRows = computed(() =>
     .map(([name, statusCount]) => {
       const total = Object.values(statusCount).reduce((sum, count) => sum + count, 0)
       const skip = (statusCount.warn ?? 0) + (statusCount.error ?? 0)
-      return { name, skip, total }
+      return { name, skip, total, error: statusCount.error ?? 0 }
     })
     .filter((row) => row.total > 0)
     .sort((a, b) => b.skip - a.skip),
@@ -171,7 +171,10 @@ onMounted(() => {
           class="flex items-center justify-between gap-2 border-b border-border/60 py-0.5 last:border-b-0"
         >
           <span class="truncate text-muted-foreground">{{ row.name }}</span>
-          <span class="shrink-0 font-mono"> {{ row.skip }}/{{ row.total }} </span>
+          <span class="shrink-0 font-mono">
+            {{ row.skip }}/{{ row.total }}
+            <span v-if="row.error" class="text-destructive"> 含报错/无结论 {{ row.error }} </span>
+          </span>
         </div>
       </div>
     </section>

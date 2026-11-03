@@ -14,7 +14,7 @@ import type { ShallowReactive } from 'vue'
 import { addAiLog } from '@/composables/useLogs'
 import type { FormDataAi } from '@/types/formData'
 import type { ChatMessageProps } from '@/types/ui'
-import { renderTemplate } from '@/utils/ai'
+import { capJobDescription, renderTemplate } from '@/utils/ai'
 
 import type { ModelConf } from '.'
 import type { WorkflowData } from '../useApplying/type'
@@ -115,7 +115,8 @@ export class ChatModel {
 
   jobs = ref<string[]>([])
 
-  providers: Map<string, OpenAIProvider> = new Map()
+  /** 按模型 key 缓存，附带 base_url + api_key 签名：改了这两项要重建 Provider，否则新配置不生效 */
+  providers: Map<string, { sig: string; provider: OpenAIProvider }> = new Map()
   agents: Map<MessageRole, [ToolLoopAgent, ModelConf, FormDataAi]> = new Map()
   generateId: { [key in MessageRole]: () => string }
 
@@ -143,19 +144,27 @@ export class ChatModel {
     if (!conf || !model.model) {
       return false
     }
-    let provider = this.providers.get(model.model)
-    if (!provider) {
-      provider = createOpenAI({
-        baseURL: conf.data?.base_url,
-        apiKey: conf.data?.api_key,
-      })
+    // base_url / api_key 变了就必须重建：以前只按模型 key 命中，改完配置直接投递用的还是旧连接
+    const sig = `${conf.data?.base_url ?? ''}|${conf.data?.api_key ?? ''}`
+    const cached = this.providers.get(model.model)
+    const provider =
+      cached && cached.sig === sig
+        ? cached.provider
+        : createOpenAI({ baseURL: conf.data?.base_url, apiKey: conf.data?.api_key })
+    if (!cached || cached.sig !== sig) {
+      this.providers.set(model.model, { sig, provider })
     }
-    this.providers.set(model.model, provider)
 
     const agent = new ToolLoopAgent({
       model: provider.chat(conf.data?.model || 'gpt-4o'),
       output: opt?.json ? Output.json() : Output.text(),
       allowSystemInMessages: true,
+      // 模型表单里的采样滑条（temperature / top_p / presence / frequency）此前只存不发，
+      // 调了没有任何效果；这里按 SDK 的驼峰字段接进请求。没填就沿用供应商默认值。
+      temperature: conf.data?.advanced?.temperature,
+      topP: conf.data?.advanced?.top_p,
+      presencePenalty: conf.data?.advanced?.presence_penalty,
+      frequencyPenalty: conf.data?.advanced?.frequency_penalty,
     })
     this.agents.set(name, [agent, conf, model])
     return true
@@ -189,20 +198,28 @@ export class ChatModel {
     } else {
       messages = jsonClone(model.prompt)
     }
-    // 有 AI 摘要就用摘要，省 token；没有就退回完整简历
+    // 有 AI 摘要就用摘要，省 token；没有就退回完整简历。
+    // 但简历正文改过而摘要没重新生成时，摘要描述的是旧简历——继续用就会拿旧经历去匹配岗位，
+    // 这时宁可塞全文（简历页同样用 updatedAt > summaryAt 提示「摘要已过期」，只是过滤链路没管）
     const resumeData = this.ctx.conf.formData.resume
     const fullResume = resumeData?.text ?? ''
     const summary = resumeData?.summary?.trim() ?? ''
-    const resumeForPrompt = summary || fullResume
+    const summaryFresh = (resumeData?.summaryAt ?? 0) >= (resumeData?.updatedAt ?? 0)
+    const resumeForPrompt = summary && summaryFresh ? summary : fullResume || summary
+
+    const templateExtra = {
+      resume: resumeForPrompt,
+      resumeFull: fullResume,
+      resumeSummary: summary,
+      // 过长的岗位描述截断（留头尾）：省 token，也避免把输出顶到截断；
+      // 放在这里而不是投递链路里，提示词测试面板和实际投递渲染出的内容才是一致的
+      jobData: { ...data.jobData, jobDescription: capJobDescription(data.jobData.jobDescription) },
+      ...extra,
+    }
 
     for (const msg of messages) {
       if (typeof msg.content === 'string') {
-        msg.content = renderTemplate(msg.content, data, {
-          resume: resumeForPrompt,
-          resumeFull: fullResume,
-          resumeSummary: summary,
-          ...extra,
-        })
+        msg.content = renderTemplate(msg.content, data, templateExtra)
       }
     }
     const promptText = messages.map((m) => `【${m.role}】\n${toPlainText(m.content)}`).join('\n\n')

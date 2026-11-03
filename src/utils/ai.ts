@@ -35,3 +35,18 @@ export function renderTemplate(template: string, data: any, extra?: Record<strin
     return value !== undefined && value !== null ? String(value) : ''
   })
 }
+
+/**
+ * 岗位描述长度上限：Boss 上销售/客服类 JD 能写到几千字，整段塞进每个岗位的提示词既贵又稀释判断，
+ * 还容易把输出顶到截断（截断的 JSON 会被判成「无结论」）。
+ * 保留头尾：岗位职责在开头，任职要求/硬性条件通常写在结尾。
+ */
+const JOB_DESCRIPTION_HEAD = 2000
+const JOB_DESCRIPTION_TAIL = 800
+
+export function capJobDescription(text?: string): string {
+  if (!text) return ''
+  if (text.length <= JOB_DESCRIPTION_HEAD + JOB_DESCRIPTION_TAIL) return text
+  const omitted = text.length - JOB_DESCRIPTION_HEAD - JOB_DESCRIPTION_TAIL
+  return `${text.slice(0, JOB_DESCRIPTION_HEAD)}\n…（中间省略 ${omitted} 字）\n${text.slice(-JOB_DESCRIPTION_TAIL)}`
+}
