@@ -20,6 +20,32 @@ export interface ResumeAdvice {
   at?: number
 }
 
+/**
+ * 简历的结构化事实，由「根据简历推荐岗位」那次调用顺带产出。
+ *
+ * AI 过滤的 `education` / `experience` / `salary` / `conditions` 四个维度（合计 48 分）
+ * 全靠这些字段供料：散文摘要里从来不写学历和期望薪资，那四维只能猜成「一般」。
+ * 字段为空表示简历里确实没有——空字符串不等于「不满足」。
+ */
+export interface ResumeProfile {
+  /** 最高学历，例如「本科」「大专」 */
+  degree: string
+  /** 毕业院校与专业，可空 */
+  school: string
+  /** 全职工作总年限（年）；判断不了填 0 */
+  years: number
+  /** 期望月薪区间，例如「20-25K」 */
+  expectSalary: string
+  /** 当前/上一份月薪，例如「18K」 */
+  currentSalary: string
+  /** 常居城市与期望工作城市，例如「杭州；不接受异地」 */
+  city: string
+  /** 工作方式偏好：远程 / 混合 / 坐班、可接受通勤时长、作息要求 */
+  workStyle: string
+  /** 明确不接受的事项，例如 ['外包', '频繁出差', '应酬'] */
+  exclusions: string[]
+}
+
 export interface FormDataResume {
   text: string
   updatedAt: number
@@ -28,6 +54,10 @@ export interface FormDataResume {
   summary?: string
   /** 摘要生成时间，和 updatedAt 比较可判断是否过期 */
   summaryAt?: number
+  /** 与摘要同批产出的结构化事实 */
+  profile?: ResumeProfile | null
+  /** 结构化事实的生成时间，同样与 updatedAt 比较判过期 */
+  profileAt?: number
 }
 
 export interface FormData {

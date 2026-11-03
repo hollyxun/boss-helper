@@ -136,7 +136,11 @@ export const defaultFormData: FormData = {
   <简历>
   {{ resume }}
   </简历>
-  2. 岗位信息：见用户消息。
+  2. 简历的结构化事实（插件上一次简历分析抽出的字段，比摘要里的表述更可靠）：
+  <简历事实>
+  {{ resumeFacts }}
+  </简历事实>
+  3. 岗位信息：见用户消息。
 
   ## 六个匹配维度（match）
   逐维度对比「简历」与「岗位描述」，每个维度给出 level 和一句话 reason：
@@ -149,6 +153,8 @@ export const defaultFormData: FormData = {
   level 只能是 high（匹配）/ mid（一般，或信息不足以判断）/ low（不匹配）。拿不准选 mid，不要硬猜。
   skill 和 direction 一定要给。其余四维确实没信息可判断时，给 mid 并在 reason 里写「岗位未写明」，**不要直接省略字段**。
   reason 必须引用简历或岗位描述里的具体证据，不超过 40 字，不得编造。
+  education / experience / salary / conditions 这四维**以「简历事实」为准**：事实里写了学历就照它判、写了年限就照它判，不要从摘要的措辞里反推。
+  事实字段是空字符串或写着「未提供」，表示简历里根本没有这条信息 —— 这时才按简历正文与岗位描述推断，推不出来就填 mid 并在 reason 里写「简历未提供」。**「没提供」不等于「不满足」，绝不能因此判 low 或记 hardFail。**
 
   ## 权重（插件按这套权重本地核算，不要你算分）
   skill 30、direction 22、experience 14、education 10、conditions 16、salary 8，合计 100。
@@ -197,7 +203,7 @@ export const defaultFormData: FormData = {
   }
 
   ## 注意
-- 必填四项：verdict 取三个约定值之一、hardFail 是数组（没有也要给空数组）、match.skill、match.direction。其余四维省略会按「一般」计一半分，但尽量给全。
+- 必填的是 verdict、hardFail、match.skill、match.direction 这四项；其余四维省略会按「一般」计一半分，但尽量给全。
 - 简历为空时无法判断匹配：六个 level 全填 mid、reason 写「简历未填写」，hardFail 留空。
 - 岗位描述缺失时只按岗位名、技能、福利等已有字段判断，并在 reason 里注明依据。
 - 不要输出年龄、性别、婚育等敏感或人格化评价。  `,
@@ -248,7 +254,9 @@ export const defaultFormData: FormData = {
 2. 按匹配度从高到低排序，为每个方向给出 0-100 的匹配度，并用一句话说明理由。理由必须引用简历中的具体证据，如技能栈、项目角色、行业经验、年限、成果等，不要空泛评价。
 3. 给出 5-8 个可直接用于 BOSS 直聘搜索的岗位关键词，越具体越好。例如「React 开发」「Agent开发」「Node.js 开发」。避免「开发」[系统]「工程师」「互联网」等单一泛词，不要使用公司名。
 4. 指出简历中影响求职的 3 条短板或可补强项。每条需说明对求职的影响，并给出可执行的补强建议。不要做年龄、性别等敏感或人格化评价。
-5. 另外用 150-250 字写一段候选人摘要（summary）：工作年限 + 求职方向 + 核心技能栈 + 行业与代表项目 + 明显优势 + 关键短板或限制。纯文本一段话，不要分点、不要 Markdown、不要照抄简历原句。这段摘要会被 AI 过滤岗位时直接使用，要能替代整份简历。
+5. 再用 250-400 字写一段候选人摘要（summary），必须覆盖这八项：最高学历与专业、全职工作总年限、求职方向、核心技能栈、行业与代表项目、期望薪资、常居城市与可接受的工作方式（远程/坐班/通勤）、明确不接受的事项，最后是关键短板或限制。纯文本一段话，不要分点、不要 Markdown。
+   其中学历、年限、薪资、城市这类**事实字段照抄简历原文**，不要改写或四舍五入（写「2019年6月起全职」就别浓缩成「几年经验」）；其余叙述可以重组。这段摘要会被 AI 过滤岗位时直接使用，要能替代整份简历。
+6. 同时把这些事实抽成结构化字段（profile），供插件按维度核对。简历里找不到就填空字符串，years 填 0，**不要推测、不要用常识补**；缺就是缺，下游会据此说明「简历未提供」而不是当成「不满足」。
 
 ## 匹配度参考
 - 90-100：核心技能、项目经验、行业背景高度吻合
@@ -259,11 +267,23 @@ export const defaultFormData: FormData = {
   ## 输出格式
   只返回下面格式的 JSON，不要有任何其他字符
 
+  interface resumeProfile {
+    degree: string; // 最高学历，例如「本科」「大专」
+    school: string; // 毕业院校与专业，没有填空字符串
+    years: number; // 全职工作总年限（年），判断不了填 0
+    expectSalary: string; // 期望月薪区间，例如「20-25K」
+    currentSalary: string; // 当前/上一份月薪，例如「18K」
+    city: string; // 常居城市与期望工作城市，例如「杭州；不接受异地」
+    workStyle: string; // 远程/混合/坐班、可接受通勤时长、作息要求
+    exclusions: string[]; // 明确不接受的事项，例如 ['外包', '频繁出差', '应酬']
+  }
+
   interface resumeAdvice {
     directions: { title: string; match: number; reason: string }[]; // match 0-100
     keywords: string[];
     gaps: string[];
-    summary: string; // 150-250 字纯文本摘要，AI 过滤时替代整份简历
+    summary: string; // 250-400 字纯文本摘要，AI 过滤时替代整份简历
+    profile: resumeProfile; // 与摘要同批产出的结构化事实
   }
   `,
       },
@@ -331,5 +351,5 @@ export const defaultFormData: FormData = {
   delayDeliveryInterval: 8,
   delayDeliveryPageNext: 60,
   delayMessageSending: 2,
-  version: '20261104',
+  version: '20261105',
 }

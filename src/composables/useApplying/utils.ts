@@ -203,8 +203,9 @@ export interface AiFilterDimensionResult {
 const AI_FILTER_RULES_VERSION = `${AI_FILTER_DIMENSIONS.map((d) => `${d.key}${d.weight}`).join(',')}|${AI_FILTER_RECOMMEND_SCORE}|${AI_FILTER_WATCH_SCORE}`
 
 /**
- * AI 结论的缓存指纹。提示词、模型、拦截档位、简历（正文与摘要的修改时间）、算分规则
- * 任一项变化都要让旧的 AI 结论作废 —— 缓存按岗位存 7 天，不做失效的话改了提示词最长要等一周才见效。
+ * AI 结论的缓存指纹。提示词、模型、拦截档位、简历（正文、摘要与结构化事实的修改时间）、
+ * 算分规则任一项变化都要让旧的 AI 结论作废 —— 缓存按岗位存 7 天，不做失效的话
+ * 改了提示词最长要等一周才见效。
  */
 export function aiFilterFingerprint(conf: Pick<FormData, 'aiFiltering' | 'resume'>): string {
   const { model, prompt, skipReject, skipWatch } = conf.aiFiltering
@@ -216,6 +217,8 @@ export function aiFilterFingerprint(conf: Pick<FormData, 'aiFiltering' | 'resume
     skipWatch,
     conf.resume?.updatedAt ?? 0,
     conf.resume?.summaryAt ?? 0,
+    conf.resume?.profileAt ?? 0,
+    conf.resume?.profile ?? null,
   ])
   // FNV-1a：只需要「变没变」这个信号，不需要密码学强度
   let hash = 0x811c9dc5

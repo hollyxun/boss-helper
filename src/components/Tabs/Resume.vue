@@ -9,6 +9,7 @@ import AvatarFallback from '@/components/ui/avatar/AvatarFallback.vue'
 import AvatarImage from '@/components/ui/avatar/AvatarImage.vue'
 import Badge from '@/components/ui/badge/Badge.vue'
 import Button from '@/components/ui/button/Button.vue'
+import Input from '@/components/ui/input/Input.vue'
 import Textarea from '@/components/ui/textarea/Textarea.vue'
 import { useConf } from '@/composables/conf'
 import { panelSearchResults, searchMeta } from '@/composables/useBossJobSearch'
@@ -22,7 +23,7 @@ import { runPanelSearch } from '@/composables/usePanelSearch'
 import { openPanelTab } from '@/composables/usePanelTab'
 import { useToast } from '@/composables/useToast'
 import type { ResumeAdvice } from '@/types/formData'
-import { parseGptJson, renderTemplate } from '@/utils/ai'
+import { parseResumeAdvice, renderTemplate } from '@/utils/ai'
 import { logger } from '@/utils/logger'
 
 const conf = useConf()
@@ -231,6 +232,46 @@ watch(
   { deep: true },
 )
 
+/** 结构化事实的字段与输入框描述，顺序与过滤侧的四维依据对应 */
+const PROFILE_FIELDS = [
+  { key: 'degree', label: '最高学历', placeholder: '如：本科' },
+  { key: 'school', label: '院校专业', placeholder: '如：XX大学 计算机' },
+  { key: 'years', label: '总年限（年）', placeholder: '如：3.5' },
+  { key: 'expectSalary', label: '期望月薪', placeholder: '如：20-25K' },
+  { key: 'currentSalary', label: '当前月薪', placeholder: '如：18K' },
+  { key: 'city', label: '城市', placeholder: '如：杭州；不接受异地' },
+  { key: 'workStyle', label: '工作方式', placeholder: '如：坐班，通勤1小时内，要双休' },
+  { key: 'exclusions', label: '明确不接受', placeholder: '顿号分隔，如：外包、频繁出差、应酬' },
+] as const
+
+const profile = computed(() => conf.formData.resume.profile ?? null)
+
+function profileValue(key: (typeof PROFILE_FIELDS)[number]['key']): string {
+  const value = profile.value?.[key]
+  if (Array.isArray(value)) return value.join('、')
+  return value == null ? '' : String(value)
+}
+
+function onProfileInput(key: (typeof PROFILE_FIELDS)[number]['key'], raw: string) {
+  const current = profile.value
+  if (!current) return
+  switch (key) {
+    case 'years':
+      current.years = Number.parseFloat(raw) || 0
+      break
+    case 'exclusions':
+      current.exclusions = raw
+        .split(/[、,，/；;]/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+      break
+    default:
+      current[key] = raw.trim()
+  }
+  // 手改事实要顺带刷新时间戳：它参与 AI 缓存指纹，改了之后旧结论自动作废、重新评估
+  conf.formData.resume.profileAt = Date.now()
+}
+
 onBeforeUnmount(() => {
   // 还有没落盘的改动就立刻保存，别让防抖定时器白等
   if (saveTimer) {
@@ -300,35 +341,37 @@ async function recommend() {
       messages,
     })
     responseText = text
-    const result = parseGptJson<ResumeAdvice>(text)
-    const directions = (result?.directions ?? []).map((item) => ({
-      title: String(item?.title ?? ''),
-      match: Number(item?.match ?? 0),
-      reason: String(item?.reason ?? ''),
-    }))
-    const keywords = (result?.keywords ?? []).map((item) => String(item))
-    const summary = String(result?.summary ?? '').trim()
-    if (!directions.length && !keywords.length) {
-      throw new Error('AI 返回内容无法解析，请换个模型重试')
+    const parsed = parseResumeAdvice(text)
+    if (!parsed.advice) {
+      throw new Error(
+        parsed.issue
+          ? `AI 返回内容无法解析：${parsed.issue}`
+          : 'AI 返回内容无法解析，请换个模型重试',
+      )
     }
-    conf.formData.resume.advice = {
-      directions,
-      keywords,
-      gaps: (result?.gaps ?? []).map((item) => String(item)),
-      at: Date.now(),
+    const at = Date.now()
+    conf.formData.resume.advice = { ...parsed.advice, at }
+    if (parsed.summary) {
+      conf.formData.resume.summary = parsed.summary
+      conf.formData.resume.summaryAt = at
     }
-    if (summary) {
-      conf.formData.resume.summary = summary
-      conf.formData.resume.summaryAt = Date.now()
+    if (parsed.profile) {
+      conf.formData.resume.profile = parsed.profile
+      conf.formData.resume.profileAt = at
     }
-    conf.formData.resume.updatedAt = Date.now()
+    // 这里不能写 resume.updatedAt：它是「简历正文被改动的时间」，只该由输入框写。
+    // 原来分析完顺手盖一次 now，updatedAt 与 summaryAt 只差几毫秒，谁大谁小取决于
+    // Date.now() 有没有跨毫秒 —— 面板可能立刻显示「摘要已过期」，过滤侧也会把
+    // 刚生成的摘要当成旧的、退回塞整份简历
     conf.formData.aiResume.model = modelConf.key
     // 分析结果是大模型产出的，立刻落盘，别等防抖
     await conf.confSaving(true)
     toast.add({
-      title: summary ? '推荐完成，摘要已生成并保存' : '推荐完成，已保存到本地',
-      color: summary ? 'success' : 'warning',
-      ...(summary ? {} : { description: '模型没有返回 summary 字段，AI 过滤仍会用完整简历' }),
+      title: parsed.profile ? '推荐完成，摘要与结构化事实已保存' : '推荐完成，但没拿到结构化事实',
+      color: parsed.profile ? 'success' : 'warning',
+      description: parsed.profile
+        ? undefined
+        : `AI 过滤的学历 / 年限 / 薪资 / 条件（合计 48 分）还得靠猜。${parsed.issue || '建议重跑一次或换个模型'}`,
     })
     addAiLog({
       agent: 'AI 简历推荐',
@@ -649,8 +692,9 @@ async function searchKeyword(keyword: string) {
       </div>
 
       <p v-if="!summaryText" class="text-xs leading-snug text-muted-foreground">
-        点「根据简历推荐岗位」会顺带生成 200 字左右的候选人摘要。摘要会替代整份简历参与 AI
-        过滤和自动回复，省 token 也更快；没有摘要时自动用完整简历。
+        点「根据简历推荐岗位」会顺带生成 250-400
+        字的候选人摘要和一份结构化事实。摘要会替代整份简历参与 AI 过滤和自动回复，省 token
+        也更快；没有摘要时自动用完整简历。
       </p>
 
       <div v-else-if="summaryOpen" class="flex flex-col gap-1">
@@ -673,6 +717,39 @@ async function searchKeyword(keyword: string) {
       >
         简历改过了，摘要可能过期，重新推荐一次即可更新。
       </p>
+
+      <div v-if="profile" class="flex flex-col gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="text-sm font-medium">结构化简历事实</div>
+          <span class="text-[11px] text-muted-foreground">
+            AI 过滤的学历 / 年限 / 薪资 / 条件四个维度（合计 48 分）直接读这里
+            <template v-if="conf.formData.resume.profileAt">
+              · 上次生成 {{ formatTime(conf.formData.resume.profileAt) }}</template
+            >
+          </span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <label v-for="field in PROFILE_FIELDS" :key="field.key" class="flex flex-col gap-1">
+            <span class="text-[11px] text-muted-foreground">{{ field.label }}</span>
+            <Input
+              :model-value="profileValue(field.key)"
+              :placeholder="field.placeholder"
+              class="h-8 text-xs"
+              @update:model-value="(value) => onProfileInput(field.key, String(value))"
+            />
+          </label>
+        </div>
+        <p class="text-[11px] leading-snug text-muted-foreground">
+          留空表示简历里确实没有这项信息 —— 过滤时会照「简历未提供」处理，不会当成不满足。
+          改这里会让旧的 AI 结论作废、下次重新评估。
+        </p>
+        <p
+          v-if="conf.formData.resume.updatedAt > (conf.formData.resume.profileAt ?? 0)"
+          class="text-xs text-amber-600"
+        >
+          简历正文比这份事实新，重新推荐一次即可更新。
+        </p>
+      </div>
     </div>
   </div>
 </template>

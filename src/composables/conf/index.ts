@@ -193,6 +193,50 @@ const FROM_VERSION: [string, (from: Partial<FormData>) => Partial<FormData>][] =
       return from
     },
   ],
+  [
+    // 简历分析追加结构化事实，AI 过滤提示词新增事实块。
+    // FROM_VERSION 只跑最新一条迁移，所以这条自带前面两条的全部逻辑
+    '20261105',
+    (from) => {
+      interface LegacyAiFiltering {
+        prompt?: unknown
+        score?: number
+        skipReject?: boolean
+        skipWatch?: boolean
+      }
+      const ai = from.aiFiltering as LegacyAiFiltering | undefined
+      if (ai) {
+        if (typeof ai.score === 'number') {
+          // score <= 0 等于原来的「不拦任何岗位」；> 60 说明中性岗位也要扣分才过，对应连「谨慎投递」一起拦
+          ai.skipReject = ai.score > 0
+          ai.skipWatch = ai.score > 60
+          delete ai.score
+        }
+        const text = JSON.stringify(ai.prompt ?? '')
+        const isLegacyDefault =
+          text.includes('interface aiFilteringItem') ||
+          text.includes('match 的六个维度必须全部给齐') ||
+          text.includes('必填四项：verdict 取三个约定值之一') ||
+          (text.includes('求职评委') && !text.includes('{{ resume }}'))
+        if (isLegacyDefault) {
+          ai.prompt = jsonClone(defaultFormData.aiFiltering.prompt)
+        }
+      }
+
+      // 旧的简历分析默认提示词不产出 profile，换成新默认；用户自定义的不动
+      const resume = from.aiResume as { prompt?: unknown } | undefined
+      if (resume) {
+        const text = JSON.stringify(resume.prompt ?? '')
+        if (
+          text.includes('150-250 字') ||
+          (text.includes('职业规划顾问') && !text.includes('resumeProfile'))
+        ) {
+          resume.prompt = jsonClone(defaultFormData.aiResume.prompt)
+        }
+      }
+      return from
+    },
+  ],
 ]
 
 export const useConf = () => {

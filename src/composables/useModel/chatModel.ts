@@ -14,7 +14,7 @@ import type { ShallowReactive } from 'vue'
 import { addAiLog } from '@/composables/useLogs'
 import type { FormDataAi } from '@/types/formData'
 import type { ChatMessageProps } from '@/types/ui'
-import { capJobDescription, renderTemplate } from '@/utils/ai'
+import { capJobDescription, formatResumeFacts, renderTemplate } from '@/utils/ai'
 
 import type { ModelConf } from '.'
 import type { WorkflowData } from '../useApplying/type'
@@ -204,13 +204,24 @@ export class ChatModel {
     const resumeData = this.ctx.conf.formData.resume
     const fullResume = resumeData?.text ?? ''
     const summary = resumeData?.summary?.trim() ?? ''
-    const summaryFresh = (resumeData?.summaryAt ?? 0) >= (resumeData?.updatedAt ?? 0)
+    const resumeAt = resumeData?.updatedAt ?? 0
+    const summaryFresh = (resumeData?.summaryAt ?? 0) >= resumeAt
     const resumeForPrompt = summary && summaryFresh ? summary : fullResume || summary
+    const profile = resumeData?.profile
+    const profileFresh = !!profile && (resumeData?.profileAt ?? 0) >= resumeAt
+    // 结构化事实是过滤侧学历 / 年限 / 薪资 / 条件四个维度（合计 48 分）的主要依据。
+    // 没生成或与简历正文不同步时必须明说，否则模型会把「没提供」当成「不满足」直接判 low
+    const resumeFacts = profile
+      ? profileFresh
+        ? formatResumeFacts(profile)
+        : '（与简历正文不同步：请重新跑一次简历分析。以下判断只能从简历内容里找依据，找不到就填 mid 并注明「简历未提供」，不要当成不满足）'
+      : '（未生成：学历、期望薪资、常居城市、工作方式这几维只能从上面的简历内容里找，找不到就填 mid 并注明「简历未提供」，不要当成不满足）'
 
     const templateExtra = {
       resume: resumeForPrompt,
       resumeFull: fullResume,
       resumeSummary: summary,
+      resumeFacts,
       // 过长的岗位描述截断（留头尾）：省 token，也避免把输出顶到截断；
       // 放在这里而不是投递链路里，提示词测试面板和实际投递渲染出的内容才是一致的
       jobData: { ...data.jobData, jobDescription: capJobDescription(data.jobData.jobDescription) },
